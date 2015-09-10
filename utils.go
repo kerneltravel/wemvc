@@ -1,8 +1,11 @@
 package wemvc
 
 import (
+	"encoding/xml"
+	"io/ioutil"
 	"runtime"
 	"strings"
+	"os"
 )
 
 func fixPath(src string) string {
@@ -13,4 +16,32 @@ func fixPath(src string) string {
 		res = strings.Replace(src, "\\", "/", -1)
 	}
 	return res
+}
+
+func file2Xml(fpath string, v interface{}) error {
+	bytes, err := ioutil.ReadFile(fpath)
+	if err != nil {
+		return err
+	}
+	err = xml.Unmarshal(bytes, v)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func isDir(fpath string) bool {
+	state,err := os.Stat(fpath)
+	if err != nil {
+		return false
+	}
+	return state.IsDir()
+}
+
+func isFile(fpath string) bool {
+	state,err := os.Stat(fpath)
+	if err != nil {
+		return false
+	}
+	return !state.IsDir()
 }
