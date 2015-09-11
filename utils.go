@@ -3,9 +3,9 @@ package wemvc
 import (
 	"encoding/xml"
 	"io/ioutil"
+	"os"
 	"runtime"
 	"strings"
-	"os"
 )
 
 func fixPath(src string) string {
@@ -31,7 +31,7 @@ func file2Xml(fpath string, v interface{}) error {
 }
 
 func isDir(fpath string) bool {
-	state,err := os.Stat(fpath)
+	state, err := os.Stat(fpath)
 	if err != nil {
 		return false
 	}
@@ -39,7 +39,7 @@ func isDir(fpath string) bool {
 }
 
 func isFile(fpath string) bool {
-	state,err := os.Stat(fpath)
+	state, err := os.Stat(fpath)
 	if err != nil {
 		return false
 	}

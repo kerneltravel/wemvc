@@ -3,13 +3,13 @@ package wemvc
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
-	"io/ioutil"
 	"time"
 )
 
@@ -17,13 +17,13 @@ type Handler func(http.ResponseWriter, *http.Request)
 
 type Application struct {
 	ErrorHandlers map[int]Handler
-	webRoot string
-	config  *configuration
+	webRoot       string
+	config        *configuration
 }
 
 func (this *Application) init() error {
 	// load the config file
-	var configFile = this.MapPath("/web.config")
+	var configFile = this.MapPath("/webconfig.xml")
 	this.config = &configuration{}
 	err := file2Xml(configFile, this.config)
 	if err != nil {
@@ -56,11 +56,27 @@ func (this *Application) init() error {
 		configFile = this.MapPath(this.config.Mimes.ConfigSource)
 		var mimes = &mimeGroup{}
 		err = file2Xml(configFile, mimes)
+		if err != nil {
+			return err
+		}
 		this.config.Mimes.Mimes = mimes.Mimes
 		this.config.Mimes.ConfigSource = ""
 	}
+	// load the protection url setting
+	if len(this.config.ProtectionUrls.ConfigSource) > 0 {
+		configFile = this.MapPath(this.config.ProtectionUrls.ConfigSource)
+		var protectGroup = &protectionUrlGroup{}
+		err = file2Xml(configFile, protectGroup)
+		if err != nil {
+			return err
+		}
+		this.config.ProtectionUrls.ProtectionUrls = protectGroup.ProtectionUrls
+		this.config.ProtectionUrls.ConfigSource = ""
+	}
+
 	this.ErrorHandlers = make(map[int]Handler)
 	this.ErrorHandlers[404] = this.error404
+	this.ErrorHandlers[403] = this.error403
 	return nil
 }
 
@@ -77,33 +93,33 @@ func (this *Application) MapPath(relativePath string) string {
 	return fixPath(res)
 }
 
-func (this *Application)serveFile(res http.ResponseWriter, req *http.Request, file string) {
+func (this *Application) serveFile(res http.ResponseWriter, req *http.Request, file string) {
+	var ext = filepath.Ext(file)
+	var mime = this.GetConfig().GetMIME(ext)
+	if len(mime) < 1 {
+		this.showError(res, req, 404)
+		return
+	}
 	if !isFile(file) {
 		this.showError(res, req, 404)
 		return
 	}
-	var ext = filepath.Ext(file)
 	if len(ext) < 1 {
-		this.showError(res,req,404)
+		this.showError(res, req, 404)
 		return
 	}
-	var mime = this.GetConfig().GetMIME(ext)
-	if len(mime) < 1 {
-		this.showError(res,req,404)
-		return
-	}
-	state,err := os.Stat(file)
+	state, err := os.Stat(file)
 	if err != nil {
 		panic(err)
 	}
 	var modifyTime = state.ModTime().Format(time.RFC1123)
 	var ifMod = req.Header.Get("If-Modified-Since")
-	if (modifyTime == ifMod) {
+	if modifyTime == ifMod {
 		res.WriteHeader(304)
 		return
 	}
 
-	fbytes,err := ioutil.ReadFile(file)
+	fbytes, err := ioutil.ReadFile(file)
 	if err != nil {
 		panic(err)
 	}
@@ -113,7 +129,7 @@ func (this *Application)serveFile(res http.ResponseWriter, req *http.Request, fi
 	res.Write(fbytes)
 }
 
-func (this *Application)error404(res http.ResponseWriter, req *http.Request) {
+func (this *Application) error404(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(404)
 	res.Header().Add("Content-Type", "text/html;charset=utf-8")
 	res.Write([]byte(`
@@ -121,16 +137,28 @@ func (this *Application)error404(res http.ResponseWriter, req *http.Request) {
 		<h1>ERROR 404</h1>
 		<hr/>
 		<p>The file you are looking for is not found!</p>
-		<i>wemvc server version ` + version + `
+		<i>wemvc server version ` + Version + `
 	`))
 }
 
-func (this *Application)showError(res http.ResponseWriter, req *http.Request, code int) {
+func (this *Application)error403(res http.ResponseWriter, req *http.Request) {
+	res.WriteHeader(403)
+	res.Header().Add("Content-Type", "text/html;charset=utf-8")
+	res.Write([]byte(`
+	<div style="max-width:90%;margin:15px auto 0 auto;">
+		<h1>ERROR 403!</h1>
+		<hr/>
+		<p>Access denied for the path <b>` + req.URL.Path + `</b></p>
+		<i>wemvc server version ` + Version + `
+	`))
+}
+
+func (this *Application) showError(res http.ResponseWriter, req *http.Request, code int) {
 	var handler = this.ErrorHandlers[code]
 	if handler != nil {
 		handler(res, req)
 	} else {
-		this.error404(res,req)
+		this.error404(res, req)
 	}
 }
 
@@ -146,19 +174,23 @@ func (this *Application) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 				<hr/>
 				<p>Internal server Error!</p>
 				<p>` + e.(error).Error() + `</p>
-				<i>wemvc server version ` + version + `
+				<i>wemvc server version ` + Version + `
 			</div>`))
 		}
 	}()
 
 	var url = req.URL.Path
+	if this.urlProtected(url) {
+		this.showError(res, req, 403)
+		return
+	}
+
 	var path = strings.TrimSuffix(this.MapPath(url), "/")
-	
 	var finalPath = ""
 	if url == "" || isDir(path) {
 		var defaultUrl = this.GetConfig().GetDefaultUrl()
-		for _,f := range strings.Split(defaultUrl, ";") {
-			path = path + "/" + f;
+		for _, f := range strings.Split(defaultUrl, ";") {
+			path = path + "/" + f
 			if isFile(path) {
 				finalPath = path
 				break
@@ -168,6 +200,15 @@ func (this *Application) ServeHTTP(res http.ResponseWriter, req *http.Request) {
 		finalPath = path
 	}
 	this.serveFile(res, req, finalPath)
+}
+
+func (this *Application)urlProtected(url string) bool {
+	for _,s := range this.GetConfig().GetProtectionUrls() {
+		if strings.HasPrefix(url, s.GetPathPrefix()) {
+			return true
+		}
+	}
+	return false
 }
 
 func (this *Application) Run() error {
