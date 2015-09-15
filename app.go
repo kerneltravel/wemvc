@@ -18,6 +18,7 @@ type Application interface {
 	GetWebRoot() string
 	GetConfig() Configuration
 	MapPath(string) string
+	AddController(string, IController)
 	Run() error
 }
 
@@ -25,6 +26,7 @@ type application struct {
 	errorHandlers map[int]Handler
 	webRoot       string
 	config        *configuration
+	route         routeTree
 }
 
 func (this *application) GetWebRoot() string {
@@ -77,6 +79,10 @@ func (this *application) AddErrorHandler(code int, handler Handler) {
 		this.errorHandlers = make(map[int]Handler)
 	}
 	this.errorHandlers[code] = handler
+}
+
+func (this *application)AddController(strPth string, controller IController) {
+	this.route.AddController(strPth, controller)
 }
 
 func (this *application) Run() error {

@@ -11,7 +11,7 @@ type ConnConfig interface {
 type ProtectionUrl interface {
 	GetName() string
 	GetPathPrefix() string
-	GetMethods() []string
+	GetMethods() []HttpMethod
 }
 
 type Configuration interface {
@@ -71,7 +71,7 @@ type protectionUrl struct {
 	Method     string `xml:"method,attr"`
 	PathPrefix string `xml:"prefix,attr"`
 
-	methods []string
+	methods []HttpMethod
 }
 
 func (this *protectionUrl) GetName() string {
@@ -82,18 +82,18 @@ func (this *protectionUrl) GetPathPrefix() string {
 	return this.PathPrefix
 }
 
-func (this *protectionUrl) GetMethods() []string {
+func (this *protectionUrl) GetMethods() []HttpMethod {
 	if len(this.methods) < 1 {
 		var m = strings.ToUpper(strings.Replace(this.Method, " ", "", -1))
 		if len(m) < 1 || m == "*" {
 			this.methods = HttpMethods()
 		} else {
 			for _, method := range strings.Split(m, ";") {
-				if method == GET || method == POST ||
-					method == PUT || method == DELETE ||
-					method == TRACE || method == HEAD ||
-					method == OPTIONS || method == CONNECT {
-					this.methods = append(this.methods, method)
+				if GET.Equal(method) || POST.Equal(method) ||
+					PUT.Equal(method) || DELETE.Equal(method) ||
+					TRACE.Equal(method) || HEAD.Equal(method) ||
+					OPTIONS.Equal(method) || CONNECT.Equal(method) {
+					this.methods = append(this.methods, HttpMethod(method))
 				}
 			}
 		}

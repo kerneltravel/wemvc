@@ -61,6 +61,13 @@ func (this *application) init() error {
 		this.config.ProtectionUrls.ConfigSource = ""
 	}
 
+	this.route = routeTree{
+		rootNode: routeNode{
+			pathStr: "/",
+			depth:   1,
+		},
+	}
+
 	this.errorHandlers = make(map[int]Handler)
 	this.errorHandlers[404] = this.error404
 	this.errorHandlers[403] = this.error403
@@ -115,9 +122,37 @@ func (this *application) serveStaticFile(req *http.Request, ext string) Response
 }
 
 func (this *application) serveDynamic(req *http.Request) Response {
+	var path = req.URL.Path
+	var pathUrls []string
+	if path == "/" {
+		pathUrls = []string{"/"}
+	} else {
+		pathUrls = strings.Split(path, "/")
+		pathUrls[0] = "/"
+	}
+	res, c := this.route.rootNode.matchDepth(pathUrls)
+	var resp Response = nil
+	if res && c != nil {
+		c.Init(req)
+		if GET.Equal(req.Method) {
+			resp = c.Get()
+		} else if POST.Equal(req.Method) {
+			resp = c.Post()
+		} else if DELETE.Equal(req.Method) {
+			resp = c.Delete()
+		} else if HEAD.Equal(req.Method) {
+			resp = c.Head()
+		} else if TRACE.Equal(req.Method) {
+			resp = c.Trace()
+		} else if PUT.Equal(req.Method) {
+			resp = c.Put()
+		} else if OPTIONS.Equal(req.Method) {
+			resp = c.Options()
+		}
+	}
 	//panic(errors.New("test"))
 	//panic(&redirect{location: "http://www.baidu.com/index.html"})
-	return nil
+	return resp
 }
 
 func (this *application) error404(req *http.Request) Response {
