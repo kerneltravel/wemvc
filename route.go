@@ -81,8 +81,16 @@ func (this *routeNode) matchPath(pathUrl string) (bool, IController) {
 }
 
 func (this *routeNode) matchDepth(pathUrls []string) (bool, IController) {
+	if this.depth > len(pathUrls) {
+		return false, nil
+	}
+	var curPath = pathUrls[this.depth - 1]
+	match, contr := this.matchPath(curPath)
+	if !match {
+		return false, nil
+	}
 	if len(pathUrls) == this.depth {
-		return this.matchPath(pathUrls[len(pathUrls)-1])
+		return true, contr
 	} else if len(pathUrls) > this.depth && this.children != nil {
 		for _, child := range this.children {
 			b, c := child.matchDepth(pathUrls)
