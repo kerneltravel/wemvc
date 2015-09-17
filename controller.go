@@ -3,11 +3,8 @@ package wemvc
 import (
 	"net/http"
 	"encoding/json"
-"encoding/xml"
+    "encoding/xml"
 	"io/ioutil"
-	"strings"
-	"text/template"
-	"path/filepath"
 )
 
 type IController interface {
@@ -54,24 +51,9 @@ func (this *Controller) Put() Response { return nil }
 func (this *Controller) Options() Response { return nil }
 
 func (this *Controller) View(viewPath string) Response {
-	if !strings.HasPrefix(viewPath, "/") {
-		viewPath = "/views/" + viewPath
-	}
-	var viewFile = this.App.MapPath(viewPath)
-	if !isFile(viewFile) {
-		panic("Cannot find the view \"" + viewPath + "\"")
-	}
-	var filename = filepath.Base(viewFile)
-	tpl := template.New(filename)
-	tpl,err := tpl.ParseFiles(viewFile)
-	if err != nil {
-		panic(err)
-	}
+	res := layout(viewPath, this.ViewData)
 	var resp = NewResponse()
-	err = tpl.Execute(resp.GetWriter(), this.ViewData)
-	if err != nil {
-		panic(err)
-	}
+	resp.Write([]byte(res))
 	return resp
 }
 

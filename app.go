@@ -9,6 +9,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"flag"
 )
 
 type Handler func(*http.Request) Response
@@ -91,7 +92,19 @@ func (this *application) Run() error {
 	return err
 }
 
-func NewApplication(root string) (Application, error) {
+var App Application
+
+func init() {
+	webroot := flag.String("root", "wwwroot", "the root path of the website")
+	flag.Parse()
+	app,err := newApp(*webroot)
+	if err != nil{
+		panic(err)
+	}
+	App = app
+}
+
+func newApp(root string) (Application, error) {
 	if len(root) < 1 {
 		return nil, errors.New("Web root cannot be empty.")
 	}
