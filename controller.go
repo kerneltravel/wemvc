@@ -3,7 +3,7 @@ package wemvc
 import "net/http"
 
 type IController interface {
-	Init(*http.Request)
+	Init(*http.Request,map[string]string)
 	Get() Response
 	Post() Response
 	Delete() Response
@@ -15,10 +15,16 @@ type IController interface {
 
 type Controller struct {
 	Request *http.Request
+	RouteData map[string]string
 }
 
-func (this *Controller) Init(req *http.Request) {
+func (this *Controller) Init(req *http.Request, routeData map[string]string) {
 	this.Request = req
+	if routeData != nil {
+		this.RouteData = routeData
+	} else {
+		this.RouteData = make(map[string]string)
+	}
 }
 
 func (this *Controller) Get() Response { return nil }

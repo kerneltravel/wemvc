@@ -43,7 +43,7 @@ func (this *application) MapPath(relativePath string) string {
 }
 
 func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	defer this.panicRecover(w)
+	//defer this.panicRecover(w)
 
 	var result Response
 

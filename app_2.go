@@ -130,10 +130,12 @@ func (this *application) serveDynamic(req *http.Request) Response {
 		pathUrls = strings.Split(path, "/")
 		pathUrls[0] = "/"
 	}
-	res, c := this.route.rootNode.matchDepth(pathUrls)
 	var resp Response = nil
+	var routeData = make(map[string]string)
+
+	res, c := this.route.rootNode.matchDepth(pathUrls, routeData)
 	if res && c != nil {
-		c.Init(req)
+		c.Init(req, routeData)
 		if GET.Equal(req.Method) {
 			resp = c.Get()
 		} else if POST.Equal(req.Method) {
