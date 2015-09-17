@@ -132,7 +132,6 @@ func (this *application) serveDynamic(req *http.Request) Response {
 	}
 	var resp Response = nil
 	var routeData = make(map[string]string)
-
 	res, c := this.route.rootNode.matchDepth(pathUrls, routeData)
 	if res && c != nil {
 		c.Init(req, routeData)

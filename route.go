@@ -3,29 +3,12 @@ package wemvc
 import (
 	"strings"
 	"regexp"
-	//"strconv"
 	"errors"
 )
 
-type ruleReg struct {
-	key string
-	reg *regexp.Regexp
-}
-
-type ruleRegMap map[int]*ruleReg
-
-func (this ruleRegMap)findByKey(key string) *ruleReg {
-	for _, r := range this {
-		if r.key == key {
-			return r
-		}
-	}
-	return nil
-}
-
 type routeNode struct {
 	pathStr    string
-	routeKeys  ruleRegMap
+	routeKeys map[string]*regexp.Regexp
 	depth      int
 	controller IController
 
@@ -72,7 +55,7 @@ func (this *routeNode)pathNameValid(p string) bool {
 	return regex.MatchString(p)
 }
 
-func (this *routeNode) child(pathStr string, controller IController, rules ruleRegMap) *routeNode {
+func (this *routeNode) child(pathStr string, controller IController, rules map[string]*regexp.Regexp) *routeNode {
 	//println("add child to", this.pathStr + "[" + strconv.Itoa(this.depth) + "]:", pathStr)
 	var p = strings.Trim(pathStr, " ")
 
@@ -87,16 +70,16 @@ func (this *routeNode) child(pathStr string, controller IController, rules ruleR
 
 	var keys = regRouteKey.FindAllString(pathStr, -1)
 	if len(keys) > 0 {
-		var rc = make(ruleRegMap)
+		var rc = make(map[string]*regexp.Regexp)
 		for i := 0; i < len(keys); i++ {
-			var r *ruleReg
+			var r *regexp.Regexp
 			if rules != nil {
-				r = rules.findByKey(keys[i])
+				r = rules[keys[i]]
 			}
 			if r == nil {
-				r = &ruleReg{key:keys[i], reg:regString}
+				r = regString
 			}
-			rc[i] = r
+			rc[keys[i]] = r
 		}
 		node.routeKeys = rc
 	}
@@ -105,21 +88,22 @@ func (this *routeNode) child(pathStr string, controller IController, rules ruleR
 	return this.children[pathStr]
 }
 
-func (this *routeNode) matchPath(pathUrl string, routeData map[string]string) (bool, IController) {
-	if this.routeKeys != nil {
+func (this *routeNode) matchPath(pathUrl string) (bool, IController, map[string]string) {
+	routeData := make(map[string]string)
+	if this.routeKeys == nil {
 		if this.pathStr == pathUrl {
-			return true, this.controller
+			return true, this.controller, routeData
 		} else {
-			return false, nil
+			return false, nil, nil
 		}
 	}
-	i,j,rd := 0,0,0 // i: the index of the this.pathStr j: the index of pathUrl
+	i,j := 0,0 // i: the index of the this.pathStr j: the index of pathUrl
 	for {
 		if i == len(this.pathStr) && j == len(pathUrl) {
-			return true, this.controller
+			return true, this.controller, routeData
 		}
 		if i == len(this.pathStr) || j == len(pathUrl) {
-			return false, nil
+			return false, nil, nil
 		}
 		r := string(this.pathStr[i:])
 		v := string(pathUrl[j:])
@@ -127,35 +111,35 @@ func (this *routeNode) matchPath(pathUrl string, routeData map[string]string) (b
 			finder,_ := regexp.Compile(`^{\w+}`)
 			tmpKeys := finder.FindAllString(r, 1)
 			if len(tmpKeys) < 1 {
-				return false, nil
+				return false, nil, nil
 			}
 			key := tmpKeys[0]
-			if this.routeKeys[rd].key == key {
-				values := this.routeKeys[rd].reg.FindAllString(v, 1)
+			reg := this.routeKeys[key]
+			if reg != nil {
+				values := reg.FindAllString(v, 1)
 				if len(values) < 1 {
-					return false, nil
+					return false, nil, nil
 				}
 				value := values[0]
 				if len(values) < 1 {
-					return false, nil
+					return false, nil, nil
 				}
 				routeData[key] = value
-				rd = rd + 1
 				i = i + len(key)
 				j = j + len(value)
 			} else {
-				return false, nil
+				return false, nil, nil
 			}
 		} else {
 			if this.pathStr[i] != pathUrl[j] {
-				return false, nil
+				return false, nil, nil
 			}
 			i = i + 1
 			j = j + 1
 		}
 	}
 
-	return false, nil
+	return false, nil, nil
 }
 
 func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string) (bool, IController) {
@@ -163,9 +147,16 @@ func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string
 		return false, nil
 	}
 	var curPath = pathUrls[this.depth - 1]
-	match, contr := this.matchPath(curPath, routeData)
+	match, contr, r := this.matchPath(curPath)
 	if !match {
 		return false, nil
+	} else {
+		if routeData == nil {
+			routeData = make(map[string]string)
+		}
+		for key, value := range r {
+			routeData[key] = value
+		}
 	}
 	if len(pathUrls) == this.depth {
 		return true, contr
@@ -173,7 +164,7 @@ func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string
 		for _, child := range this.children {
 			b, c := child.matchDepth(pathUrls, routeData)
 			if b {
-				return b, c
+				return true, c
 			}
 		}
 	}
@@ -232,10 +223,9 @@ func (this *routeTree)checkRouteDataKey(paths string) error {
 	return nil
 }
 
-func (this *routeTree)genValidation(v []string) ruleRegMap {
-	var result = make(ruleRegMap)
+func (this *routeTree)genValidation(v []string) map[string]*regexp.Regexp {
+	var result = make(map[string]*regexp.Regexp)
 	finder,_ := regexp.Compile(`^{\w+}=`)
-	index := 0
 	for _, rule := range v {
 		keys := finder.FindAllString(rule, 1)
 		if len(keys) == 1 {
@@ -259,10 +249,10 @@ func (this *routeTree)genValidation(v []string) ruleRegMap {
 					reg = r
 				}
 			}
-			if result.findByKey(key) != nil {
+			if result[key] != nil {
 				panic(errors.New("Duplicate definition of the rule for the key \"" + key + "\""))
 			}
-			result[index] = &ruleReg{key:key, reg:reg}
+			result[key] = reg
 		}
 	}
 	return result
