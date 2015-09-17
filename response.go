@@ -2,6 +2,7 @@ package wemvc
 
 import (
 	"bytes"
+	"io"
 )
 
 type Response interface {
@@ -18,6 +19,7 @@ type Response interface {
 	GetHeaders() map[string]string
 
 	Write([]byte)
+	GetWriter() io.Writer
 	GetOutput() []byte
 
 	ClearHeader()
@@ -90,6 +92,10 @@ func (this *response) ClearOutput() {
 func (this *response) Clear() {
 	this.ClearHeader()
 	this.ClearOutput()
+}
+
+func (this *response) GetWriter() io.Writer {
+	return &this.writer
 }
 
 func NewResponse() Response {

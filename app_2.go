@@ -134,7 +134,7 @@ func (this *application) serveDynamic(req *http.Request) Response {
 	var routeData = make(map[string]string)
 	res, c := this.route.rootNode.matchDepth(pathUrls, routeData)
 	if res && c != nil {
-		c.Init(req, routeData)
+		c.Init(this, req, routeData)
 		if GET.Equal(req.Method) {
 			resp = c.Get()
 		} else if POST.Equal(req.Method) {
