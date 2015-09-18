@@ -2,6 +2,7 @@ package wemvc
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -9,7 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"flag"
 )
 
 type Handler func(*http.Request) Response
@@ -82,7 +82,7 @@ func (this *application) AddErrorHandler(code int, handler Handler) {
 	this.errorHandlers[code] = handler
 }
 
-func (this *application)AddController(strPth string, controller IController, v ...string) {
+func (this *application) AddController(strPth string, controller IController, v ...string) {
 	this.route.AddController(strPth, controller, v...)
 }
 
@@ -97,8 +97,8 @@ var App Application
 func init() {
 	webroot := flag.String("root", "wwwroot", "the root path of the website")
 	flag.Parse()
-	app,err := newApp(*webroot)
-	if err != nil{
+	app, err := newApp(*webroot)
+	if err != nil {
 		panic(err)
 	}
 	App = app

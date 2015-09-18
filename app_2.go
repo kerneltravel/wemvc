@@ -68,6 +68,8 @@ func (this *application) init() error {
 		},
 	}
 
+	buildViews(this.MapPath("/views"))
+
 	this.errorHandlers = make(map[int]Handler)
 	this.errorHandlers[404] = this.error404
 	this.errorHandlers[403] = this.error403

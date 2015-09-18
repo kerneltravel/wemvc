@@ -51,9 +51,14 @@ func (this *Controller) Put() Response { return nil }
 func (this *Controller) Options() Response { return nil }
 
 func (this *Controller) View(viewPath string) Response {
-	res := layout(viewPath, this.ViewData)
+	res,err := renderView(viewPath, this.ViewData)
 	var resp = NewResponse()
-	resp.Write([]byte(res))
+	if err == nil {
+		resp.Write([]byte(res))
+	} else {
+		resp.Write([]byte(err.Error()))
+		resp.SetStatusCode(500)
+	}
 	return resp
 }
 
