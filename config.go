@@ -15,7 +15,6 @@ type ProtectionUrl interface {
 }
 
 type Configuration interface {
-	GetPort() int
 	GetDefaultUrl() string
 	GetConnConfig(string) ConnConfig
 	GetSetting(string) string
@@ -107,7 +106,6 @@ type protectionUrlGroup struct {
 }
 
 type configuration struct {
-	Port           int                `xml:"port"`
 	DefaultUrl     string             `xml:"defaultUrl"`
 	ConnStrings    connGroup          `xml:"connStrings"`
 	Settings       settingGroup       `xml:"settings"`
@@ -115,10 +113,6 @@ type configuration struct {
 	ProtectionUrls protectionUrlGroup `xml:"protectionUrls"`
 
 	mimeColl map[string]string
-}
-
-func (this *configuration) GetPort() int {
-	return this.Port
 }
 
 func (this *configuration) GetConnConfig(connName string) ConnConfig {

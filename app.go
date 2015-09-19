@@ -16,6 +16,7 @@ import (
 type Handler func(*http.Request) Response
 
 type Application interface {
+	Port(...int) int
 	AddErrorHandler(int, Handler)
 	GetWebRoot() string
 	GetConfig() Configuration
@@ -26,10 +27,11 @@ type Application interface {
 
 type application struct {
 	errorHandlers map[int]Handler
+	port int
 	webRoot       string
 	config        *configuration
 	route         routeTree
-	configWatcher *fsnotify.Watcher
+	watcher *fsnotify.Watcher
 	viewsWatcher  *fsnotify.Watcher
 	watchingFiles []string
 	initError     error
@@ -37,6 +39,13 @@ type application struct {
 
 func (this *application) GetWebRoot() string {
 	return this.webRoot
+}
+
+func (this *application) Port(p ...int) int {
+	if len(p) > 0 {
+		this.port = p[0]
+	}
+	return this.port
 }
 
 func (this *application) GetConfig() Configuration {
@@ -98,7 +107,7 @@ func (this *application) AddRoute(strPth string, controller IController, v ...st
 }
 
 func (this *application) Run() error {
-	port := fmt.Sprintf(":%d", this.config.Port)
+	port := fmt.Sprintf(":%d", this.port)
 	err := http.ListenAndServe(port, this)
 	return err
 }
@@ -107,15 +116,16 @@ var App Application
 
 func init() {
 	webroot := flag.String("root", "wwwroot", "the root path of the website")
+	port := flag.Int("port", 8080, "server running port")
 	flag.Parse()
-	app, err := newApp(*webroot)
+	app, err := newApp(*webroot, *port)
 	if err != nil {
 		panic(err)
 	}
 	App = app
 }
 
-func newApp(root string) (Application, error) {
+func newApp(root string, port int) (Application, error) {
 	if len(root) < 1 {
 		return nil, errors.New("Web root cannot be empty.")
 	}
@@ -132,6 +142,7 @@ func newApp(root string) (Application, error) {
 	}
 	app := &application{
 		webRoot: fixPath(webRoot),
+		port: port,
 	}
 	err := app.init()
 	return app, err

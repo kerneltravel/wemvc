@@ -51,13 +51,11 @@ func (this *Controller) Put() Response { return nil }
 func (this *Controller) Options() Response { return nil }
 
 func (this *Controller) View(viewPath string) Response {
-	res,err := renderView(viewPath, this.ViewData)
+	res,code := renderView(viewPath, this.ViewData)
 	var resp = NewResponse()
-	if err == nil {
-		resp.Write([]byte(res))
-	} else {
-		resp.Write([]byte(err.Error()))
-		resp.SetStatusCode(500)
+	resp.Write([]byte(res))
+	if code != 200 {
+		resp.SetStatusCode(code)
 	}
 	return resp
 }

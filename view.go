@@ -17,16 +17,21 @@ type viewFile struct {
 	files map[string][]string
 }
 
-var views map[string]*template.Template
-
-func addView(name string, t *template.Template) {
-	if views == nil {
-		views = make(map[string]*template.Template)
-	}
-	views[name] = t
+type view struct {
+	tpl *template.Template
+	err error
 }
 
-func getView(name string) *template.Template {
+var views map[string]*view
+
+func addView(name string, v *view) {
+	if views == nil {
+		views = make(map[string]*view)
+	}
+	views[name] = v
+}
+
+func getView(name string) *view {
 	if views != nil {
 		return views[name]
 	}
@@ -81,11 +86,8 @@ func buildViews(dir string) error {
 	for _, v := range self.files {
 		for _, file := range v {
 			t, err := getTemplate(self.root, file, v...)
-			if err != nil {
-				continue
-			} else {
-				addView(file, t)
-			}
+			v := &view{tpl:t, err:err}
+			addView(file, v)
 		}
 	}
 	return nil
@@ -98,7 +100,7 @@ func getTemplate(root, file string, others ...string) (t *template.Template, err
 	if err != nil {
 		return nil, err
 	}
-	t, err = _getTemplate(t, root, submods, others...)
+	t, err = getTplLoop(t, root, submods, others...)
 
 	if err != nil {
 		return nil, err
@@ -114,7 +116,9 @@ func getTplDeep(root, file, parent string, t *template.Template) (*template.Temp
 		fileabspath = filepath.Join(root, file)
 	}
 	if e := isFile(fileabspath); !e {
-		panic("can't find template file:" + file)
+		var msg = "can't find template file \"" + file + "\""
+		println(msg)
+		return nil, [][]string{}, errors.New(msg)
 	}
 	data, err := ioutil.ReadFile(fileabspath)
 	if err != nil {
@@ -144,7 +148,7 @@ func getTplDeep(root, file, parent string, t *template.Template) (*template.Temp
 	return t, allsub, nil
 }
 
-func _getTemplate(t0 *template.Template, root string, submods [][]string, others ...string) (t *template.Template, err error) {
+func getTplLoop(t0 *template.Template, root string, submods [][]string, others ...string) (t *template.Template, err error) {
 	t = t0
 	for _, m := range submods {
 		if len(m) == 2 {
@@ -160,7 +164,7 @@ func _getTemplate(t0 *template.Template, root string, submods [][]string, others
 					if err != nil {
 						return nil, err
 					} else if submods1 != nil && len(submods1) > 0 {
-						t, err = _getTemplate(t, root, submods1, others...)
+						t, err = getTplLoop(t, root, submods1, others...)
 					}
 					break
 				}
@@ -181,7 +185,7 @@ func _getTemplate(t0 *template.Template, root string, submods [][]string, others
 						if err != nil {
 							return nil, err
 						} else if submods1 != nil && len(submods1) > 0 {
-							t, err = _getTemplate(t, root, submods1, others...)
+							t, err = getTplLoop(t, root, submods1, others...)
 						}
 						break
 					}
@@ -193,7 +197,7 @@ func _getTemplate(t0 *template.Template, root string, submods [][]string, others
 	return
 }
 
-func renderView(viewPath string, viewData interface{}) (template.HTML, error) {
+func renderView(viewPath string, viewData interface{}) (template.HTML, int) {
 	ext, _ := regexp.Compile(`\.[hH][tT][mM][lL]?$`)
 	if !ext.MatchString(viewPath) {
 		viewPath = viewPath + ".html"
@@ -201,13 +205,19 @@ func renderView(viewPath string, viewData interface{}) (template.HTML, error) {
 
 	tpl := getView(viewPath)
 	if tpl == nil {
-		return template.HTML(""), errors.New("cannot find the view " + viewPath)
+		return template.HTML("cannot find the view " + viewPath), 500
+	}
+	if tpl.err != nil {
+		return template.HTML(tpl.err.Error()),500
+	}
+	if tpl.tpl == nil {
+		return template.HTML("cannot find the view " + viewPath),500
 	}
 	var buf = &bytes.Buffer{}
-	err := tpl.Execute(buf, viewData)
+	err := tpl.tpl.Execute(buf, viewData)
 	if err != nil {
-		return template.HTML(""), err
+		return template.HTML(err.Error()), 500
 	}
 	result := template.HTML(buf.Bytes())
-	return result, nil
+	return result, 200
 }

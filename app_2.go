@@ -6,8 +6,9 @@ import (
 	"os"
 	"strings"
 	"time"
-"github.com/Simbory/wemvc/fsnotify"
+	"github.com/Simbory/wemvc/fsnotify"
 	"path"
+	"path/filepath"
 )
 
 func (this *application) init() error {
@@ -33,40 +34,85 @@ func (this *application) init() error {
 	this.errorHandlers[404] = this.error404
 	this.errorHandlers[403] = this.error403
 	// init fsnotify watcher
-	w1,err := fsnotify.NewWatcher()
+	w,err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
-	this.configWatcher = w1;
-	w2,err := fsnotify.NewWatcher()
-	if err != nil {
-		return err
-	}
-	this.viewsWatcher = w2
-	err = this.configWatcher.Watch(this.MapPath("/webconfig.xml"))
+	this.watcher = w;
+
+	err = this.watcher.Watch(this.MapPath("/webconfig.xml"))
 	if err != nil {
 		panic(err)
 	}
-	go func() {
-		for {
-			select {
-			case ev := <-this.configWatcher.Event:
-				if ev.IsModify() {
-					strFilePath := path.Clean(strings.Replace(ev.Name, "\\", "/", -1))
-					switch strFilePath {
-					case "webconfig.xml":
-						if config,f,err := this.loadConfig();err != nil {
-							this.initError = err
-						} else {
-							this.config = config
-							this.watchingFiles = f
-						}
+	if this.initError == nil && len(this.watchingFiles) > 0 {
+		for _, f := range this.watchingFiles {
+			this.watcher.Watch(f)
+		}
+	}
+
+	var viewDir = this.MapPath("/views")
+	this.watcher.Watch(viewDir)
+	filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error{
+		println(p)
+		if info.IsDir() {
+			this.watcher.Watch(p)
+		}
+		return nil
+	})
+	go this.watchConfig()
+	return nil
+}
+
+func (this *application)watchConfig() {
+	for {
+		select {
+		case ev := <-this.watcher.Event:
+			println(ev.Name)
+			strFile := path.Clean(ev.Name)
+			if this.isConfigFile(strFile) {
+				if config,f,err := this.loadConfig();err != nil {
+					this.initError = err
+					println(err.Error())
+				} else {
+					this.initError = nil
+					this.config = config
+					for _, configFile := range this.watchingFiles {
+						this.watcher.RemoveWatch(configFile)
+					}
+					this.watchingFiles = f
+					for _, f := range this.watchingFiles {
+						println(f)
+						this.watcher.Watch(f)
 					}
 				}
+			} else if this.isViewFile(strFile) {
+				println(ev.String())
+				if ev.IsDelete() {
+					this.watcher.RemoveWatch(ev.Name)
+				} else if ev.IsCreate() {
+					this.watcher.AddWatch(ev.Name, fsnotify.FSN_ALL)
+				}
+				buildViews(this.MapPath("/views"))
 			}
 		}
-	}()
-	return nil
+	}
+}
+
+func (this *application)isConfigFile(f string) bool {
+	if this.MapPath("/webconfig.xml") == f {
+		return true
+	}
+	for _, configFile := range this.watchingFiles {
+		if configFile == f {
+			return true
+		}
+	}
+	return false
+}
+
+func (this *application)isViewFile(f string) bool {
+	var viewPath = this.MapPath("/views")
+	return strings.HasPrefix(f, viewPath)
 }
 
 func (this *application)loadConfig() (*configuration, []string, error) {
