@@ -14,7 +14,6 @@ import (
 func (this *application) init() error {
 	// load the config file
 	if config,f,err := this.loadConfig();err != nil {
-		println(err.Error())
 		this.initError = err
 	} else {
 		this.config = config
@@ -53,7 +52,6 @@ func (this *application) init() error {
 	var viewDir = this.MapPath("/views")
 	this.watcher.Watch(viewDir)
 	filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error{
-		println(p)
 		if info.IsDir() {
 			this.watcher.Watch(p)
 		}
@@ -67,12 +65,10 @@ func (this *application)watchConfig() {
 	for {
 		select {
 		case ev := <-this.watcher.Event:
-			println(ev.Name)
 			strFile := path.Clean(ev.Name)
 			if this.isConfigFile(strFile) {
 				if config,f,err := this.loadConfig();err != nil {
 					this.initError = err
-					println(err.Error())
 				} else {
 					this.initError = nil
 					this.config = config
@@ -81,12 +77,10 @@ func (this *application)watchConfig() {
 					}
 					this.watchingFiles = f
 					for _, f := range this.watchingFiles {
-						println(f)
 						this.watcher.Watch(f)
 					}
 				}
 			} else if this.isViewFile(strFile) {
-				println(ev.String())
 				if ev.IsDelete() {
 					this.watcher.RemoveWatch(ev.Name)
 				} else if ev.IsCreate() {
