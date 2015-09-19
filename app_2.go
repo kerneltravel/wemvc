@@ -6,74 +6,127 @@ import (
 	"os"
 	"strings"
 	"time"
+"github.com/Simbory/wemvc/fsnotify"
+	"path"
 )
 
 func (this *application) init() error {
 	// load the config file
-	var configFile = this.MapPath("/webconfig.xml")
-	this.config = &configuration{}
-	err := file2Xml(configFile, this.config)
-	if err != nil {
-		return err
+	if config,f,err := this.loadConfig();err != nil {
+		println(err.Error())
+		this.initError = err
+	} else {
+		this.config = config
+		this.watchingFiles = f
 	}
-	// load the setting config source file
-	if len(this.config.Settings.ConfigSource) > 0 {
-		configFile = this.MapPath(this.config.Settings.ConfigSource)
-		var settings = &settingGroup{}
-		err = file2Xml(configFile, settings)
-		if err != nil {
-			return err
-		}
-		this.config.Settings.Settings = settings.Settings
-		this.config.Settings.ConfigSource = ""
-	}
-	// load the connection string config source
-	if len(this.config.ConnStrings.ConfigSource) > 0 {
-		configFile = this.MapPath(this.config.ConnStrings.ConfigSource)
-		var conns = &connGroup{}
-		err = file2Xml(configFile, conns)
-		if err != nil {
-			return err
-		}
-		this.config.ConnStrings.ConnStrings = conns.ConnStrings
-		this.config.ConnStrings.ConfigSource = ""
-	}
-	// load the mime config source
-	if len(this.config.Mimes.ConfigSource) > 0 {
-		configFile = this.MapPath(this.config.Mimes.ConfigSource)
-		var mimes = &mimeGroup{}
-		err = file2Xml(configFile, mimes)
-		if err != nil {
-			return err
-		}
-		this.config.Mimes.Mimes = mimes.Mimes
-		this.config.Mimes.ConfigSource = ""
-	}
-	// load the protection url setting
-	if len(this.config.ProtectionUrls.ConfigSource) > 0 {
-		configFile = this.MapPath(this.config.ProtectionUrls.ConfigSource)
-		var protectGroup = &protectionUrlGroup{}
-		err = file2Xml(configFile, protectGroup)
-		if err != nil {
-			return err
-		}
-		this.config.ProtectionUrls.ProtectionUrls = protectGroup.ProtectionUrls
-		this.config.ProtectionUrls.ConfigSource = ""
-	}
-
+	// init the route tree
 	this.route = routeTree{
 		rootNode: routeNode{
 			pathStr: "/",
 			depth:   1,
 		},
 	}
-
+	// build the view template
 	buildViews(this.MapPath("/views"))
-
+	// init the error handler
 	this.errorHandlers = make(map[int]Handler)
 	this.errorHandlers[404] = this.error404
 	this.errorHandlers[403] = this.error403
+	// init fsnotify watcher
+	w1,err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	this.configWatcher = w1;
+	w2,err := fsnotify.NewWatcher()
+	if err != nil {
+		return err
+	}
+	this.viewsWatcher = w2
+	err = this.configWatcher.Watch(this.MapPath("/webconfig.xml"))
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		for {
+			select {
+			case ev := <-this.configWatcher.Event:
+				if ev.IsModify() {
+					strFilePath := path.Clean(strings.Replace(ev.Name, "\\", "/", -1))
+					switch strFilePath {
+					case "webconfig.xml":
+						if config,f,err := this.loadConfig();err != nil {
+							this.initError = err
+						} else {
+							this.config = config
+							this.watchingFiles = f
+						}
+					}
+				}
+			}
+		}
+	}()
 	return nil
+}
+
+func (this *application)loadConfig() (*configuration, []string, error) {
+	// load the config file
+	var configFile = this.MapPath("/webconfig.xml")
+	var configData = &configuration{}
+	var files []string
+	err := file2Xml(configFile, configData)
+	if err != nil {
+		return nil,nil,err
+	}
+	// load the setting config source file
+	if len(configData.Settings.ConfigSource) > 0 {
+		configFile = this.MapPath(configData.Settings.ConfigSource)
+		var settings = &settingGroup{}
+		err = file2Xml(configFile, settings)
+		if err != nil {
+			return nil,nil,err
+		}
+		configData.Settings.Settings = settings.Settings
+		configData.Settings.ConfigSource = ""
+		files = append(files, configFile)
+	}
+	// load the connection string config source
+	if len(configData.ConnStrings.ConfigSource) > 0 {
+		configFile = this.MapPath(configData.ConnStrings.ConfigSource)
+		var conns = &connGroup{}
+		err = file2Xml(configFile, conns)
+		if err != nil {
+			return nil,nil,err
+		}
+		configData.ConnStrings.ConnStrings = conns.ConnStrings
+		configData.ConnStrings.ConfigSource = ""
+		files = append(files, configFile)
+	}
+	// load the mime config source
+	if len(configData.Mimes.ConfigSource) > 0 {
+		configFile = this.MapPath(configData.Mimes.ConfigSource)
+		var mimes = &mimeGroup{}
+		err = file2Xml(configFile, mimes)
+		if err != nil {
+			return nil,nil,err
+		}
+		configData.Mimes.Mimes = mimes.Mimes
+		configData.Mimes.ConfigSource = ""
+		files = append(files, configFile)
+	}
+	// load the protection url setting
+	if len(configData.ProtectionUrls.ConfigSource) > 0 {
+		configFile = this.MapPath(configData.ProtectionUrls.ConfigSource)
+		var protectGroup = &protectionUrlGroup{}
+		err = file2Xml(configFile, protectGroup)
+		if err != nil {
+			return nil,nil,err
+		}
+		configData.ProtectionUrls.ProtectionUrls = protectGroup.ProtectionUrls
+		configData.ProtectionUrls.ConfigSource = ""
+		files = append(files, configFile)
+	}
+	return configData,files,nil
 }
 
 func (this *application) serveStaticFile(req *http.Request, ext string) Response {

@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"github.com/Simbory/wemvc/fsnotify"
 )
 
 type Handler func(*http.Request) Response
@@ -19,7 +20,7 @@ type Application interface {
 	GetWebRoot() string
 	GetConfig() Configuration
 	MapPath(string) string
-	AddController(string, IController, ...string)
+	AddRoute(string, IController, ...string)
 	Run() error
 }
 
@@ -28,6 +29,10 @@ type application struct {
 	webRoot       string
 	config        *configuration
 	route         routeTree
+	configWatcher *fsnotify.Watcher
+	viewsWatcher  *fsnotify.Watcher
+	watchingFiles []string
+	initError     error
 }
 
 func (this *application) GetWebRoot() string {
@@ -44,7 +49,13 @@ func (this *application) MapPath(relativePath string) string {
 }
 
 func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	//defer this.panicRecover(w)
+	// check init error
+	if this.initError != nil {
+		w.Write([]byte(this.initError.Error()))
+		w.WriteHeader(500)
+		return
+	}
+	defer this.panicRecover(w)
 
 	var result Response
 
@@ -82,7 +93,7 @@ func (this *application) AddErrorHandler(code int, handler Handler) {
 	this.errorHandlers[code] = handler
 }
 
-func (this *application) AddController(strPth string, controller IController, v ...string) {
+func (this *application) AddRoute(strPth string, controller IController, v ...string) {
 	this.route.AddController(strPth, controller, v...)
 }
 
@@ -108,7 +119,6 @@ func newApp(root string) (Application, error) {
 	if len(root) < 1 {
 		return nil, errors.New("Web root cannot be empty.")
 	}
-
 	webRoot := strings.TrimSuffix(strings.TrimSuffix(root, "\\"), "/")
 	if strings.HasPrefix(webRoot, ".") {
 		file, _ := exec.LookPath(os.Args[0])
@@ -120,10 +130,9 @@ func newApp(root string) (Application, error) {
 	if !isDir(webRoot) {
 		return nil, errors.New("Path \"" + webRoot + "\" is not a directory")
 	}
-	app := &application{webRoot: fixPath(webRoot)}
-	err := app.init()
-	if err != nil {
-		app = nil
+	app := &application{
+		webRoot: fixPath(webRoot),
 	}
+	err := app.init()
 	return app, err
 }
