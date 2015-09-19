@@ -1,11 +1,11 @@
 package wemvc
 
 import (
-	"io/ioutil"
+	//"io/ioutil"
 	"net/http"
 	"os"
 	"strings"
-	"time"
+	//"time"
 	"github.com/Simbory/wemvc/fsnotify"
 	"path"
 	"path/filepath"
@@ -169,6 +169,30 @@ func (this *application)loadConfig() (*configuration, []string, error) {
 	return configData,files,nil
 }
 
+func (this *application) serveStaticFile(res http.ResponseWriter, req *http.Request, ext string) {
+	var mime = this.GetConfig().GetMIME(ext)
+	if len(mime) < 1 {
+		var r = this.showError(req, 404)
+		if r == nil {
+			r = this.error404(req)
+		}
+		res.WriteHeader(r.GetStatusCode())
+		res.Write(r.GetOutput())
+		return
+	}
+	var url = req.URL.Path
+	if this.urlProtected(url) {
+		var r = this.showError(req, 403)
+		if r == nil {
+			r = this.error403(req)
+		}
+		res.WriteHeader(r.GetStatusCode())
+		res.Write(r.GetOutput())
+		return
+	}
+	http.ServeFile(res, req, this.MapPath(req.URL.Path))
+}
+/*
 func (this *application) serveStaticFile(req *http.Request, ext string) Response {
 	var mime = this.GetConfig().GetMIME(ext)
 	if len(mime) < 1 {
@@ -215,8 +239,9 @@ func (this *application) serveStaticFile(req *http.Request, ext string) Response
 	res.Write(fbytes)
 	return res
 }
+*/
 
-func (this *application) serveDynamic(req *http.Request) Response {
+func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) Response {
 	var path = req.URL.Path
 	var pathUrls []string
 	if path == "/" {
@@ -229,7 +254,7 @@ func (this *application) serveDynamic(req *http.Request) Response {
 	var routeData = make(map[string]string)
 	res, c := this.route.rootNode.matchDepth(pathUrls, routeData)
 	if res && c != nil {
-		c.Init(this, req, routeData)
+		c.Init(w, req, routeData)
 		if GET.Equal(req.Method) {
 			resp = c.Get()
 		} else if POST.Equal(req.Method) {

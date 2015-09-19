@@ -66,16 +66,15 @@ func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	defer this.panicRecover(w)
 
-	var result Response
-
-	var ext = filepath.Ext(req.URL.Path)
-	if len(ext) != 0 {
-		// serve the static page
-		result = this.serveStaticFile(req, ext)
-	}
 	// serve the dynamic page
+	var result Response
+	result = this.serveDynamic(w, req)
 	if result == nil {
-		result = this.serveDynamic(req)
+		var ext = filepath.Ext(req.URL.Path)
+		if len(ext) > 0 {
+			this.serveStaticFile(w, req, ext)
+			return
+		}
 	}
 	// handle error 404
 	if result == nil {

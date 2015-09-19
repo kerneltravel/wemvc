@@ -4,11 +4,10 @@ import (
 	"net/http"
 	"encoding/json"
     "encoding/xml"
-	"io/ioutil"
 )
 
 type IController interface {
-	Init(Application, *http.Request,map[string]string)
+	Init(http.ResponseWriter, *http.Request,map[string]string)
 	Get() Response
 	Post() Response
 	Delete() Response
@@ -19,15 +18,15 @@ type IController interface {
 }
 
 type Controller struct {
-	App Application
 	Request *http.Request
+	Response http.ResponseWriter
 	RouteData map[string]string
 	ViewData map[string]interface{}
 }
 
-func (this *Controller) Init(app Application, req *http.Request, routeData map[string]string) {
-	this.App = app
+func (this *Controller) Init(w http.ResponseWriter, req *http.Request, routeData map[string]string) {
 	this.Request = req
+	this.Response = w
 	if routeData != nil {
 		this.RouteData = routeData
 	} else {
@@ -94,19 +93,8 @@ func (this *Controller) Xml(obj interface{}) Response {
 }
 
 func (this *Controller) File(path string, ctype string) Response {
-	var resp = NewResponse()
-	if isFile(path) {
-		data,err := ioutil.ReadFile(path)
-		if err != nil {
-			panic(err)
-		} else {
-			resp.Write(data)
-			resp.SetContentType(ctype)
-		}
-	} else {
-		resp.SetStatusCode(404)
-	}
-	return resp
+	http.ServeFile(this.Response, this.Request, path)
+	return this.Content("", ctype)
 }
 
 func (this *Controller) Redirect(url string, statusCode ...int) Response {
