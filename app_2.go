@@ -13,7 +13,7 @@ import (
 
 func (this *application) init() error {
 	// load the config file
-	if config,f,err := this.loadConfig();err != nil {
+	if config, f, err := this.loadConfig(); err != nil {
 		this.initError = err
 	} else {
 		this.config = config
@@ -33,11 +33,11 @@ func (this *application) init() error {
 	this.errorHandlers[404] = this.error404
 	this.errorHandlers[403] = this.error403
 	// init fsnotify watcher
-	w,err := fsnotify.NewWatcher()
+	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
-	this.watcher = w;
+	this.watcher = w
 
 	err = this.watcher.Watch(this.MapPath("/webconfig.xml"))
 	if err != nil {
@@ -51,7 +51,7 @@ func (this *application) init() error {
 
 	var viewDir = this.MapPath("/views")
 	this.watcher.Watch(viewDir)
-	filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error{
+	filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
 		if info.IsDir() {
 			this.watcher.Watch(p)
 		}
@@ -61,13 +61,13 @@ func (this *application) init() error {
 	return nil
 }
 
-func (this *application)watchConfig() {
+func (this *application) watchConfig() {
 	for {
 		select {
 		case ev := <-this.watcher.Event:
 			strFile := path.Clean(ev.Name)
 			if this.isConfigFile(strFile) {
-				if config,f,err := this.loadConfig();err != nil {
+				if config, f, err := this.loadConfig(); err != nil {
 					this.initError = err
 				} else {
 					this.initError = nil
@@ -80,19 +80,22 @@ func (this *application)watchConfig() {
 						this.watcher.Watch(f)
 					}
 				}
-			} else if this.isViewFile(strFile) {
-				if ev.IsDelete() {
-					this.watcher.RemoveWatch(ev.Name)
-				} else if ev.IsCreate() {
-					this.watcher.AddWatch(ev.Name, fsnotify.FSN_ALL)
+			} else if this.isInViewFolder(strFile) {
+				if isDir(strFile) {
+					if ev.IsDelete() {
+						this.watcher.RemoveWatch(strFile)
+					} else if ev.IsCreate() {
+						this.watcher.AddWatch(strFile, fsnotify.FSN_ALL)
+					}
+				} else if strings.HasSuffix(strFile, ".html") {
+					buildViews(this.MapPath("/views"))
 				}
-				buildViews(this.MapPath("/views"))
 			}
 		}
 	}
 }
 
-func (this *application)isConfigFile(f string) bool {
+func (this *application) isConfigFile(f string) bool {
 	if this.MapPath("/webconfig.xml") == f {
 		return true
 	}
@@ -104,19 +107,19 @@ func (this *application)isConfigFile(f string) bool {
 	return false
 }
 
-func (this *application)isViewFile(f string) bool {
+func (this *application) isInViewFolder(f string) bool {
 	var viewPath = this.MapPath("/views")
 	return strings.HasPrefix(f, viewPath)
 }
 
-func (this *application)loadConfig() (*configuration, []string, error) {
+func (this *application) loadConfig() (*configuration, []string, error) {
 	// load the config file
 	var configFile = this.MapPath("/webconfig.xml")
 	var configData = &configuration{}
 	var files []string
 	err := file2Xml(configFile, configData)
 	if err != nil {
-		return nil,nil,err
+		return nil, nil, err
 	}
 	// load the setting config source file
 	if len(configData.Settings.ConfigSource) > 0 {
@@ -124,7 +127,7 @@ func (this *application)loadConfig() (*configuration, []string, error) {
 		var settings = &settingGroup{}
 		err = file2Xml(configFile, settings)
 		if err != nil {
-			return nil,nil,err
+			return nil, nil, err
 		}
 		configData.Settings.Settings = settings.Settings
 		configData.Settings.ConfigSource = ""
@@ -136,7 +139,7 @@ func (this *application)loadConfig() (*configuration, []string, error) {
 		var conns = &connGroup{}
 		err = file2Xml(configFile, conns)
 		if err != nil {
-			return nil,nil,err
+			return nil, nil, err
 		}
 		configData.ConnStrings.ConnStrings = conns.ConnStrings
 		configData.ConnStrings.ConfigSource = ""
@@ -148,7 +151,7 @@ func (this *application)loadConfig() (*configuration, []string, error) {
 		var mimes = &mimeGroup{}
 		err = file2Xml(configFile, mimes)
 		if err != nil {
-			return nil,nil,err
+			return nil, nil, err
 		}
 		configData.Mimes.Mimes = mimes.Mimes
 		configData.Mimes.ConfigSource = ""
@@ -160,13 +163,13 @@ func (this *application)loadConfig() (*configuration, []string, error) {
 		var protectGroup = &protectionUrlGroup{}
 		err = file2Xml(configFile, protectGroup)
 		if err != nil {
-			return nil,nil,err
+			return nil, nil, err
 		}
 		configData.ProtectionUrls.ProtectionUrls = protectGroup.ProtectionUrls
 		configData.ProtectionUrls.ConfigSource = ""
 		files = append(files, configFile)
 	}
-	return configData,files,nil
+	return configData, files, nil
 }
 
 func (this *application) serveStaticFile(res http.ResponseWriter, req *http.Request, ext string) {
@@ -192,6 +195,7 @@ func (this *application) serveStaticFile(res http.ResponseWriter, req *http.Requ
 	}
 	http.ServeFile(res, req, this.MapPath(req.URL.Path))
 }
+
 /*
 func (this *application) serveStaticFile(req *http.Request, ext string) Response {
 	var mime = this.GetConfig().GetMIME(ext)
