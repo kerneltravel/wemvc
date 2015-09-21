@@ -67,7 +67,6 @@ func (this *application) watchConfig() {
 		select {
 		case ev := <-this.watcher.Event:
 			strFile := path.Clean(ev.Name)
-			println(strFile)
 			if this.isConfigFile(strFile) {
 				if config, f, err := this.loadConfig(); err != nil {
 					this.initError = err
