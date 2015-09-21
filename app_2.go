@@ -85,7 +85,7 @@ func (this *application) watchConfig() {
 					if ev.IsDelete() {
 						this.watcher.RemoveWatch(strFile)
 					} else if ev.IsCreate() {
-						this.watcher.AddWatch(strFile, fsnotify.FSN_ALL)
+						this.watcher.Watch(strFile)
 					}
 				} else if strings.HasSuffix(strFile, ".html") {
 					buildViews(this.MapPath("/views"))
