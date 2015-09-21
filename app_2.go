@@ -39,13 +39,14 @@ func (this *application) init() error {
 	}
 	this.watcher = w
 
-	err = this.watcher.Watch(this.MapPath("/webconfig.xml"))
+	err = this.watcher.Watch(this.GetWebRoot())
 	if err != nil {
 		panic(err)
 	}
 	if this.initError == nil && len(this.watchingFiles) > 0 {
 		for _, f := range this.watchingFiles {
-			this.watcher.Watch(f)
+			var dir = filepath.Dir(f)
+			this.watcher.Watch(dir)
 		}
 	}
 
@@ -66,6 +67,7 @@ func (this *application) watchConfig() {
 		select {
 		case ev := <-this.watcher.Event:
 			strFile := path.Clean(ev.Name)
+			println(strFile)
 			if this.isConfigFile(strFile) {
 				if config, f, err := this.loadConfig(); err != nil {
 					this.initError = err
@@ -195,55 +197,6 @@ func (this *application) serveStaticFile(res http.ResponseWriter, req *http.Requ
 	}
 	http.ServeFile(res, req, this.MapPath(req.URL.Path))
 }
-
-/*
-func (this *application) serveStaticFile(req *http.Request, ext string) Response {
-	var mime = this.GetConfig().GetMIME(ext)
-	if len(mime) < 1 {
-		return nil
-	}
-	var url = req.URL.Path
-	if this.urlProtected(url) {
-		return this.showError(req, 403)
-	}
-	var path = strings.TrimSuffix(this.MapPath(url), "/")
-	var file = ""
-	if url == "" || isDir(path) {
-		var defaultUrl = this.GetConfig().GetDefaultUrl()
-		for _, f := range strings.Split(defaultUrl, ";") {
-			path = path + "/" + f
-			if isFile(path) {
-				file = path
-				break
-			}
-		}
-	} else {
-		file = path
-	}
-	if !isFile(file) {
-		return nil
-	}
-	state, err := os.Stat(file)
-	if err != nil {
-		panic(err)
-	}
-	var res = NewResponse()
-	var modifyTime = state.ModTime().Format(time.RFC1123)
-	var ifMod = req.Header.Get("If-Modified-Since")
-	if modifyTime == ifMod {
-		res.SetStatusCode(304)
-		return res
-	}
-	fbytes, err := ioutil.ReadFile(file)
-	if err != nil {
-		panic(err)
-	}
-	res.SetContentType(mime)
-	res.SetHeader("Last-Modified", modifyTime)
-	res.Write(fbytes)
-	return res
-}
-*/
 
 func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) Response {
 	var path = req.URL.Path

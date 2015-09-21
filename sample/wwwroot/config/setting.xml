@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+	<add key="default" value="connString1" />
+	<add key="optional" value="optional1" />
+	<add key="required" value="required1" />
+	<add key="debug" value="true" />
+	<add key="isDebug" value="true" />
+</settings>

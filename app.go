@@ -60,8 +60,8 @@ func (this *application) MapPath(relativePath string) string {
 func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// check init error
 	if this.initError != nil {
-		w.Write([]byte(this.initError.Error()))
 		w.WriteHeader(500)
+		w.Write([]byte(this.initError.Error()))
 		return
 	}
 	defer this.panicRecover(w)

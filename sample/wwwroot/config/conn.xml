@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<connStrings>
+	<add name="default" type="mysql" connString="connString1"/>
+	<add name="optional" type="mysql" connString="optional1"/>
+	<add name="required" type="mysql" connString="required1"/>
+</connStrings>
