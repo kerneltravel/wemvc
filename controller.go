@@ -108,3 +108,6 @@ func (this *Controller) Redirect(url string, statusCode ...int) Response {
 	return resp
 }
 
+func (this *Controller) NotFound() Response {
+	return App.(*application).showError(this.Request, 404)
+}

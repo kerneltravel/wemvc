@@ -30,7 +30,7 @@ func file2Xml(fpath string, v interface{}) error {
 	return nil
 }
 
-func isDir(fpath string) bool {
+func IsDir(fpath string) bool {
 	state, err := os.Stat(fpath)
 	if err != nil {
 		return false
@@ -38,7 +38,7 @@ func isDir(fpath string) bool {
 	return state.IsDir()
 }
 
-func isFile(fpath string) bool {
+func IsFile(fpath string) bool {
 	state, err := os.Stat(fpath)
 	if err != nil {
 		return false

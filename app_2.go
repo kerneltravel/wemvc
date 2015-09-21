@@ -82,7 +82,7 @@ func (this *application) watchConfig() {
 					}
 				}
 			} else if this.isInViewFolder(strFile) {
-				if isDir(strFile) {
+				if IsDir(strFile) {
 					if ev.IsDelete() {
 						this.watcher.RemoveWatch(strFile)
 					} else if ev.IsCreate() {
@@ -271,7 +271,7 @@ func (this *application) urlProtected(url string) bool {
 	for _, s := range this.GetConfig().GetProtectionUrls() {
 		if strings.HasPrefix(url, s.GetPathPrefix()) {
 			return true
-		} else if isDir(this.MapPath(url)) && strings.HasPrefix(url+"/", s.GetPathPrefix()) {
+		} else if IsDir(this.MapPath(url)) && strings.HasPrefix(url+"/", s.GetPathPrefix()) {
 			return true
 		}
 	}

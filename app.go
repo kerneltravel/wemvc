@@ -136,7 +136,7 @@ func newApp(root string, port int) (Application, error) {
 		webRoot = path.Join(exeDir, webRoot)
 	}
 
-	if !isDir(webRoot) {
+	if !IsDir(webRoot) {
 		return nil, errors.New("Path \"" + webRoot + "\" is not a directory")
 	}
 	app := &application{
