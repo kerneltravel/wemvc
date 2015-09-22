@@ -86,7 +86,7 @@ func buildViews(dir string) error {
 	for _, v := range self.files {
 		for _, file := range v {
 			t, err := getTemplate(self.root, file, v...)
-			v := &view{tpl:t, err:err}
+			v := &view{tpl: t, err: err}
 			addView(file, v)
 		}
 	}
@@ -207,10 +207,10 @@ func renderView(viewPath string, viewData interface{}) (template.HTML, int) {
 		return template.HTML("cannot find the view " + viewPath), 500
 	}
 	if tpl.err != nil {
-		return template.HTML(tpl.err.Error()),500
+		return template.HTML(tpl.err.Error()), 500
 	}
 	if tpl.tpl == nil {
-		return template.HTML("cannot find the view " + viewPath),500
+		return template.HTML("cannot find the view " + viewPath), 500
 	}
 	var buf = &bytes.Buffer{}
 	err := tpl.tpl.Execute(buf, viewData)

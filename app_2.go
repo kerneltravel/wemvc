@@ -1,14 +1,14 @@
 package wemvc
 
 import (
-	//"io/ioutil"
+	"errors"
+	"github.com/Simbory/wemvc/fsnotify"
 	"net/http"
 	"os"
-	"strings"
-	//"time"
-	"github.com/Simbory/wemvc/fsnotify"
 	"path"
 	"path/filepath"
+	"reflect"
+	"strings"
 )
 
 func (this *application) init() error {
@@ -58,11 +58,11 @@ func (this *application) init() error {
 		}
 		return nil
 	})
-	go this.watchConfig()
+	go this.watchFile()
 	return nil
 }
 
-func (this *application) watchConfig() {
+func (this *application) watchFile() {
 	for {
 		select {
 		case ev := <-this.watcher.Event:
@@ -211,25 +211,55 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 	res, c := this.route.rootNode.matchDepth(pathUrls, routeData)
 	if res && c != nil {
 		c.Init(w, req, routeData)
-		if GET.Equal(req.Method) {
-			resp = c.Get()
-		} else if POST.Equal(req.Method) {
-			resp = c.Post()
-		} else if DELETE.Equal(req.Method) {
-			resp = c.Delete()
-		} else if HEAD.Equal(req.Method) {
-			resp = c.Head()
-		} else if TRACE.Equal(req.Method) {
-			resp = c.Trace()
-		} else if PUT.Equal(req.Method) {
-			resp = c.Put()
-		} else if OPTIONS.Equal(req.Method) {
-			resp = c.Options()
+		var action = routeData["{action}"]
+		if len(action) < 1 {
+			if GET.Equal(req.Method) {
+				resp = c.Get()
+			} else if POST.Equal(req.Method) {
+				resp = c.Post()
+			} else if DELETE.Equal(req.Method) {
+				resp = c.Delete()
+			} else if HEAD.Equal(req.Method) {
+				resp = c.Head()
+			} else if TRACE.Equal(req.Method) {
+				resp = c.Trace()
+			} else if PUT.Equal(req.Method) {
+				resp = c.Put()
+			} else if OPTIONS.Equal(req.Method) {
+				resp = c.Options()
+			}
+		} else {
+			resp = this.executeAction(c, req.Method, action)
+		}
+		if resp == nil {
+			resp = this.showError(req, 404)
 		}
 	}
 	//panic(errors.New("test"))
 	//panic(&redirect{location: "http://www.baidu.com/index.html"})
 	return resp
+}
+
+func (this *application) executeAction(ctrl IController, method string, action string) Response {
+	if ctrl == nil {
+		return nil
+	}
+	funcName := strings.ToUpper(string(method[0:1])) + strings.ToLower(string(method[1:])) + action
+	c := reflect.ValueOf(ctrl)
+	m := c.MethodByName(funcName)
+	if !m.IsValid() {
+		return nil
+	}
+	values := m.Call(nil)
+	if len(values) == 1 {
+		value, err := values[0].Interface().(Response)
+		if err {
+			panic(errors.New("Invalid return type of method " + funcName + "\r\nIn controller" + reflect.TypeOf(ctrl).Name()))
+		} else {
+			return value
+		}
+	}
+	return nil
 }
 
 func (this *application) error404(req *http.Request) Response {
@@ -239,7 +269,7 @@ func (this *application) error404(req *http.Request) Response {
 	<div style="max-width:90%;margin:15px auto 0 auto;">
 		<h1>ERROR 404</h1>
 		<hr/>
-		<p>The file you are looking for is not found!</p>
+		<p>The path "` + req.URL.Path + `" is not found!</p>
 		<i>wemvc server version ` + Version + `</i>
 	</div>`))
 	return res
@@ -285,9 +315,10 @@ func (this *application) panicRecover(res http.ResponseWriter) {
 	}
 
 	if re, ok := rec.(*redirect); ok {
-		res.Header().Set("Location", re.location)
 		res.WriteHeader(302)
+		res.Header().Set("Location", re.location)
 	} else {
+		res.WriteHeader(500)
 		if err, ok := rec.(error); ok {
 			res.Write([]byte(`
 			<div style="max-width:90%;margin:15px auto 0 auto;">
@@ -306,6 +337,5 @@ func (this *application) panicRecover(res http.ResponseWriter) {
 				<i>wemvc server version ` + Version + `</i>
 			</div>`))
 		}
-		res.WriteHeader(500)
 	}
 }

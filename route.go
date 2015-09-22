@@ -1,14 +1,14 @@
 package wemvc
 
 import (
-	"strings"
-	"regexp"
 	"errors"
+	"regexp"
+	"strings"
 )
 
 type routeNode struct {
 	pathStr    string
-	routeKeys map[string]*regexp.Regexp
+	routeKeys  map[string]*regexp.Regexp
 	depth      int
 	controller IController
 
@@ -47,7 +47,7 @@ func (this *routeNode) appendChild(node *routeNode) {
 // 1. single string, such as "name", "1998", "Janey"
 // 2. route key, such as "{id}", "{name}"
 // 3. single string and replacer, such as "name-{id}", "article_{year}", "{year}+{month}_{day}.{hour}"
-func (this *routeNode)pathNameValid(p string) bool {
+func (this *routeNode) pathNameValid(p string) bool {
 	if this.depth == 1 && p == "/" {
 		return true
 	}
@@ -97,7 +97,7 @@ func (this *routeNode) matchPath(pathUrl string) (bool, IController, map[string]
 			return false, nil, nil
 		}
 	}
-	i,j := 0,0 // i: the index of the this.pathStr j: the index of pathUrl
+	i, j := 0, 0 // i: the index of the this.pathStr j: the index of pathUrl
 	for {
 		if i == len(this.pathStr) && j == len(pathUrl) {
 			return true, this.controller, routeData
@@ -107,8 +107,8 @@ func (this *routeNode) matchPath(pathUrl string) (bool, IController, map[string]
 		}
 		r := string(this.pathStr[i:])
 		v := string(pathUrl[j:])
-		if strings.HasPrefix(r,"{") {
-			finder,_ := regexp.Compile(`^{\w+}`)
+		if strings.HasPrefix(r, "{") {
+			finder, _ := regexp.Compile(`^{\w+}`)
 			tmpKeys := finder.FindAllString(r, 1)
 			if len(tmpKeys) < 1 {
 				return false, nil, nil
@@ -146,7 +146,7 @@ func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string
 	if this.depth > len(pathUrls) {
 		return false, nil
 	}
-	var curPath = pathUrls[this.depth - 1]
+	var curPath = pathUrls[this.depth-1]
 	match, contr, r := this.matchPath(curPath)
 	if !match {
 		return false, nil
@@ -175,7 +175,7 @@ type routeTree struct {
 	rootNode routeNode // the depth of the root node is 1
 }
 
-func (this *routeTree)AddController(p string, c IController, valid ...string) {
+func (this *routeTree) AddController(p string, c IController, valid ...string) {
 	if p == "/" {
 		this.rootNode.controller = c
 		return
@@ -190,15 +190,15 @@ func (this *routeTree)AddController(p string, c IController, valid ...string) {
 	}
 
 	fixPath := strings.TrimSuffix(p, " ")
-	if err:=this.checkRouteDataKey(fixPath);err!= nil{
+	if err := this.checkRouteDataKey(fixPath); err != nil {
 		panic(err)
 	}
 	rules := this.genValidation(valid)
 
 	var paths = strings.Split(fixPath, "/")
 	var current = &(this.rootNode)
-	for i := 1; i < len(paths);i++ {
-		if i + 1 == len(paths) {
+	for i := 1; i < len(paths); i++ {
+		if i+1 == len(paths) {
 			current = current.child(paths[i], c, rules)
 		} else {
 			current = current.child(paths[i], nil, rules)
@@ -206,7 +206,7 @@ func (this *routeTree)AddController(p string, c IController, valid ...string) {
 	}
 }
 
-func (this *routeTree)checkRouteDataKey(paths string) error {
+func (this *routeTree) checkRouteDataKey(paths string) error {
 	var keys = regRouteKey.FindAllString(paths, -1)
 	if len(keys) < 1 {
 		return nil
@@ -215,7 +215,7 @@ func (this *routeTree)checkRouteDataKey(paths string) error {
 	for _, k := range keys {
 		if strings.Contains(s, k) {
 			return errors.New("Failed to add the route \"" + paths +
-			"\". The route key \"" + k + "\" must be unique.")
+				"\". The route key \"" + k + "\" must be unique.")
 		} else {
 			s = s + k
 		}
@@ -223,15 +223,15 @@ func (this *routeTree)checkRouteDataKey(paths string) error {
 	return nil
 }
 
-func (this *routeTree)genValidation(v []string) map[string]*regexp.Regexp {
+func (this *routeTree) genValidation(v []string) map[string]*regexp.Regexp {
 	var result = make(map[string]*regexp.Regexp)
-	finder,_ := regexp.Compile(`^{\w+}=`)
+	finder, _ := regexp.Compile(`^{\w+}=`)
 	for _, rule := range v {
 		keys := finder.FindAllString(rule, 1)
 		if len(keys) == 1 {
 			key := strings.TrimSuffix(keys[0], "=")
 			var reg *regexp.Regexp = nil
-			regRule := strings.TrimLeft(rule, key + "=")
+			regRule := strings.TrimLeft(rule, key+"=")
 			if regRule == "num" || regRule == "number" {
 				reg = regNumber
 			} else if regRule == "string" {
@@ -240,10 +240,10 @@ func (this *routeTree)genValidation(v []string) map[string]*regexp.Regexp {
 				if !strings.HasPrefix(regRule, "^") {
 					regRule = "^" + regRule
 				}
-				r,err := regexp.Compile(regRule)
+				r, err := regexp.Compile(regRule)
 				if err != nil {
 					msg := "Failed to analyze the route key validation rule \"" + rule + "\". \r\n" +
-					err.Error()
+						err.Error()
 					panic(errors.New(msg))
 				} else {
 					reg = r

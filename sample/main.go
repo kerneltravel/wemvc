@@ -1,7 +1,7 @@
 package main
 
 import "github.com/Simbory/wemvc"
-import _"github.com/Simbory/wemvc/sample/controllers"
+import _ "github.com/Simbory/wemvc/sample/controllers"
 
 func main() {
 	println("************************************************************")

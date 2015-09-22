@@ -11,7 +11,7 @@ var regString *regexp.Regexp
 var regRouteKey *regexp.Regexp
 
 func init() {
-	regNumber,_ = regexp.Compile(`^\d+`)
-	regString,_ = regexp.Compile(`^\w+`)
-	regRouteKey,_ = regexp.Compile(`{\w+}`)
+	regNumber, _ = regexp.Compile(`^\d+`)
+	regString, _ = regexp.Compile(`^\w+`)
+	regRouteKey, _ = regexp.Compile(`{\w+}`)
 }

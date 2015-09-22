@@ -1,13 +1,13 @@
 package wemvc
 
 import (
-	"net/http"
 	"encoding/json"
-    "encoding/xml"
+	"encoding/xml"
+	"net/http"
 )
 
 type IController interface {
-	Init(http.ResponseWriter, *http.Request,map[string]string)
+	Init(http.ResponseWriter, *http.Request, map[string]string)
 	Get() Response
 	Post() Response
 	Delete() Response
@@ -18,10 +18,10 @@ type IController interface {
 }
 
 type Controller struct {
-	Request *http.Request
-	Response http.ResponseWriter
+	Request   *http.Request
+	Response  http.ResponseWriter
 	RouteData map[string]string
-	ViewData map[string]interface{}
+	ViewData  map[string]interface{}
 }
 
 func (this *Controller) Init(w http.ResponseWriter, req *http.Request, routeData map[string]string) {
@@ -50,7 +50,7 @@ func (this *Controller) Put() Response { return nil }
 func (this *Controller) Options() Response { return nil }
 
 func (this *Controller) View(viewPath string) Response {
-	res,code := renderView(viewPath, this.ViewData)
+	res, code := renderView(viewPath, this.ViewData)
 	var resp = NewResponse()
 	resp.Write([]byte(res))
 	if code != 200 {
@@ -61,7 +61,9 @@ func (this *Controller) View(viewPath string) Response {
 
 func (this *Controller) Content(str string, ctype ...string) Response {
 	var resp = NewResponse()
-	resp.Write([]byte(str))
+	if len(str) > 0 {
+		resp.Write([]byte(str))
+	}
 	if len(ctype) > 0 && len(ctype[0]) > 0 {
 		resp.SetContentType(ctype[0])
 	} else {

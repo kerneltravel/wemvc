@@ -4,13 +4,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/Simbory/wemvc/fsnotify"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
 	"strings"
-	"github.com/Simbory/wemvc/fsnotify"
 )
 
 type Handler func(*http.Request) Response
@@ -27,14 +27,15 @@ type Application interface {
 
 type application struct {
 	errorHandlers map[int]Handler
-	port int
+	port          int
 	webRoot       string
 	config        *configuration
 	route         routeTree
-	watcher *fsnotify.Watcher
+	watcher       *fsnotify.Watcher
 	viewsWatcher  *fsnotify.Watcher
 	watchingFiles []string
 	initError     error
+	routeLocked   bool
 }
 
 func (this *application) GetWebRoot() string {
@@ -90,7 +91,10 @@ func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if result.GetStatusCode() != 200 {
 		w.WriteHeader(result.GetStatusCode())
 	}
-	w.Write(result.GetOutput())
+	var output = result.GetOutput()
+	if len(output) > 0 {
+		w.Write(result.GetOutput())
+	}
 	return
 }
 
@@ -102,10 +106,14 @@ func (this *application) AddErrorHandler(code int, handler Handler) {
 }
 
 func (this *application) AddRoute(strPth string, controller IController, v ...string) {
+	if this.routeLocked {
+		panic(errors.New("Cannot add route while the application is running."))
+	}
 	this.route.AddController(strPth, controller, v...)
 }
 
 func (this *application) Run() error {
+	this.routeLocked = true
 	port := fmt.Sprintf(":%d", this.port)
 	err := http.ListenAndServe(port, this)
 	return err
@@ -140,8 +148,10 @@ func newApp(root string, port int) (Application, error) {
 		return nil, errors.New("Path \"" + webRoot + "\" is not a directory")
 	}
 	app := &application{
-		webRoot: fixPath(webRoot),
-		port: port,
+		webRoot:     fixPath(webRoot),
+		port:        port,
+		initError:   nil,
+		routeLocked: false,
 	}
 	err := app.init()
 	return app, err
