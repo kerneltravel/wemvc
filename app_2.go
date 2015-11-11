@@ -27,7 +27,7 @@ func (this *application) init() error {
 		},
 	}
 	// build the view template
-	buildViews(this.MapPath("/views"))
+	buildViews("views")
 	// init the error handler
 	this.errorHandlers = make(map[int]Handler)
 	this.errorHandlers[404] = this.error404
@@ -50,7 +50,7 @@ func (this *application) init() error {
 		}
 	}
 
-	var viewDir = this.MapPath("/views")
+	var viewDir = "views"
 	this.watcher.Watch(viewDir)
 	filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
 		if info.IsDir() {
@@ -89,7 +89,7 @@ func (this *application) watchFile() {
 						this.watcher.Watch(strFile)
 					}
 				} else if strings.HasSuffix(strFile, ".html") {
-					buildViews(this.MapPath("/views"))
+					buildViews("views")
 				}
 			}
 		}
@@ -97,7 +97,7 @@ func (this *application) watchFile() {
 }
 
 func (this *application) isConfigFile(f string) bool {
-	if this.MapPath("/webconfig.xml") == f {
+	if this.MapPath("/web.config") == f {
 		return true
 	}
 	for _, configFile := range this.watchingFiles {
@@ -109,13 +109,13 @@ func (this *application) isConfigFile(f string) bool {
 }
 
 func (this *application) isInViewFolder(f string) bool {
-	var viewPath = this.MapPath("/views")
+	var viewPath = "views"
 	return strings.HasPrefix(f, viewPath)
 }
 
 func (this *application) loadConfig() (*configuration, []string, error) {
 	// load the config file
-	var configFile = this.MapPath("/webconfig.xml")
+	var configFile = this.MapPath("/web.config")
 	var configData = &configuration{}
 	var files []string
 	err := file2Xml(configFile, configData)

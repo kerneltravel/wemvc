@@ -18,5 +18,5 @@ func (t *Download)Get() wemvc.Response {
 }
 
 func (this *Download) Get_webconfig() wemvc.Response {
-	return this.File(wemvc.App.MapPath("/webconfig.xml"), "text/xml")
+	return this.File(wemvc.App.MapPath("/web.config"), "text/xml")
 }

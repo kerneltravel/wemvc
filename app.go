@@ -124,10 +124,9 @@ func (this *application) Run() error {
 var App Application
 
 func init() {
-	webroot := flag.String("root", "wwwroot", "the root path of the website")
 	port := flag.Int("port", 8080, "server running port")
 	flag.Parse()
-	app, err := newApp(*webroot, *port)
+	app, err := newApp("wwwroot", *port)
 	if err != nil {
 		panic(err)
 	}

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <protectionUrls>
-    <add name="ConfigFile" method="*" prefix="/webconfig.xml"/>
+    <add name="ConfigFile" method="*" prefix="/web.config"/>
     <add name="ConfigFolder" method="*" prefix="/config/"/>
-    <add name="ViewPath" method="*" prefix="/views/"/>
 </protectionUrls>
