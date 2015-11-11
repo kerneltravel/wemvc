@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"reflect"
 )
 
 type Handler func(*http.Request) Response
@@ -21,7 +22,7 @@ type Application interface {
 	GetWebRoot() string
 	GetConfig() Configuration
 	MapPath(string) string
-	AddRoute(string, IController, ...string)
+	AddRoute(string, interface{}, ...string)
 	Run() error
 }
 
@@ -105,11 +106,12 @@ func (this *application) AddErrorHandler(code int, handler Handler) {
 	this.errorHandlers[code] = handler
 }
 
-func (this *application) AddRoute(strPth string, controller IController, v ...string) {
+func (this *application) AddRoute(strPth string, c interface{}, v ...string) {
 	if this.routeLocked {
-		panic(errors.New("Cannot add route while the application is running."))
+		panic(errors.New("The controller cannot be added to this application after it is started."))
 	}
-	this.route.AddController(strPth, controller, v...)
+	var t = reflect.TypeOf(c)
+	this.route.AddController(strPth, t, v...)
 }
 
 func (this *application) Run() error {

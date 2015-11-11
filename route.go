@@ -4,13 +4,14 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"reflect"
 )
 
 type routeNode struct {
 	pathStr    string
 	routeKeys  map[string]*regexp.Regexp
 	depth      int
-	controller IController
+	ctype      reflect.Type
 
 	parent   *routeNode
 	children map[string]*routeNode
@@ -31,8 +32,8 @@ func (this *routeNode) appendChild(node *routeNode) {
 		this.children[node.pathStr] = node
 	} else {
 		// change the controller
-		if existingChild.controller == nil && node.controller != nil {
-			existingChild.controller = node.controller
+		if existingChild.ctype == nil && node.ctype != nil {
+			existingChild.ctype = node.ctype
 		}
 		// combine the child tree
 		if node.children != nil {
@@ -55,14 +56,14 @@ func (this *routeNode) pathNameValid(p string) bool {
 	return regex.MatchString(p)
 }
 
-func (this *routeNode) child(pathStr string, controller IController, rules map[string]*regexp.Regexp) *routeNode {
+func (this *routeNode) child(pathStr string, ctype reflect.Type, rules map[string]*regexp.Regexp) *routeNode {
 	//println("add child to", this.pathStr + "[" + strconv.Itoa(this.depth) + "]:", pathStr)
 	var p = strings.Trim(pathStr, " ")
 
 	var node = &routeNode{
 		pathStr:    p,
 		depth:      this.depth + 1,
-		controller: controller,
+		ctype:      ctype,
 		parent:     this,
 		children:   nil,
 		routeKeys:  nil,
@@ -88,11 +89,11 @@ func (this *routeNode) child(pathStr string, controller IController, rules map[s
 	return this.children[pathStr]
 }
 
-func (this *routeNode) matchPath(pathUrl string) (bool, IController, map[string]string) {
+func (this *routeNode) matchPath(pathUrl string) (bool, reflect.Type, map[string]string) {
 	routeData := make(map[string]string)
 	if this.routeKeys == nil {
 		if this.pathStr == pathUrl {
-			return true, this.controller, routeData
+			return true, this.ctype, routeData
 		} else {
 			return false, nil, nil
 		}
@@ -100,7 +101,7 @@ func (this *routeNode) matchPath(pathUrl string) (bool, IController, map[string]
 	i, j := 0, 0 // i: the index of the this.pathStr j: the index of pathUrl
 	for {
 		if i == len(this.pathStr) && j == len(pathUrl) {
-			return true, this.controller, routeData
+			return true, this.ctype, routeData
 		}
 		if i == len(this.pathStr) || j == len(pathUrl) {
 			return false, nil, nil
@@ -142,7 +143,7 @@ func (this *routeNode) matchPath(pathUrl string) (bool, IController, map[string]
 	return false, nil, nil
 }
 
-func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string) (bool, IController) {
+func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string) (bool, reflect.Type) {
 	if this.depth > len(pathUrls) {
 		return false, nil
 	}
@@ -175,18 +176,18 @@ type routeTree struct {
 	rootNode routeNode // the depth of the root node is 1
 }
 
-func (this *routeTree) AddController(p string, c IController, valid ...string) {
+func (this *routeTree) AddController(p string, c reflect.Type, valid ...string) {
 	if p == "/" {
-		this.rootNode.controller = c
+		this.rootNode.ctype = c
 		return
 	}
 
 	if !strings.HasPrefix(p, "/") {
-		panic(errors.New("the route path should have prefix '/'"))
+		panic(errors.New("the route path should has prefix '/'."))
 	}
 
 	if strings.HasSuffix(p, "/") {
-		panic(errors.New("the route path should not have suffix '/'"))
+		panic(errors.New("the route path should not has suffix '/'."))
 	}
 
 	fixPath := strings.TrimSuffix(p, " ")
@@ -242,8 +243,7 @@ func (this *routeTree) genValidation(v []string) map[string]*regexp.Regexp {
 				}
 				r, err := regexp.Compile(regRule)
 				if err != nil {
-					msg := "Failed to analyze the route key validation rule \"" + rule + "\". \r\n" +
-						err.Error()
+					msg := "Failed to analyze the route key validation rule \"" + rule + "\". \r\n" + err.Error()
 					panic(errors.New(msg))
 				} else {
 					reg = r

@@ -210,51 +210,42 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 	var routeData = make(map[string]string)
 	res, c := this.route.rootNode.matchDepth(pathUrls, routeData)
 	if res && c != nil {
-		c.Init(w, req, routeData)
+		var ctrl = reflect.New(c)
+		var initMethod = ctrl.MethodByName("Init")
+		// call init method
+		initMethod.Call([]reflect.Value{
+			reflect.ValueOf(w),
+			reflect.ValueOf(req),
+			reflect.ValueOf(routeData),
+		})
+
 		var action = routeData["{action}"]
+
 		if len(action) < 1 {
-			if GET.Equal(req.Method) {
-				resp = c.Get()
-			} else if POST.Equal(req.Method) {
-				resp = c.Post()
-			} else if DELETE.Equal(req.Method) {
-				resp = c.Delete()
-			} else if HEAD.Equal(req.Method) {
-				resp = c.Head()
-			} else if TRACE.Equal(req.Method) {
-				resp = c.Trace()
-			} else if PUT.Equal(req.Method) {
-				resp = c.Put()
-			} else if OPTIONS.Equal(req.Method) {
-				resp = c.Options()
-			}
+			action = titleCase(req.Method);
 		} else {
-			resp = this.executeAction(c, req.Method, action)
+			action = titleCase(req.Method) + "_" + action
 		}
+		resp = this.executeAction(ctrl, action)
 		if resp == nil {
 			resp = this.showError(req, 404)
 		}
 	}
-	//panic(errors.New("test"))
-	//panic(&redirect{location: "http://www.baidu.com/index.html"})
 	return resp
 }
 
-func (this *application) executeAction(ctrl IController, method string, action string) Response {
-	if ctrl == nil {
-		return nil
-	}
-	funcName := strings.ToUpper(string(method[0:1])) + strings.ToLower(string(method[1:])) + action
-	c := reflect.ValueOf(ctrl)
-	m := c.MethodByName(funcName)
+func (this *application) executeAction(v reflect.Value, action string) Response {
+	m := v.MethodByName(action)
 	if !m.IsValid() {
 		return nil
 	}
 	values := m.Call(nil)
 	if len(values) == 1 {
-		value, err := values[0].Interface().(Response)
-		if err {
-			panic(errors.New("Invalid return type of method " + funcName + "\r\nIn controller" + reflect.TypeOf(ctrl).Name()))
+		value, valid := values[0].Interface().(Response)
+		if !valid {
+			panic(errors.New("Invalid return type of method " +
+				  action + " in controller " + v.Type().Name() + "\r\n " +
+			      values[0].Type().Name()))
 		} else {
 			return value
 		}
