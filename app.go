@@ -22,7 +22,7 @@ type Application interface {
 	GetWebRoot() string
 	GetConfig() Configuration
 	MapPath(string) string
-	AddRoute(string, interface{}, ...string)
+	Route(string, interface{}, ...string)
 	Run() error
 }
 
@@ -87,8 +87,8 @@ func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		//fmt.Println("Key: ", k, " Value: ", v)
 		w.Header().Add(k, v)
 	}
-	var ctype = fmt.Sprintf("%s;charset=%s", result.GetContentType(), result.GetEncoding())
-	w.Header().Add("Content-Type", ctype)
+	var contentType = fmt.Sprintf("%s;charset=%s", result.GetContentType(), result.GetEncoding())
+	w.Header().Add("Content-Type", contentType)
 	if result.GetStatusCode() != 200 {
 		w.WriteHeader(result.GetStatusCode())
 	}
@@ -106,7 +106,7 @@ func (this *application) AddErrorHandler(code int, handler Handler) {
 	this.errorHandlers[code] = handler
 }
 
-func (this *application) AddRoute(strPth string, c interface{}, v ...string) {
+func (this *application) Route(strPth string, c interface{}, v ...string) {
 	if this.routeLocked {
 		panic(errors.New("The controller cannot be added to this application after it is started."))
 	}

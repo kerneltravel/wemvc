@@ -148,7 +148,7 @@ func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string
 		return false, nil
 	}
 	var curPath = pathUrls[this.depth-1]
-	match, contr, r := this.matchPath(curPath)
+	match, controllerType, r := this.matchPath(curPath)
 	if !match {
 		return false, nil
 	} else {
@@ -160,7 +160,7 @@ func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string
 		}
 	}
 	if len(pathUrls) == this.depth {
-		return true, contr
+		return true, controllerType
 	} else if len(pathUrls) > this.depth && this.children != nil {
 		for _, child := range this.children {
 			b, c := child.matchDepth(pathUrls, routeData)
