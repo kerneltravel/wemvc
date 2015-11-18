@@ -66,7 +66,7 @@ func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(this.initError.Error()))
 		return
 	}
-	defer this.panicRecover(w)
+	defer this.panicRecover(w, req)
 
 	// serve the dynamic page
 	var result Response

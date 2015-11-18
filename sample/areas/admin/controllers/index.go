@@ -2,7 +2,7 @@ package controllers
 import "github.com/Simbory/wemvc"
 
 type Index struct {
-	wemvc.Controller
+	AdminController
 }
 
 func (this *Index)Get() wemvc.Response {

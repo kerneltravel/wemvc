@@ -1,5 +1,8 @@
 package controllers
-import "github.com/Simbory/wemvc"
+import (
+	"github.com/Simbory/wemvc"
+	"net/http"
+)
 
 type Login struct {
 	wemvc.Controller
@@ -10,14 +13,22 @@ func (this *Login)Get() wemvc.Response {
 }
 
 func (this *Login)Post() wemvc.Response {
-	this.Request.ParseForm()
-	var email = this.Request.Form.Get("email")
-	var pwd = this.Request.Form.Get("password")
+	var email = this.Request().Form.Get("email")
+	var pwd = this.Request().Form.Get("password")
 	if email == "simbory@sina.cn" && pwd == "123456" {
-		var returnUrl = this.Request.URL.Query().Get("returnUrl")
+		var returnUrl = this.Request().URL.Query().Get("returnUrl")
 		if len(returnUrl) < 1 {
 			returnUrl = "/admin"
 		}
+		var cookie = &http.Cookie{
+			Name: "ADMIN_AUTH",
+			Value: email,
+			Path: "/",
+			HttpOnly:false,
+			Secure: false,
+			Domain: this.Request().URL.Host,
+		}
+		http.SetCookie(this.Response(), cookie)
 		return this.Redirect(returnUrl)
 	}
 	this.ViewData["email"] = email

@@ -7,47 +7,42 @@ import (
 )
 
 type IController interface {
-	Init(http.ResponseWriter, *http.Request, map[string]string)
-	Get() Response
-	Post() Response
-	Delete() Response
-	Head() Response
-	Trace() Response
-	Put() Response
-	Options() Response
+	Request() *http.Request
+	Response() http.ResponseWriter
+	Context() Context
+	RouteData() map[string]string
+	OnInit(ctx *context)
+	OnLoad()
 }
 
 type Controller struct {
-	Request   *http.Request
-	Response  http.ResponseWriter
-	RouteData map[string]string
+	ctx *context
 	ViewData  map[string]interface{}
 }
 
-func (this *Controller) Init(w http.ResponseWriter, req *http.Request, routeData map[string]string) {
-	this.Request = req
-	this.Response = w
-	if routeData != nil {
-		this.RouteData = routeData
-	} else {
-		this.RouteData = make(map[string]string)
-	}
+func (this *Controller) Request() *http.Request{
+	return this.ctx.Request()
+}
+
+func (this *Controller) Response() http.ResponseWriter {
+	return this.ctx.Response()
+}
+
+func (this *Controller) RouteData() map[string]string {
+	return this.ctx.RouteData()
+}
+
+func (this *Controller) Context() Context {
+	return this.ctx
+}
+
+func (this *Controller) OnInit(ctx *context) {
+	this.ctx = ctx
 	this.ViewData = make(map[string]interface{})
 }
 
-func (this *Controller) Get() Response { return nil }
-
-func (this *Controller) Post() Response { return nil }
-
-func (this *Controller) Delete() Response { return nil }
-
-func (this *Controller) Head() Response { return nil }
-
-func (this *Controller) Trace() Response { return nil }
-
-func (this *Controller) Put() Response { return nil }
-
-func (this *Controller) Options() Response { return nil }
+func (this *Controller) OnLoad() {
+}
 
 func (this *Controller) View(viewPath string) Response {
 	res, code := renderView(viewPath, this.ViewData)
@@ -95,21 +90,20 @@ func (this *Controller) Xml(obj interface{}) Response {
 }
 
 func (this *Controller) File(path string, ctype string) Response {
-	http.ServeFile(this.Response, this.Request, path)
+	http.ServeFile(this.Response(), this.Request(), path)
 	return this.Content("", ctype)
 }
 
 func (this *Controller) Redirect(url string, statusCode ...int) Response {
-	var resp = NewResponse()
 	var code = 302
 	if len(statusCode) > 0 && statusCode[0] == 301 {
 		code = 301
 	}
-	resp.SetStatusCode(code)
-	resp.SetHeader("Location", url)
-	return resp
+	var red = &redirect{location: url, statusCode: code}
+	panic(red)
+	return NewResponse()
 }
 
 func (this *Controller) NotFound() Response {
-	return App.(*application).showError(this.Request, 404)
+	return App.(*application).showError(this.Request(), 404)
 }

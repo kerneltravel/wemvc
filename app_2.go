@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"strconv"
 )
 
 func (this *application) init() error {
@@ -27,7 +28,7 @@ func (this *application) init() error {
 		},
 	}
 	// build the view template
-	buildViews("views")
+	buildViews(this.viewFolder())
 	// init the error handler
 	this.errorHandlers = make(map[int]Handler)
 	this.errorHandlers[404] = this.error404
@@ -50,7 +51,7 @@ func (this *application) init() error {
 		}
 	}
 
-	var viewDir = "views"
+	var viewDir = this.viewFolder()
 	this.watcher.Watch(viewDir)
 	filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
 		if info.IsDir() {
@@ -89,7 +90,7 @@ func (this *application) watchFile() {
 						this.watcher.Watch(strFile)
 					}
 				} else if strings.HasSuffix(strFile, ".html") {
-					buildViews("views")
+					buildViews(this.viewFolder())
 				}
 			}
 		}
@@ -109,7 +110,7 @@ func (this *application) isConfigFile(f string) bool {
 }
 
 func (this *application) isInViewFolder(f string) bool {
-	var viewPath = "views"
+	var viewPath = this.viewFolder()
 	return strings.HasPrefix(f, viewPath)
 }
 
@@ -211,22 +212,46 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 	res, c := this.route.rootNode.matchDepth(pathUrls, routeData)
 	if res && c != nil {
 		var ctrl = reflect.New(c)
-		var initMethod = ctrl.MethodByName("Init")
-		// call init method
-		initMethod.Call([]reflect.Value{
-			reflect.ValueOf(w),
-			reflect.ValueOf(req),
-			reflect.ValueOf(routeData),
-		})
-
-		var action = routeData["{action}"]
-
-		if len(action) < 1 {
-			action = titleCase(req.Method);
-		} else {
-			action = titleCase(req.Method) + "_" + action
+		var initMethod = ctrl.MethodByName("OnInit")
+		var ctx = &context{
+			w: w,
+			req: req,
+			routeData: routeData,
 		}
-		resp = this.executeAction(ctrl, action)
+		// call OnInit method
+		initMethod.Call([]reflect.Value{
+			reflect.ValueOf(ctx),
+		})
+		//parse form
+		if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
+			if req.MultipartForm != nil {
+				var size int64 = 0
+				var maxSize = App.GetConfig().GetSetting("MaxFormSize")
+				if len(maxSize) < 1 {
+					size = 10485760
+				} else {
+					size,_ = strconv.ParseInt(maxSize, 10, 64)
+				}
+				req.ParseMultipartForm(size)
+			} else {
+				req.ParseForm()
+			}
+		}
+		// call OnLoad method
+		ctrl.MethodByName("OnLoad").Call(nil)
+		// find action method
+		var actionMethod reflect.Value
+		var action = routeData["{action}"]
+		if len(action) < 1 {
+			actionMethod = ctrl.MethodByName(titleCase(req.Method))
+		} else {
+			actionMethod = ctrl.MethodByName(titleCase(req.Method) + "_" + action)
+			if actionMethod.IsNil() || !actionMethod.IsValid() {
+				actionMethod = ctrl.MethodByName(action)
+			}
+		}
+
+		resp = this.executeAction(actionMethod, action)
 		if resp == nil {
 			resp = this.showError(req, 404)
 		}
@@ -234,8 +259,7 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 	return resp
 }
 
-func (this *application) executeAction(v reflect.Value, action string) Response {
-	m := v.MethodByName(action)
+func (this *application) executeAction(m reflect.Value, action string) Response {
 	if !m.IsValid() {
 		return nil
 	}
@@ -243,9 +267,7 @@ func (this *application) executeAction(v reflect.Value, action string) Response 
 	if len(values) == 1 {
 		value, valid := values[0].Interface().(Response)
 		if !valid {
-			panic(errors.New("Invalid return type of method " +
-				  action + " in controller " + v.Type().Name() + "\r\n " +
-			      values[0].Type().Name()))
+			panic(errors.New("Invalid return type"))
 		} else {
 			return value
 		}
@@ -299,15 +321,17 @@ func (this *application) urlProtected(url string) bool {
 	return false
 }
 
-func (this *application) panicRecover(res http.ResponseWriter) {
+func (this *application) viewFolder() string {
+	return this.MapPath("/views")
+}
+
+func (this *application) panicRecover(res http.ResponseWriter, req *http.Request) {
 	rec := recover()
 	if rec == nil {
 		return
 	}
-
 	if re, ok := rec.(*redirect); ok {
-		res.WriteHeader(302)
-		res.Header().Set("Location", re.location)
+		http.Redirect(res, req, re.location, re.statusCode)
 	} else {
 		res.WriteHeader(500)
 		if err, ok := rec.(error); ok {
