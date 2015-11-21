@@ -6,8 +6,8 @@ type AdminController struct {
 }
 
 func (this AdminController)OnLoad() {
-	loginCookie,err := this.Request().Cookie("ADMIN_AUTH")
+	loginCookie,err := this.Request.Cookie("ADMIN_AUTH")
 	if err != nil || len(loginCookie.Value) < 1 {
-		this.Redirect("/admin/login?returnUrl=" + this.Request().URL.String())
+		this.Redirect("/admin/login?returnUrl=" + this.Request.URL.String())
 	}
 }

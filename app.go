@@ -66,7 +66,7 @@ func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(this.initError.Error()))
 		return
 	}
-	defer this.panicRecover(w, req)
+	//defer this.panicRecover(w, req)
 
 	// serve the dynamic page
 	var result Response
@@ -82,21 +82,31 @@ func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if result == nil {
 		result = this.showError(req, 404)
 	}
-	// write the result to browser
-	for k, v := range result.GetHeaders() {
-		//fmt.Println("Key: ", k, " Value: ", v)
-		w.Header().Add(k, v)
+	res, ok := result.(*response)
+	if ok {
+		if len(res.resFile) > 0 {
+			http.ServeFile(w, req, res.resFile)
+			return
+		}
+		if len(res.redUrl) > 0 {
+			http.Redirect(w, req, res.redUrl, res.statusCode)
+			return
+		}
+		// write the result to browser
+		for k, v := range result.GetHeaders() {
+			//fmt.Println("Key: ", k, " Value: ", v)
+			w.Header().Add(k, v)
+		}
+		var contentType = fmt.Sprintf("%s;charset=%s", result.GetContentType(), result.GetEncoding())
+		w.Header().Add("Content-Type", contentType)
+		if result.GetStatusCode() != 200 {
+			w.WriteHeader(result.GetStatusCode())
+		}
+		var output = result.GetOutput()
+		if len(output) > 0 {
+			w.Write(result.GetOutput())
+		}
 	}
-	var contentType = fmt.Sprintf("%s;charset=%s", result.GetContentType(), result.GetEncoding())
-	w.Header().Add("Content-Type", contentType)
-	if result.GetStatusCode() != 200 {
-		w.WriteHeader(result.GetStatusCode())
-	}
-	var output = result.GetOutput()
-	if len(output) > 0 {
-		w.Write(result.GetOutput())
-	}
-	return
 }
 
 func (this *application) AddErrorHandler(code int, handler Handler) {

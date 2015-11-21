@@ -195,7 +195,7 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 	var path = req.URL.Path
 	var resp Response = nil
 	cInfo, routeData, match := this.router.Lookup(req.Method, path)
-	if !match {
+	if !match && cInfo != nil {
 		var action = routeData.ByName("action")
 		if len(action) < 1 {
 			action = strings.ToLower(req.Method)

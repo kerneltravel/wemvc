@@ -12,6 +12,9 @@ type controllerInfo struct {
 }
 
 func (this *controllerInfo) containsAction(action string) bool {
+	if this == nil || this.actions == nil {
+		return false
+	}
 	for k, _ := range this.actions {
 		if k == action {
 			return true

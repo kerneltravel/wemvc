@@ -6,7 +6,7 @@ type Download struct {
 }
 
 func (t Download)Get() wemvc.Response {
-	var file = t.Request().URL.Query().Get("file")
+	var file = t.Request.URL.Query().Get("file")
 	if len(file) < 1 {
 		return t.NotFound()
 	}

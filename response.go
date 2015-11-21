@@ -28,6 +28,8 @@ type Response interface {
 }
 
 type response struct {
+	resFile     string
+	redUrl      string
 	statusCode  int
 	contentType string
 	encoding    string

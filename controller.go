@@ -7,37 +7,22 @@ import (
 )
 
 type IController interface {
-	Request() *http.Request
-	Response() http.ResponseWriter
-	Context() Context
-	RouteData() map[string]string
 	OnInit(ctx *context)
 	OnLoad()
 }
 
 type Controller struct {
-	ctx      *context
-	ViewData map[string]interface{}
-}
-
-func (this *Controller) Request() *http.Request {
-	return this.ctx.Request()
-}
-
-func (this *Controller) Response() http.ResponseWriter {
-	return this.ctx.Response()
-}
-
-func (this *Controller) RouteData() RouteData {
-	return this.ctx.RouteData()
-}
-
-func (this *Controller) Context() Context {
-	return this.ctx
+	Request    *http.Request
+	Response   http.ResponseWriter
+	RouteData  RouteData
+	actionName string
+	ViewData   map[string]interface{}
 }
 
 func (this *Controller) OnInit(ctx *context) {
-	this.ctx = ctx
+	this.Request = ctx.req
+	this.Response = ctx.w
+	this.RouteData = ctx.routeData
 	this.ViewData = make(map[string]interface{})
 }
 
@@ -90,8 +75,12 @@ func (this *Controller) Xml(obj interface{}) Response {
 }
 
 func (this *Controller) File(path string, ctype string) Response {
-	http.ServeFile(this.Response(), this.Request(), path)
-	return this.Content("", ctype)
+	var resp = &response{
+		statusCode:  200,
+		resFile: path,
+		contentType: ctype,
+	}
+	return resp
 }
 
 func (this *Controller) Redirect(url string, statusCode ...int) Response {
@@ -99,11 +88,13 @@ func (this *Controller) Redirect(url string, statusCode ...int) Response {
 	if len(statusCode) > 0 && statusCode[0] == 301 {
 		code = 301
 	}
-	var red = &redirect{location: url, statusCode: code}
-	panic(red)
-	return NewResponse()
+	var resp = &response{
+		statusCode: code,
+		redUrl: url,
+	}
+	return resp
 }
 
 func (this *Controller) NotFound() Response {
-	return App.(*application).showError(this.Request(), 404)
+	return App.(*application).showError(this.Request, 404)
 }
