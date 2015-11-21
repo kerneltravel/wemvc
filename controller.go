@@ -15,6 +15,7 @@ type Controller struct {
 	Request    *http.Request
 	Response   http.ResponseWriter
 	RouteData  RouteData
+	controller string
 	actionName string
 	ViewData   map[string]interface{}
 }
@@ -23,14 +24,30 @@ func (this *Controller) OnInit(ctx *context) {
 	this.Request = ctx.req
 	this.Response = ctx.w
 	this.RouteData = ctx.routeData
+	if len(ctx.actionName) < 1 {
+		this.actionName = "index"
+	} else {
+		this.actionName = ctx.actionName
+	}
+	this.controller = ctx.controller
 	this.ViewData = make(map[string]interface{})
 }
 
 func (this *Controller) OnLoad() {
 }
 
-func (this *Controller) View(viewPath string) Response {
+func (this *Controller) ViewFile(viewPath string) Response {
 	res, code := renderView(viewPath, this.ViewData)
+	var resp = NewResponse()
+	resp.Write([]byte(res))
+	if code != 200 {
+		resp.SetStatusCode(code)
+	}
+	return resp
+}
+
+func (this *Controller) View() Response {
+	res, code := renderView(this.controller + "/" + this.actionName, this.ViewData)
 	var resp = NewResponse()
 	resp.Write([]byte(res))
 	if code != 200 {

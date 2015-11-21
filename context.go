@@ -12,9 +12,11 @@ type Context interface {
 }
 
 type context struct {
-	w         http.ResponseWriter
-	req       *http.Request
-	routeData RouteData
+	w          http.ResponseWriter
+	req        *http.Request
+	routeData  RouteData
+	actionName string
+	controller string
 }
 
 func (this *context) Response() http.ResponseWriter {

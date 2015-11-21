@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"regexp"
 )
 
 func (this *application) init() error {
@@ -213,10 +214,17 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 func (this *application) execute(w http.ResponseWriter, req *http.Request, t reflect.Type, action string, routeData RouteData) Response {
 	var ctrl = reflect.New(t)
 	var initMethod = ctrl.MethodByName("OnInit")
-	var ctx = &context{
-		w:         w,
-		req:       req,
-		routeData: routeData,
+	cName := strings.ToLower(t.String())
+	cName = strings.Split(cName, ".")[1]
+	cName = strings.Replace(cName, "controller", "", -1)
+	reg,_ := regexp.Compile("^" + strings.ToLower(req.Method))
+	cAction := reg.ReplaceAllString(strings.ToLower(action), "")
+	var ctx = &context {
+		w:          w,
+		req:        req,
+		routeData:  routeData,
+		actionName: cAction,
+		controller: cName,
 	}
 	// call OnInit method
 	initMethod.Call([]reflect.Value{

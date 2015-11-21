@@ -9,7 +9,7 @@ type Login struct {
 }
 
 func (this Login) Get() wemvc.Response {
-	return this.View("admin/login/index")
+	return this.ViewFile("admin/login/index")
 }
 
 func (this Login) Post() wemvc.Response {
@@ -33,5 +33,5 @@ func (this Login) Post() wemvc.Response {
 	}
 	this.ViewData["email"] = email
 	this.ViewData["error"] = "invalid email or password"
-	return this.View("admin/login/index")
+	return this.ViewFile("admin/login/index")
 }

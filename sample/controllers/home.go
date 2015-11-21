@@ -14,5 +14,5 @@ func (this Home)Get() wemvc.Response {
 	this.name = "simbory"
 	this.ViewData["msg"] = wemvc.App.GetConfig().GetSetting("isDebug")
 	this.ViewData["wwwroot"] = wemvc.App.GetWebRoot()
-	return this.View("home")
+	return this.View()
 }
