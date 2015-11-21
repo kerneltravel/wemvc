@@ -16,11 +16,11 @@ type IController interface {
 }
 
 type Controller struct {
-	ctx *context
-	ViewData  map[string]interface{}
+	ctx      *context
+	ViewData map[string]interface{}
 }
 
-func (this *Controller) Request() *http.Request{
+func (this *Controller) Request() *http.Request {
 	return this.ctx.Request()
 }
 

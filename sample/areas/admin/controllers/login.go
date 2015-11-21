@@ -8,11 +8,15 @@ type Login struct {
 	wemvc.Controller
 }
 
-func (this *Login)Get() wemvc.Response {
+func (this Login) GetLogin() wemvc.Response {
 	return this.View("admin/login/index")
 }
 
-func (this *Login)Post() wemvc.Response {
+func (this Login) GetTest() wemvc.Response {
+	return this.Content("test test")
+}
+
+func (this Login) PostLogin() wemvc.Response {
 	var email = this.Request().Form.Get("email")
 	var pwd = this.Request().Form.Get("password")
 	if email == "simbory@sina.cn" && pwd == "123456" {

@@ -4,26 +4,24 @@ import (
 	"errors"
 	"regexp"
 	"strings"
-	"reflect"
 )
 
 type routeNode struct {
-	pathStr    string
-	routeKeys  map[string]*regexp.Regexp
-	depth      int
-	ctype      reflect.Type
-
-	parent   *routeNode
-	children map[string]*routeNode
+	pathStr   string
+	routeKeys map[string]*regexp.Regexp
+	depth     int
+	cInfo     *controllerInfo
+	parent    *routeNode
+	children  map[string]*routeNode
 }
 
+// append child of the route tree
 func (this *routeNode) appendChild(node *routeNode) {
 	if node == nil || !this.pathNameValid(node.pathStr) {
 		return
 	}
 	node.depth = this.depth + 1
 	node.parent = this
-
 	if this.children == nil {
 		this.children = make(map[string]*routeNode)
 	}
@@ -32,8 +30,8 @@ func (this *routeNode) appendChild(node *routeNode) {
 		this.children[node.pathStr] = node
 	} else {
 		// change the controller
-		if existingChild.ctype == nil && node.ctype != nil {
-			existingChild.ctype = node.ctype
+		if existingChild.cInfo == nil && node.cInfo != nil {
+			existingChild.cInfo = node.cInfo
 		}
 		// combine the child tree
 		if node.children != nil {
@@ -56,17 +54,17 @@ func (this *routeNode) pathNameValid(p string) bool {
 	return regex.MatchString(p)
 }
 
-func (this *routeNode) child(pathStr string, ctype reflect.Type, rules map[string]*regexp.Regexp) *routeNode {
-	//println("add child to", this.pathStr + "[" + strconv.Itoa(this.depth) + "]:", pathStr)
+// build child of the route tree
+func (this *routeNode) buildChild(pathStr string, cInfo *controllerInfo, rules map[string]*regexp.Regexp) *routeNode {
 	var p = strings.Trim(pathStr, " ")
 
 	var node = &routeNode{
-		pathStr:    p,
-		depth:      this.depth + 1,
-		ctype:      ctype,
-		parent:     this,
-		children:   nil,
-		routeKeys:  nil,
+		pathStr:   p,
+		depth:     this.depth + 1,
+		cInfo:     cInfo,
+		parent:    this,
+		children:  nil,
+		routeKeys: nil,
 	}
 
 	var keys = regRouteKey.FindAllString(pathStr, -1)
@@ -89,11 +87,11 @@ func (this *routeNode) child(pathStr string, ctype reflect.Type, rules map[strin
 	return this.children[pathStr]
 }
 
-func (this *routeNode) matchPath(pathUrl string) (bool, reflect.Type, map[string]string) {
+func (this *routeNode) matchPath(pathUrl string) (bool, *controllerInfo, map[string]string) {
 	routeData := make(map[string]string)
 	if this.routeKeys == nil {
 		if this.pathStr == pathUrl {
-			return true, this.ctype, routeData
+			return true, this.cInfo, routeData
 		} else {
 			return false, nil, nil
 		}
@@ -101,7 +99,7 @@ func (this *routeNode) matchPath(pathUrl string) (bool, reflect.Type, map[string
 	i, j := 0, 0 // i: the index of the this.pathStr j: the index of pathUrl
 	for {
 		if i == len(this.pathStr) && j == len(pathUrl) {
-			return true, this.ctype, routeData
+			return true, this.cInfo, routeData
 		}
 		if i == len(this.pathStr) || j == len(pathUrl) {
 			return false, nil, nil
@@ -139,46 +137,59 @@ func (this *routeNode) matchPath(pathUrl string) (bool, reflect.Type, map[string
 			j = j + 1
 		}
 	}
-
 	return false, nil, nil
 }
 
-func (this *routeNode) matchDepth(pathUrls []string, routeData map[string]string) (bool, reflect.Type) {
+func (this *routeNode) matchDepth(method string, pathUrls []string, routeData map[string]string) (match bool, cType *controllerInfo, action string) {
+	match = false
+	cType = nil
+	action = ""
 	if this.depth > len(pathUrls) {
-		return false, nil
+		return false, nil, ""
 	}
 	var curPath = pathUrls[this.depth-1]
-	match, controllerType, r := this.matchPath(curPath)
+	match, cType, r := this.matchPath(curPath)
 	if !match {
-		return false, nil
+		return
 	} else {
 		if routeData == nil {
 			routeData = make(map[string]string)
 		}
 		for key, value := range r {
+			if key == "{action}" {
+				action = strings.ToLower(method + value)
+			}
 			routeData[key] = value
 		}
 	}
 	if len(pathUrls) == this.depth {
-		return true, controllerType
+		if len(action) < 1 {
+			action = strings.ToLower(method)
+		}
+		match = cType.containsAction(action)
+		return
 	} else if len(pathUrls) > this.depth && this.children != nil {
 		for _, child := range this.children {
-			b, c := child.matchDepth(pathUrls, routeData)
-			if b {
-				return true, c
+			match, cType, action = child.matchDepth(method, pathUrls, routeData)
+			if match {
+				if len(action) < 1 {
+					action = strings.ToLower(action)
+				}
+				match = cType.containsAction(action)
+				return
 			}
 		}
 	}
-	return false, nil
+	return
 }
 
 type routeTree struct {
 	rootNode routeNode // the depth of the root node is 1
 }
 
-func (this *routeTree) AddController(p string, c reflect.Type, valid ...string) {
+func (this *routeTree) AddController(p string, cInfo *controllerInfo, valid ...string) {
 	if p == "/" {
-		this.rootNode.ctype = c
+		this.rootNode.cInfo = cInfo
 		return
 	}
 
@@ -200,9 +211,9 @@ func (this *routeTree) AddController(p string, c reflect.Type, valid ...string) 
 	var current = &(this.rootNode)
 	for i := 1; i < len(paths); i++ {
 		if i+1 == len(paths) {
-			current = current.child(paths[i], c, rules)
+			current = current.buildChild(paths[i], cInfo, rules)
 		} else {
-			current = current.child(paths[i], nil, rules)
+			current = current.buildChild(paths[i], nil, rules)
 		}
 	}
 }

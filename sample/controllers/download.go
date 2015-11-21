@@ -5,7 +5,7 @@ type Download struct {
 	wemvc.Controller
 }
 
-func (t *Download)Get() wemvc.Response {
+func (t Download)Get() wemvc.Response {
 	var file = t.Request().URL.Query().Get("file")
 	if len(file) < 1 {
 		return t.NotFound()
@@ -17,6 +17,6 @@ func (t *Download)Get() wemvc.Response {
 	return t.File(file, "text/xml")
 }
 
-func (this *Download) Get_webconfig() wemvc.Response {
+func (this Download) GetWebconfig() wemvc.Response {
 	return this.File(wemvc.App.MapPath("/web.config"), "text/xml")
 }

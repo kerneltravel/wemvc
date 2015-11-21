@@ -7,7 +7,7 @@ type Home struct {
 	name string
 }
 
-func (this *Home)Get() wemvc.Response {
+func (this Home)Get() wemvc.Response {
 	if (this.name == "simbory") {
 		panic("found framework bug")
 	}

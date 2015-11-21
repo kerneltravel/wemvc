@@ -1,8 +1,8 @@
 package wemvc
 
 import (
-	"net/http"
 	"errors"
+	"net/http"
 )
 
 type Context interface {
@@ -12,8 +12,8 @@ type Context interface {
 }
 
 type context struct {
-	w http.ResponseWriter
-	req *http.Request
+	w         http.ResponseWriter
+	req       *http.Request
 	routeData map[string]string
 }
 
@@ -24,7 +24,7 @@ func (this *context) Response() http.ResponseWriter {
 	return this.w
 }
 
-func (this *context) Request() *http.Request{
+func (this *context) Request() *http.Request {
 	if this.req == nil {
 		panic(errors.New("http request cannot be empty"))
 	}
@@ -32,7 +32,7 @@ func (this *context) Request() *http.Request{
 }
 
 func (this *context) RouteData() map[string]string {
-	if (this.routeData == nil){
+	if this.routeData == nil {
 		this.routeData = make(map[string]string)
 	}
 	return this.routeData

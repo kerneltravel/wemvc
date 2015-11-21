@@ -1,6 +1,6 @@
 package wemvc
 
 type redirect struct {
-	location string
+	location   string
 	statusCode int
 }

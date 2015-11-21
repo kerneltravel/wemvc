@@ -5,6 +5,6 @@ type Index struct {
 	AdminController
 }
 
-func (this *Index)Get() wemvc.Response {
+func (this Index)Get() wemvc.Response {
 	return this.Content("Hello, admin!")
 }

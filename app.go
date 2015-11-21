@@ -10,8 +10,8 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
 	"reflect"
+	"strings"
 )
 
 type Handler func(*http.Request) Response
@@ -111,7 +111,8 @@ func (this *application) Route(strPth string, c interface{}, v ...string) {
 		panic(errors.New("The controller cannot be added to this application after it is started."))
 	}
 	var t = reflect.TypeOf(c)
-	this.route.AddController(strPth, t, v...)
+	cInfo := createControllerInfo(t)
+	this.route.AddController(strPth, cInfo, v...)
 }
 
 func (this *application) Run() error {

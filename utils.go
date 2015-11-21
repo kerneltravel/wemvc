@@ -47,7 +47,7 @@ func IsFile(fpath string) bool {
 }
 
 func titleCase(src string) string {
-	if (len(src) <= 1){
+	if len(src) <= 1 {
 		return src
 	}
 	return strings.ToUpper(string(src[0:1])) + strings.ToLower(string(src[1:]))

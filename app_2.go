@@ -8,8 +8,8 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 func (this *application) init() error {
@@ -209,13 +209,14 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 	}
 	var resp Response = nil
 	var routeData = make(map[string]string)
-	res, c := this.route.rootNode.matchDepth(pathUrls, routeData)
-	if res && c != nil {
-		var ctrl = reflect.New(c)
+	res, cInfo, action := this.route.rootNode.matchDepth(req.Method, pathUrls, routeData)
+	if res && cInfo != nil {
+		action = cInfo.actions[action]
+		var ctrl = reflect.New(cInfo.controllerType)
 		var initMethod = ctrl.MethodByName("OnInit")
 		var ctx = &context{
-			w: w,
-			req: req,
+			w:         w,
+			req:       req,
 			routeData: routeData,
 		}
 		// call OnInit method
@@ -230,7 +231,7 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 				if len(maxSize) < 1 {
 					size = 10485760
 				} else {
-					size,_ = strconv.ParseInt(maxSize, 10, 64)
+					size, _ = strconv.ParseInt(maxSize, 10, 64)
 				}
 				req.ParseMultipartForm(size)
 			} else {
@@ -241,16 +242,10 @@ func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) 
 		ctrl.MethodByName("OnLoad").Call(nil)
 		// find action method
 		var actionMethod reflect.Value
-		var action = routeData["{action}"]
 		if len(action) < 1 {
-			actionMethod = ctrl.MethodByName(titleCase(req.Method))
-		} else {
-			actionMethod = ctrl.MethodByName(titleCase(req.Method) + "_" + action)
-			if actionMethod.IsNil() || !actionMethod.IsValid() {
-				actionMethod = ctrl.MethodByName(action)
-			}
+			action = titleCase(req.Method)
 		}
-
+		actionMethod = ctrl.MethodByName(action)
 		resp = this.executeAction(actionMethod, action)
 		if resp == nil {
 			resp = this.showError(req, 404)
