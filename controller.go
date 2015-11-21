@@ -28,7 +28,7 @@ func (this *Controller) Response() http.ResponseWriter {
 	return this.ctx.Response()
 }
 
-func (this *Controller) RouteData() map[string]string {
+func (this *Controller) RouteData() RouteData {
 	return this.ctx.RouteData()
 }
 

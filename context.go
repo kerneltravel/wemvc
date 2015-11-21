@@ -8,13 +8,13 @@ import (
 type Context interface {
 	Response() http.ResponseWriter
 	Request() *http.Request
-	RouteData() map[string]string
+	RouteData() RouteData
 }
 
 type context struct {
 	w         http.ResponseWriter
 	req       *http.Request
-	routeData map[string]string
+	routeData RouteData
 }
 
 func (this *context) Response() http.ResponseWriter {
@@ -31,9 +31,9 @@ func (this *context) Request() *http.Request {
 	return this.req
 }
 
-func (this *context) RouteData() map[string]string {
+func (this *context) RouteData() RouteData {
 	if this.routeData == nil {
-		this.routeData = make(map[string]string)
+		this.routeData = RouteData{}
 	}
 	return this.routeData
 }

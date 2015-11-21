@@ -20,13 +20,6 @@ func (this *application) init() error {
 		this.config = config
 		this.watchingFiles = f
 	}
-	// init the route tree
-	this.route = routeTree{
-		rootNode: routeNode{
-			pathStr: "/",
-			depth:   1,
-		},
-	}
 	// build the view template
 	buildViews(this.viewFolder())
 	// init the error handler
@@ -200,61 +193,54 @@ func (this *application) serveStaticFile(res http.ResponseWriter, req *http.Requ
 
 func (this *application) serveDynamic(w http.ResponseWriter, req *http.Request) Response {
 	var path = req.URL.Path
-	var pathUrls []string
-	if path == "/" {
-		pathUrls = []string{"/"}
-	} else {
-		pathUrls = strings.Split(path, "/")
-		pathUrls[0] = "/"
-	}
 	var resp Response = nil
-	var routeData = make(map[string]string)
-	res, cInfo, action := this.route.rootNode.matchDepth(req.Method, pathUrls, routeData)
-	if res && cInfo != nil {
-		action = cInfo.actions[action]
-		var ctrl = reflect.New(cInfo.controllerType)
-		var initMethod = ctrl.MethodByName("OnInit")
-		var ctx = &context{
-			w:         w,
-			req:       req,
-			routeData: routeData,
-		}
-		// call OnInit method
-		initMethod.Call([]reflect.Value{
-			reflect.ValueOf(ctx),
-		})
-		//parse form
-		if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
-			if req.MultipartForm != nil {
-				var size int64 = 0
-				var maxSize = App.GetConfig().GetSetting("MaxFormSize")
-				if len(maxSize) < 1 {
-					size = 10485760
-				} else {
-					size, _ = strconv.ParseInt(maxSize, 10, 64)
-				}
-				req.ParseMultipartForm(size)
-			} else {
-				req.ParseForm()
-			}
-		}
-		// call OnLoad method
-		ctrl.MethodByName("OnLoad").Call(nil)
-		// find action method
-		var actionMethod reflect.Value
+	cInfo, routeData, match := this.router.Lookup(req.Method, path)
+	if !match {
+		var action = routeData.ByName("action")
 		if len(action) < 1 {
-			action = titleCase(req.Method)
+			action = strings.ToLower(req.Method)
+		} else {
+			action = strings.ToLower(req.Method + action)
 		}
-		actionMethod = ctrl.MethodByName(action)
-		resp = this.executeAction(actionMethod, action)
-		if resp == nil {
-			resp = this.showError(req, 404)
+		if cInfo.containsAction(action) {
+			action = cInfo.actions[action]
+			resp = this.execute(w, req, cInfo.controllerType, action, routeData)
 		}
 	}
 	return resp
 }
 
-func (this *application) executeAction(m reflect.Value, action string) Response {
+func (this *application) execute(w http.ResponseWriter, req *http.Request, t reflect.Type, action string, routeData RouteData) Response {
+	var ctrl = reflect.New(t)
+	var initMethod = ctrl.MethodByName("OnInit")
+	var ctx = &context{
+		w:         w,
+		req:       req,
+		routeData: routeData,
+	}
+	// call OnInit method
+	initMethod.Call([]reflect.Value{
+		reflect.ValueOf(ctx),
+	})
+	//parse form
+	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
+		if req.MultipartForm != nil {
+			var size int64 = 0
+			var maxSize = App.GetConfig().GetSetting("MaxFormSize")
+			if len(maxSize) < 1 {
+				size = 10485760
+			} else {
+				size, _ = strconv.ParseInt(maxSize, 10, 64)
+			}
+			req.ParseMultipartForm(size)
+		} else {
+			req.ParseForm()
+		}
+	}
+	// call OnLoad method
+	ctrl.MethodByName("OnLoad").Call(nil)
+	// call action method
+	m := ctrl.MethodByName(action)
 	if !m.IsValid() {
 		return nil
 	}

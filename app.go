@@ -22,7 +22,7 @@ type Application interface {
 	GetWebRoot() string
 	GetConfig() Configuration
 	MapPath(string) string
-	Route(string, interface{}, ...string)
+	Route(string, interface{})
 	Run() error
 }
 
@@ -31,7 +31,7 @@ type application struct {
 	port          int
 	webRoot       string
 	config        *configuration
-	route         routeTree
+	router        *Router
 	watcher       *fsnotify.Watcher
 	viewsWatcher  *fsnotify.Watcher
 	watchingFiles []string
@@ -106,13 +106,16 @@ func (this *application) AddErrorHandler(code int, handler Handler) {
 	this.errorHandlers[code] = handler
 }
 
-func (this *application) Route(strPth string, c interface{}, v ...string) {
+func (this *application) Route(strPth string, c interface{}) {
 	if this.routeLocked {
 		panic(errors.New("The controller cannot be added to this application after it is started."))
 	}
 	var t = reflect.TypeOf(c)
 	cInfo := createControllerInfo(t)
-	this.route.AddController(strPth, cInfo, v...)
+	if this.router == nil {
+		this.router = newRouter()
+	}
+	this.router.Handle(strPth, cInfo)
 }
 
 func (this *application) Run() error {
