@@ -319,12 +319,9 @@ func (this *application) panicRecover(res http.ResponseWriter, req *http.Request
 	if rec == nil {
 		return
 	}
-	if re, ok := rec.(*redirect); ok {
-		http.Redirect(res, req, re.location, re.statusCode)
-	} else {
-		res.WriteHeader(500)
-		if err, ok := rec.(error); ok {
-			res.Write([]byte(`
+	res.WriteHeader(500)
+	if err, ok := rec.(error); ok {
+		res.Write([]byte(`
 			<div style="max-width:90%;margin:15px auto 0 auto;">
 				<h1>ERROR 500</h1>
 				<hr/>
@@ -332,14 +329,13 @@ func (this *application) panicRecover(res http.ResponseWriter, req *http.Request
 				<p>` + err.Error() + `</p>
 				<i>wemvc server version ` + Version + `</i>
 			</div>`))
-		} else {
-			res.Write([]byte(`
+	} else {
+		res.Write([]byte(`
 			<div style="max-width:90%;margin:15px auto 0 auto;">
 				<h1>ERROR 500</h1>
 				<hr/>
 				<p>Internal server Error!</p>
 				<i>wemvc server version ` + Version + `</i>
 			</div>`))
-		}
 	}
 }
