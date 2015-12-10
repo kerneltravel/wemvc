@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/Simbory/wemvc/fsnotify"
 	"net/http"
 	"os"
 	"os/exec"
@@ -12,19 +11,12 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+
+	"github.com/Simbory/wemvc/fsnotify"
 )
 
+// Handler the error handler define
 type Handler func(*http.Request) Response
-
-type Application interface {
-	Port(...int) int
-	AddErrorHandler(int, Handler)
-	GetWebRoot() string
-	GetConfig() Configuration
-	MapPath(string) string
-	Route(string, interface{})
-	Run() error
-}
 
 type application struct {
 	errorHandlers map[int]Handler
@@ -39,48 +31,48 @@ type application struct {
 	routeLocked   bool
 }
 
-func (this *application) GetWebRoot() string {
-	return this.webRoot
+func (app *application) GetWebRoot() string {
+	return app.webRoot
 }
 
-func (this *application) Port(p ...int) int {
+func (app *application) Port(p ...int) int {
 	if len(p) > 0 {
-		this.port = p[0]
+		app.port = p[0]
 	}
-	return this.port
+	return app.port
 }
 
-func (this *application) GetConfig() Configuration {
-	return this.config
+func (app *application) GetConfig() Configuration {
+	return app.config
 }
 
-func (this *application) MapPath(relativePath string) string {
-	var res = path.Join(this.GetWebRoot(), relativePath)
+func (app *application) MapPath(relativePath string) string {
+	var res = path.Join(app.GetWebRoot(), relativePath)
 	return fixPath(res)
 }
 
-func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// check init error
-	if this.initError != nil {
+	if app.initError != nil {
 		w.WriteHeader(500)
-		w.Write([]byte(this.initError.Error()))
+		w.Write([]byte(app.initError.Error()))
 		return
 	}
-	//defer this.panicRecover(w, req)
+	//defer app.panicRecover(w, req)
 
 	// serve the dynamic page
 	var result Response
-	result = this.serveDynamic(w, req)
+	result = app.serveDynamic(w, req)
 	if result == nil {
 		var ext = filepath.Ext(req.URL.Path)
 		if len(ext) > 0 {
-			this.serveStaticFile(w, req, ext)
+			app.serveStaticFile(w, req, ext)
 			return
 		}
 	}
 	// handle error 404
 	if result == nil {
-		result = this.showError(req, 404)
+		result = app.showError(req, 404)
 	}
 	res, ok := result.(*response)
 	if ok {
@@ -109,45 +101,58 @@ func (this *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (this *application) AddErrorHandler(code int, handler Handler) {
-	if this.errorHandlers == nil {
-		this.errorHandlers = make(map[int]Handler)
+func (app *application) AddErrorHandler(code int, handler Handler) {
+	if app.errorHandlers == nil {
+		app.errorHandlers = make(map[int]Handler)
 	}
-	this.errorHandlers[code] = handler
+	app.errorHandlers[code] = handler
 }
 
-func (this *application) Route(strPth string, c interface{}) {
-	if this.routeLocked {
-		panic(errors.New("The controller cannot be added to this application after it is started."))
+func (app *application) Route(strPth string, c interface{}) {
+	if app.routeLocked {
+		panic(errors.New("The controller cannot be added to app application after it is started."))
 	}
 	var t = reflect.TypeOf(c)
 	cInfo := createControllerInfo(t)
-	if this.router == nil {
-		this.router = newRouter()
+	if app.router == nil {
+		app.router = newRouter()
 	}
-	this.router.Handle(strPth, cInfo)
+	app.router.Handle(strPth, cInfo)
 }
 
-func (this *application) Run() error {
-	this.routeLocked = true
-	port := fmt.Sprintf(":%d", this.port)
-	err := http.ListenAndServe(port, this)
+func (app *application) Run() error {
+	app.routeLocked = true
+	port := fmt.Sprintf(":%d", app.port)
+	println("website started")
+	err := http.ListenAndServe(port, app)
 	return err
 }
 
-var App Application
+// App the application singleton
+var App *application
 
 func init() {
+	root := flag.String("root", "", "the server root")
 	port := flag.Int("port", 8080, "server running port")
 	flag.Parse()
-	app, err := newApp("wwwroot", *port)
+	var appPort = *port
+	var appRoot = *root
+	if len(appRoot) < 1 {
+		println("arguments:")
+		flag.PrintDefaults()
+		appRoot = getCurrentDirectory()
+	}
+	println("using root:", appRoot)
+	println("using port:", appPort)
+	app, err := newApp(appRoot, appPort)
 	if err != nil {
-		panic(err)
+		println(err.Error())
+		os.Exit(-1)
 	}
 	App = app
 }
 
-func newApp(root string, port int) (Application, error) {
+func newApp(root string, port int) (*application, error) {
 	if len(root) < 1 {
 		return nil, errors.New("Web root cannot be empty.")
 	}

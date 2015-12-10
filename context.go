@@ -5,6 +5,7 @@ import (
 	"net/http"
 )
 
+// Context the request context interface
 type Context interface {
 	Response() http.ResponseWriter
 	Request() *http.Request
@@ -19,23 +20,23 @@ type context struct {
 	controller string
 }
 
-func (this *context) Response() http.ResponseWriter {
-	if this.w == nil {
+func (ctx *context) Response() http.ResponseWriter {
+	if ctx.w == nil {
 		panic(errors.New("response writer cannot be empty"))
 	}
-	return this.w
+	return ctx.w
 }
 
-func (this *context) Request() *http.Request {
-	if this.req == nil {
+func (ctx *context) Request() *http.Request {
+	if ctx.req == nil {
 		panic(errors.New("http request cannot be empty"))
 	}
-	return this.req
+	return ctx.req
 }
 
-func (this *context) RouteData() RouteData {
-	if this.routeData == nil {
-		this.routeData = RouteData{}
+func (ctx *context) RouteData() RouteData {
+	if ctx.routeData == nil {
+		ctx.routeData = RouteData{}
 	}
-	return this.routeData
+	return ctx.routeData
 }

@@ -8,18 +8,11 @@ type ConnConfig interface {
 	GetConnString() string
 }
 
-type ProtectionUrl interface {
-	GetName() string
-	GetPathPrefix() string
-	GetMethods() []HttpMethod
-}
-
 type Configuration interface {
 	GetDefaultUrl() string
 	GetConnConfig(string) ConnConfig
 	GetSetting(string) string
 	GetMIME(string) string
-	GetProtectionUrls() []ProtectionUrl
 }
 
 type connConfig struct {
@@ -28,16 +21,16 @@ type connConfig struct {
 	ConnString string `xml:"connString,attr"`
 }
 
-func (this *connConfig) GetName() string {
-	return this.Name
+func (conf *connConfig) GetName() string {
+	return conf.Name
 }
 
-func (this *connConfig) GetType() string {
-	return this.Type
+func (conf *connConfig) GetType() string {
+	return conf.Type
 }
 
-func (this *connConfig) GetConnString() string {
-	return this.ConnString
+func (conf *connConfig) GetConnString() string {
+	return conf.ConnString
 }
 
 type connGroup struct {
@@ -65,99 +58,49 @@ type mimeGroup struct {
 	Mimes        []mimeSetting `xml:"add"`
 }
 
-type protectionUrl struct {
-	Name       string `xml:"name,attr"`
-	Method     string `xml:"method,attr"`
-	PathPrefix string `xml:"prefix,attr"`
-
-	methods []HttpMethod
-}
-
-func (this *protectionUrl) GetName() string {
-	return this.Name
-}
-
-func (this *protectionUrl) GetPathPrefix() string {
-	return this.PathPrefix
-}
-
-func (this *protectionUrl) GetMethods() []HttpMethod {
-	if len(this.methods) < 1 {
-		var m = strings.ToUpper(strings.Replace(this.Method, " ", "", -1))
-		if len(m) < 1 || m == "*" {
-			this.methods = HttpMethods()
-		} else {
-			for _, method := range strings.Split(m, ";") {
-				if GET.Equal(method) || POST.Equal(method) ||
-					PUT.Equal(method) || DELETE.Equal(method) ||
-					TRACE.Equal(method) || HEAD.Equal(method) ||
-					OPTIONS.Equal(method) || CONNECT.Equal(method) {
-					this.methods = append(this.methods, HttpMethod(method))
-				}
-			}
-		}
-	}
-	return this.methods
-}
-
-type protectionUrlGroup struct {
-	ConfigSource   string          `xml:"configSource,attr"`
-	ProtectionUrls []protectionUrl `xml:"add"`
-}
-
 type configuration struct {
-	DefaultUrl     string             `xml:"defaultUrl"`
-	ConnStrings    connGroup          `xml:"connStrings"`
-	Settings       settingGroup       `xml:"settings"`
-	Mimes          mimeGroup          `xml:"mime"`
-	ProtectionUrls protectionUrlGroup `xml:"protectionUrls"`
+	DefaultUrl  string       `xml:"defaultUrl"`
+	ConnStrings connGroup    `xml:"connStrings"`
+	Settings    settingGroup `xml:"settings"`
+	Mimes       mimeGroup    `xml:"mime"`
 
 	mimeColl map[string]string
 }
 
-func (this *configuration) GetConnConfig(connName string) ConnConfig {
-	for i := 0; i < len(this.ConnStrings.ConnStrings); i++ {
-		if this.ConnStrings.ConnStrings[i].Name == connName {
-			return &(this.ConnStrings.ConnStrings[i])
+func (conf *configuration) GetConnConfig(connName string) ConnConfig {
+	for i := 0; i < len(conf.ConnStrings.ConnStrings); i++ {
+		if conf.ConnStrings.ConnStrings[i].Name == connName {
+			return &(conf.ConnStrings.ConnStrings[i])
 		}
 	}
 	return nil
 }
 
-func (this *configuration) GetSetting(key string) string {
-	for i := 0; i < len(this.Settings.Settings); i++ {
-		if this.Settings.Settings[i].Key == key {
-			return this.Settings.Settings[i].Value
+func (conf *configuration) GetSetting(key string) string {
+	for i := 0; i < len(conf.Settings.Settings); i++ {
+		if conf.Settings.Settings[i].Key == key {
+			return conf.Settings.Settings[i].Value
 		}
 	}
 	return ""
 }
 
-func (this *configuration) GetMIME(ext string) string {
+func (conf *configuration) GetMIME(ext string) string {
 	if len(ext) < 1 {
 		return ""
 	}
-	if this.mimeColl == nil {
-		this.mimeColl = make(map[string]string)
-		for _, mime := range this.Mimes.Mimes {
+	if conf.mimeColl == nil {
+		conf.mimeColl = make(map[string]string)
+		for _, mime := range conf.Mimes.Mimes {
 			if len(mime.FileExe) < 1 || len(mime.Mime) < 1 {
 				continue
 			}
-			this.mimeColl[strings.ToLower(mime.FileExe)] = mime.Mime
+			conf.mimeColl[strings.ToLower(mime.FileExe)] = mime.Mime
 		}
 	}
-	return this.mimeColl[strings.ToLower(ext)]
+	return conf.mimeColl[strings.ToLower(ext)]
 }
 
-func (this *configuration) GetDefaultUrl() string {
-	return this.DefaultUrl
-}
-
-func (this *configuration) GetProtectionUrls() []ProtectionUrl {
-	var result = []ProtectionUrl{}
-
-	for i := 0; i < len(this.ProtectionUrls.ProtectionUrls); i++ {
-		result = append(result, &(this.ProtectionUrls.ProtectionUrls[i]))
-	}
-	return result
+func (conf *configuration) GetDefaultUrl() string {
+	return conf.DefaultUrl
 }

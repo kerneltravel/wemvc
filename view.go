@@ -38,7 +38,7 @@ func getView(name string) *view {
 	return nil
 }
 
-func (self *viewFile) visit(paths string, f os.FileInfo, err error) error {
+func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 	if f == nil {
 		return err
 	}
@@ -51,15 +51,15 @@ func (self *viewFile) visit(paths string, f os.FileInfo, err error) error {
 
 	replace := strings.NewReplacer("\\", "/")
 	a := []byte(paths)
-	a = a[len([]byte(self.root)):]
+	a = a[len([]byte(vf.root)):]
 	file := strings.TrimLeft(replace.Replace(string(a)), "/")
 	subdir := filepath.Dir(file)
-	if _, ok := self.files[subdir]; ok {
-		self.files[subdir] = append(self.files[subdir], file)
+	if _, ok := vf.files[subdir]; ok {
+		vf.files[subdir] = append(vf.files[subdir], file)
 	} else {
 		m := make([]string, 1)
 		m[0] = file
-		self.files[subdir] = m
+		vf.files[subdir] = m
 	}
 	return nil
 }
@@ -68,24 +68,23 @@ func buildViews(dir string) error {
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
 			return nil
-		} else {
-			return errors.New("dir open err")
 		}
+		return errors.New("dir open err")
 	}
-	self := &viewFile{
+	vf := &viewFile{
 		root:  dir,
 		files: make(map[string][]string),
 	}
 	err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
-		return self.visit(path, f, err)
+		return vf.visit(path, f, err)
 	})
 	if err != nil {
 		fmt.Printf("filepath.Walk() returned %v\n", err)
 		return err
 	}
-	for _, v := range self.files {
+	for _, v := range vf.files {
 		for _, file := range v {
-			t, err := getTemplate(self.root, file, v...)
+			t, err := getTemplate(vf.root, file, v...)
 			v := &view{tpl: t, err: err}
 			addView(file, v)
 		}

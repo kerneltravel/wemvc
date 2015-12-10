@@ -1,9 +1,6 @@
 // Copyright 2013 Julien Schmidt. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be found
 // in the LICENSE file.
-
-// Package httprouter is a trie based high performance HTTP request router.
-//
 // A trivial example is:
 //
 //  package main
@@ -82,7 +79,7 @@ type Param struct {
 	Value string
 }
 
-// Params is a Param-slice, as returned by the router.
+// RouteData is a Param-slice, as returned by the router.
 // The slice is ordered, the first URL parameter is also the first slice value.
 // It is therefore safe to read values by the index.
 type RouteData []Param
@@ -152,7 +149,7 @@ func (r *Router) Handle(path string, cInfo *controllerInfo) {
 	if path[0] != '/' {
 		panic("path must begin with '/' in path '" + path + "'")
 	}
-	if (r.tree == nil) {
+	if r.tree == nil {
 		r.tree = new(node)
 	}
 	r.tree.addRoute(path, cInfo)

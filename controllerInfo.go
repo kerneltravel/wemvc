@@ -11,11 +11,11 @@ type controllerInfo struct {
 	actions        map[string]string
 }
 
-func (this *controllerInfo) containsAction(action string) bool {
-	if this == nil || this.actions == nil {
+func (cInfo *controllerInfo) containsAction(action string) bool {
+	if cInfo == nil || cInfo.actions == nil {
 		return false
 	}
-	for k, _ := range this.actions {
+	for k := range cInfo.actions {
 		if k == action {
 			return true
 		}

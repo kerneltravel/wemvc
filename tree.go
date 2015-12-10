@@ -108,7 +108,7 @@ func (n *node) addRoute(path string, cInfo *controllerInfo) {
 					wildChild: n.wildChild,
 					indices:   n.indices,
 					children:  n.children,
-					cInfo:    n.cInfo,
+					cInfo:     n.cInfo,
 					priority:  n.priority - 1,
 				}
 
@@ -299,7 +299,7 @@ func (n *node) insertChild(numParams uint8, path, fullPath string, handle *contr
 				path:      path[i:],
 				nType:     catchAll,
 				maxParams: 1,
-				cInfo:    handle,
+				cInfo:     handle,
 				priority:  1,
 			}
 			n.children = []*node{child}
