@@ -25,7 +25,6 @@ type application struct {
 	config        *configuration
 	router        *Router
 	watcher       *fsnotify.Watcher
-	viewsWatcher  *fsnotify.Watcher
 	watchingFiles []string
 	initError     error
 	routeLocked   bool
