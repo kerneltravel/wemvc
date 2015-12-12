@@ -16,7 +16,9 @@ import (
 )
 
 // Handler the error handler define
-type Handler func(*http.Request) Response
+type Handler func(*http.Request) ActionResult
+
+type Filter func(ctx Context)
 
 type application struct {
 	errorHandlers map[int]Handler
@@ -25,10 +27,10 @@ type application struct {
 	config        *configuration
 	router        *Router
 	watcher       *fsnotify.Watcher
-	viewsWatcher  *fsnotify.Watcher
 	watchingFiles []string
 	initError     error
 	routeLocked   bool
+	staticPaths   []string
 }
 
 func (app *application) GetWebRoot() string {
@@ -51,6 +53,19 @@ func (app *application) MapPath(relativePath string) string {
 	return fixPath(res)
 }
 
+func (app *application) SetStaticPath(path string) {
+	if len(path) < 1 {
+		panic(errors.New("the static path prefix cannot be empty"))
+	}
+	if !strings.HasPrefix(path, "/") {
+		panic(errors.New("The static path prefix should start with '/'"))
+	}
+	if (!strings.HasSuffix(path, "/")) {
+		path = path + "/"
+	}
+	app.staticPaths = append(app.staticPaths, strings.ToLower(path))
+}
+
 func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// check init error
 	if app.initError != nil {
@@ -60,21 +75,29 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	//defer app.panicRecover(w, req)
 
-	// serve the dynamic page
-	var result Response
-	result = app.serveDynamic(w, req)
-	if result == nil {
-		var ext = filepath.Ext(req.URL.Path)
-		if len(ext) > 0 {
-			app.serveStaticFile(w, req, ext)
+	// serve the static file
+	var lUrl = strings.ToLower(req.URL.Path)
+	for _,p := range app.staticPaths {
+		if strings.HasPrefix(lUrl, p) {
+			app.serveStaticFile(w, req)
 			return
 		}
 	}
+
+	// serve the dynamic page
+	var ctx = &context{
+		req: req,
+		w: w,
+		end: false,
+	}
+	var result ActionResult
+	result = app.serveDynamic(ctx)
 	// handle error 404
 	if result == nil {
 		result = app.showError(req, 404)
 	}
-	res, ok := result.(*response)
+	// process the dynamic result
+	res, ok := result.(*actionResult)
 	if ok {
 		if len(res.resFile) > 0 {
 			http.ServeFile(w, req, res.resFile)

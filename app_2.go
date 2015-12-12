@@ -164,41 +164,43 @@ func (app *application) loadConfig() (*configuration, []string, error) {
 	return configData, files, nil
 }
 
-func (app *application) serveStaticFile(res http.ResponseWriter, req *http.Request, ext string) {
+func (app *application) serveStaticFile(res http.ResponseWriter, req *http.Request) {
 	http.ServeFile(res, req, app.MapPath(req.URL.Path))
 }
 
-func (app *application) serveDynamic(w http.ResponseWriter, req *http.Request) Response {
-	var path = req.URL.Path
-	var resp Response
-	cInfo, routeData, match := app.router.Lookup(req.Method, path)
+func (app *application) serveDynamic(ctx *context) ActionResult {
+	var path = ctx.req.URL.Path
+	var resp ActionResult
+	cInfo, routeData, match := app.router.Lookup(ctx.req.Method, path)
 	if !match && cInfo != nil {
 		var action = routeData.ByName("action")
 		if len(action) < 1 {
-			action = strings.ToLower(req.Method)
+			action = strings.ToLower(ctx.req.Method)
 		} else {
-			action = strings.ToLower(req.Method + action)
+			action = strings.ToLower(ctx.req.Method + action)
 		}
 		if cInfo.containsAction(action) {
 			action = cInfo.actions[action]
-			resp = app.execute(w, req, cInfo.controllerType, action, routeData)
+			ctx.routeData = routeData
+			ctx.actionName = action
+			resp = app.execute(ctx, cInfo.controllerType)
 		}
 	}
 	return resp
 }
 
-func (app *application) execute(w http.ResponseWriter, req *http.Request, t reflect.Type, action string, routeData RouteData) Response {
+func (app *application) execute(ctx *context, t reflect.Type) ActionResult {
 	var ctrl = reflect.New(t)
 	var initMethod = ctrl.MethodByName("OnInit")
 	cName := strings.ToLower(t.String())
 	cName = strings.Split(cName, ".")[1]
 	cName = strings.Replace(cName, "controller", "", -1)
-	reg, _ := regexp.Compile("^" + strings.ToLower(req.Method))
-	cAction := reg.ReplaceAllString(strings.ToLower(action), "")
+	reg, _ := regexp.Compile("^" + strings.ToLower(ctx.req.Method))
+	cAction := reg.ReplaceAllString(strings.ToLower(ctx.actionName), "")
 	var ctx = &context{
-		w:          w,
-		req:        req,
-		routeData:  routeData,
+		w:          ctx.w,
+		req:        ctx.req,
+		routeData:  ctx.routeData,
 		actionName: cAction,
 		controller: cName,
 	}
@@ -207,8 +209,8 @@ func (app *application) execute(w http.ResponseWriter, req *http.Request, t refl
 		reflect.ValueOf(ctx),
 	})
 	//parse form
-	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
-		if req.MultipartForm != nil {
+	if ctx.req.Method == "POST" || ctx.req.Method == "PUT" || ctx.req.Method == "PATCH" {
+		if ctx.req.MultipartForm != nil {
 			var size int64
 			var maxSize = App.GetConfig().GetSetting("MaxFormSize")
 			if len(maxSize) < 1 {
@@ -216,21 +218,21 @@ func (app *application) execute(w http.ResponseWriter, req *http.Request, t refl
 			} else {
 				size, _ = strconv.ParseInt(maxSize, 10, 64)
 			}
-			req.ParseMultipartForm(size)
+			ctx.req.ParseMultipartForm(size)
 		} else {
-			req.ParseForm()
+			ctx.req.ParseForm()
 		}
 	}
 	// call OnLoad method
 	ctrl.MethodByName("OnLoad").Call(nil)
 	// call action method
-	m := ctrl.MethodByName(action)
+	m := ctrl.MethodByName(ctx.actionName)
 	if !m.IsValid() {
 		return nil
 	}
 	values := m.Call(nil)
 	if len(values) == 1 {
-		value, valid := values[0].Interface().(Response)
+		value, valid := values[0].Interface().(ActionResult)
 		if !valid {
 			panic(errors.New("Invalid return type"))
 		} else {
@@ -240,8 +242,8 @@ func (app *application) execute(w http.ResponseWriter, req *http.Request, t refl
 	return nil
 }
 
-func (app *application) error404(req *http.Request) Response {
-	res := NewResponse()
+func (app *application) error404(req *http.Request) ActionResult {
+	res := NewActionResult()
 	res.SetStatusCode(404)
 	res.Write([]byte(`
 	<div style="max-width:90%;margin:15px auto 0 auto;">
@@ -253,8 +255,8 @@ func (app *application) error404(req *http.Request) Response {
 	return res
 }
 
-func (app *application) error403(req *http.Request) Response {
-	res := NewResponse()
+func (app *application) error403(req *http.Request) ActionResult {
+	res := NewActionResult()
 	res.SetStatusCode(403)
 	res.Write([]byte(`
 	<div style="max-width:90%;margin:15px auto 0 auto;">
@@ -266,7 +268,7 @@ func (app *application) error403(req *http.Request) Response {
 	return res
 }
 
-func (app *application) showError(req *http.Request, code int) Response {
+func (app *application) showError(req *http.Request, code int) ActionResult {
 	var handler = app.errorHandlers[code]
 	if handler != nil {
 		return handler(req)

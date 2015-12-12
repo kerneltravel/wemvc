@@ -6,6 +6,6 @@ type Admin struct {
 	AuthController
 }
 
-func (this Admin) Get() wemvc.Response {
+func (this Admin) Get() wemvc.ActionResult {
 	return this.Content("Hello, admin!")
 }

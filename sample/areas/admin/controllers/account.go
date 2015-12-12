@@ -9,11 +9,11 @@ type Account struct {
 	wemvc.Controller
 }
 
-func (this Account) GetLogin() wemvc.Response {
+func (this Account) GetLogin() wemvc.ActionResult {
 	return this.ViewFile("admin/login/index")
 }
 
-func (this Account) PostLogin() wemvc.Response {
+func (this Account) PostLogin() wemvc.ActionResult {
 	var email = this.Request.Form.Get("email")
 	var pwd = this.Request.Form.Get("password")
 	if email == "simbory@sina.cn" && pwd == "123456" {
