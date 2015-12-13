@@ -12,8 +12,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/Simbory/wemvc/fsnotify"
 	"sort"
+
+	"github.com/Simbory/wemvc/fsnotify"
 )
 
 // Handler the error handler define
@@ -62,7 +63,7 @@ func (app *application) SetStaticPath(path string) {
 	if !strings.HasPrefix(path, "/") {
 		panic(errors.New("The static path prefix should start with '/'"))
 	}
-	if (!strings.HasSuffix(path, "/")) {
+	if !strings.HasSuffix(path, "/") {
 		path = path + "/"
 	}
 	app.staticPaths = append(app.staticPaths, strings.ToLower(path))
@@ -80,7 +81,7 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var lUrl = strings.ToLower(req.URL.Path)
 	var ctx = &context{
 		req: req,
-		w: w,
+		w:   w,
 		end: false,
 	}
 	// execute the filters
@@ -90,11 +91,11 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
-	for _,key := range keys {
+	for _, key := range keys {
 		if ctx.end {
 			return
 		}
-		if strings.HasPrefix(lUrl + "/", key) {
+		if strings.HasPrefix(lUrl+"/", key) {
 			for _, f := range tmpFilters[key] {
 				f(ctx)
 			}
@@ -105,7 +106,7 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// serve the static file
-	for _,p := range app.staticPaths {
+	for _, p := range app.staticPaths {
 		if strings.HasPrefix(lUrl, p) {
 			app.serveStaticFile(w, req)
 			return
@@ -198,7 +199,7 @@ func init() {
 	if len(appRoot) < 1 {
 		println("arguments:")
 		flag.PrintDefaults()
-		appRoot = getCurrentDirectory() + "/wwwroot"
+		appRoot = getCurrentDirectory()
 	}
 	println("using root:", appRoot)
 	println("using port:", appPort)
