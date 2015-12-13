@@ -183,34 +183,34 @@ func (app *application) serveDynamic(ctx *context) ActionResult {
 			action = cInfo.actions[action]
 			ctx.routeData = routeData
 			ctx.actionName = action
-			resp = app.execute(ctx, cInfo.controllerType)
+
+			resp = app.execute(ctx.req, ctx.w, cInfo.controllerType, action, routeData, ctx.items)
 		}
 	}
 	return resp
 }
 
-func (app *application) execute(ctx *context, t reflect.Type) ActionResult {
+func (app *application) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
 	var ctrl = reflect.New(t)
 	var initMethod = ctrl.MethodByName("OnInit")
 	cName := strings.ToLower(t.String())
 	cName = strings.Split(cName, ".")[1]
 	cName = strings.Replace(cName, "controller", "", -1)
-	reg, _ := regexp.Compile("^" + strings.ToLower(ctx.req.Method))
-	cAction := reg.ReplaceAllString(strings.ToLower(ctx.actionName), "")
-	var ctx = &context{
-		w:          ctx.w,
-		req:        ctx.req,
-		routeData:  ctx.routeData,
-		actionName: cAction,
-		controller: cName,
-	}
+	reg, _ := regexp.Compile("^" + strings.ToLower(req.Method))
+	cAction := reg.ReplaceAllString(strings.ToLower(actionName), "")
+
 	// call OnInit method
 	initMethod.Call([]reflect.Value{
-		reflect.ValueOf(ctx),
+		reflect.ValueOf(req),
+		reflect.ValueOf(w),
+		reflect.ValueOf(cName),
+		reflect.ValueOf(cAction),
+		reflect.ValueOf(routeData),
+		reflect.ValueOf(items),
 	})
 	//parse form
-	if ctx.req.Method == "POST" || ctx.req.Method == "PUT" || ctx.req.Method == "PATCH" {
-		if ctx.req.MultipartForm != nil {
+	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
+		if req.MultipartForm != nil {
 			var size int64
 			var maxSize = App.GetConfig().GetSetting("MaxFormSize")
 			if len(maxSize) < 1 {
@@ -218,15 +218,15 @@ func (app *application) execute(ctx *context, t reflect.Type) ActionResult {
 			} else {
 				size, _ = strconv.ParseInt(maxSize, 10, 64)
 			}
-			ctx.req.ParseMultipartForm(size)
+			req.ParseMultipartForm(size)
 		} else {
-			ctx.req.ParseForm()
+			req.ParseForm()
 		}
 	}
 	// call OnLoad method
 	ctrl.MethodByName("OnLoad").Call(nil)
 	// call action method
-	m := ctrl.MethodByName(ctx.actionName)
+	m := ctrl.MethodByName(actionName)
 	if !m.IsValid() {
 		return nil
 	}

@@ -56,7 +56,7 @@ func (ctx *context) SetItem(key string, data interface{}) {
 	if ctx.items == nil {
 		ctx.items = make(map[string]interface{})
 	}
-	ctx[key]=data
+	ctx.items[key]=data
 }
 
 func (ctx *context) End() {

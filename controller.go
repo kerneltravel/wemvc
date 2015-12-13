@@ -14,20 +14,26 @@ type Controller struct {
 	controller string
 	actionName string
 	ViewData   map[string]interface{}
+	Items      map[string]interface{}
 }
 
 // OnInit the OnInit method is firstly called while executing the controller
-func (ctrl *Controller) OnInit(ctx *context) {
-	ctrl.Request = ctx.req
-	ctrl.Response = ctx.w
-	ctrl.RouteData = ctx.routeData
-	if len(ctx.actionName) < 1 {
+func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, controller, actionName string, routeData RouteData, ctxItems map[string]interface{}) {
+	ctrl.Request = req
+	ctrl.Response = w
+	ctrl.RouteData = routeData
+	if len(actionName) < 1 {
 		ctrl.actionName = "index"
 	} else {
-		ctrl.actionName = ctx.actionName
+		ctrl.actionName = actionName
 	}
-	ctrl.controller = ctx.controller
+	ctrl.controller = controller
 	ctrl.ViewData = make(map[string]interface{})
+	if ctxItems != nil {
+		ctrl.Items = ctxItems
+	} else {
+		ctrl.Items = make(map[string]interface{})
+	}
 }
 
 // OnLoad the OnLoad is called just after the OnInit

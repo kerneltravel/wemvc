@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/Simbory/wemvc/fsnotify"
+	"sort"
 )
 
 // Handler the error handler define
@@ -31,6 +32,7 @@ type application struct {
 	initError     error
 	routeLocked   bool
 	staticPaths   []string
+	filters       map[string][]Filter
 }
 
 func (app *application) GetWebRoot() string {
@@ -73,10 +75,36 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(app.initError.Error()))
 		return
 	}
-	//defer app.panicRecover(w, req)
+	defer app.panicRecover(w, req)
+
+	var lUrl = strings.ToLower(req.URL.Path)
+	var ctx = &context{
+		req: req,
+		w: w,
+		end: false,
+	}
+	// execute the filters
+	var tmpFilters = app.filters
+	var keys []string
+	for key := range tmpFilters {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _,key := range keys {
+		if ctx.end {
+			return
+		}
+		if strings.HasPrefix(lUrl + "/", key) {
+			for _, f := range tmpFilters[key] {
+				f(ctx)
+			}
+		}
+	}
+	if ctx.end {
+		return
+	}
 
 	// serve the static file
-	var lUrl = strings.ToLower(req.URL.Path)
 	for _,p := range app.staticPaths {
 		if strings.HasPrefix(lUrl, p) {
 			app.serveStaticFile(w, req)
@@ -85,11 +113,6 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// serve the dynamic page
-	var ctx = &context{
-		req: req,
-		w: w,
-		end: false,
-	}
 	var result ActionResult
 	result = app.serveDynamic(ctx)
 	// handle error 404
@@ -124,7 +147,7 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (app *application) AddErrorHandler(code int, handler Handler) {
+func (app *application) SetErrorHandler(code int, handler Handler) {
 	if app.errorHandlers == nil {
 		app.errorHandlers = make(map[int]Handler)
 	}
@@ -133,7 +156,8 @@ func (app *application) AddErrorHandler(code int, handler Handler) {
 
 func (app *application) Route(strPth string, c interface{}) {
 	if app.routeLocked {
-		panic(errors.New("The controller cannot be added to app application after it is started."))
+		println("The controller cannot be added after the application is started.")
+		os.Exit(-1)
 	}
 	var t = reflect.TypeOf(c)
 	cInfo := createControllerInfo(t)
@@ -141,6 +165,17 @@ func (app *application) Route(strPth string, c interface{}) {
 		app.router = newRouter()
 	}
 	app.router.Handle(strPth, cInfo)
+}
+
+// SetFilter add filter to each request
+func (app *application) SetFilter(pathPrefix string, filter Filter) {
+	if !strings.HasPrefix(pathPrefix, "") {
+		panic("the filter path preix must starts with \"/\"")
+	}
+	if !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix = pathPrefix + "/"
+	}
+	app.filters[strings.ToLower(pathPrefix)] = append(app.filters[strings.ToLower(pathPrefix)], filter)
 }
 
 func (app *application) Run() error {
@@ -163,7 +198,7 @@ func init() {
 	if len(appRoot) < 1 {
 		println("arguments:")
 		flag.PrintDefaults()
-		appRoot = getCurrentDirectory()
+		appRoot = getCurrentDirectory() + "/wwwroot"
 	}
 	println("using root:", appRoot)
 	println("using port:", appPort)
@@ -195,6 +230,7 @@ func newApp(root string, port int) (*application, error) {
 		port:        port,
 		initError:   nil,
 		routeLocked: false,
+		filters:     make(map[string][]Filter),
 	}
 	err := app.init()
 	return app, err
