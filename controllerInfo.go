@@ -37,7 +37,7 @@ func createControllerInfo(t reflect.Type) *controllerInfo {
 	for i := 0; i < numMethod; i++ {
 		methodName := t.Method(i).Name
 		method := obj.MethodByName(methodName)
-		if !strings.HasSuffix(method.Type().String(), "wemvc.Response") {
+		if !strings.HasSuffix(method.Type().String(), "wemvc.ActionResult") {
 			continue
 		}
 		methods = append(methods, methodName)

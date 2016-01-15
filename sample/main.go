@@ -8,6 +8,8 @@ func main() {
 	println("************************************************************")
 	println("*   The web application is started...")
 	println("************************************************************")
+	wemvc.App.SetStaticPath("/css/")
+	wemvc.App.SetStaticPath("/js/")
 	wemvc.App.Run()
 	println("************************************************************")
 }

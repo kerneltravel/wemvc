@@ -12,11 +12,15 @@ import (
 	"reflect"
 	"strings"
 
+	"sort"
+
 	"github.com/Simbory/wemvc/fsnotify"
 )
 
 // Handler the error handler define
-type Handler func(*http.Request) Response
+type Handler func(*http.Request) ActionResult
+
+type Filter func(ctx Context)
 
 type application struct {
 	errorHandlers map[int]Handler
@@ -28,6 +32,8 @@ type application struct {
 	watchingFiles []string
 	initError     error
 	routeLocked   bool
+	staticPaths   []string
+	filters       map[string][]Filter
 }
 
 func (app *application) GetWebRoot() string {
@@ -50,6 +56,19 @@ func (app *application) MapPath(relativePath string) string {
 	return fixPath(res)
 }
 
+func (app *application) SetStaticPath(path string) {
+	if len(path) < 1 {
+		panic(errors.New("the static path prefix cannot be empty"))
+	}
+	if !strings.HasPrefix(path, "/") {
+		panic(errors.New("The static path prefix should start with '/'"))
+	}
+	if !strings.HasSuffix(path, "/") {
+		path = path + "/"
+	}
+	app.staticPaths = append(app.staticPaths, strings.ToLower(path))
+}
+
 func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// check init error
 	if app.initError != nil {
@@ -57,23 +76,52 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.Write([]byte(app.initError.Error()))
 		return
 	}
-	//defer app.panicRecover(w, req)
+	defer app.panicRecover(w, req)
 
-	// serve the dynamic page
-	var result Response
-	result = app.serveDynamic(w, req)
-	if result == nil {
-		var ext = filepath.Ext(req.URL.Path)
-		if len(ext) > 0 {
-			app.serveStaticFile(w, req, ext)
+	var lUrl = strings.ToLower(req.URL.Path)
+	var ctx = &context{
+		req: req,
+		w:   w,
+		end: false,
+	}
+	// execute the filters
+	var tmpFilters = app.filters
+	var keys []string
+	for key := range tmpFilters {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if ctx.end {
+			return
+		}
+		if strings.HasPrefix(lUrl+"/", key) {
+			for _, f := range tmpFilters[key] {
+				f(ctx)
+			}
+		}
+	}
+	if ctx.end {
+		return
+	}
+
+	// serve the static file
+	for _, p := range app.staticPaths {
+		if strings.HasPrefix(lUrl, p) {
+			app.serveStaticFile(w, req)
 			return
 		}
 	}
+
+	// serve the dynamic page
+	var result ActionResult
+	result = app.serveDynamic(ctx)
 	// handle error 404
 	if result == nil {
 		result = app.showError(req, 404)
 	}
-	res, ok := result.(*response)
+	// process the dynamic result
+	res, ok := result.(*actionResult)
 	if ok {
 		if len(res.resFile) > 0 {
 			http.ServeFile(w, req, res.resFile)
@@ -100,7 +148,7 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (app *application) AddErrorHandler(code int, handler Handler) {
+func (app *application) SetErrorHandler(code int, handler Handler) {
 	if app.errorHandlers == nil {
 		app.errorHandlers = make(map[int]Handler)
 	}
@@ -109,7 +157,8 @@ func (app *application) AddErrorHandler(code int, handler Handler) {
 
 func (app *application) Route(strPth string, c interface{}) {
 	if app.routeLocked {
-		panic(errors.New("The controller cannot be added to app application after it is started."))
+		println("The controller cannot be added after the application is started.")
+		os.Exit(-1)
 	}
 	var t = reflect.TypeOf(c)
 	cInfo := createControllerInfo(t)
@@ -117,6 +166,17 @@ func (app *application) Route(strPth string, c interface{}) {
 		app.router = newRouter()
 	}
 	app.router.Handle(strPth, cInfo)
+}
+
+// SetFilter add filter to each request
+func (app *application) SetFilter(pathPrefix string, filter Filter) {
+	if !strings.HasPrefix(pathPrefix, "") {
+		panic("the filter path preix must starts with \"/\"")
+	}
+	if !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix = pathPrefix + "/"
+	}
+	app.filters[strings.ToLower(pathPrefix)] = append(app.filters[strings.ToLower(pathPrefix)], filter)
 }
 
 func (app *application) Run() error {
@@ -171,6 +231,7 @@ func newApp(root string, port int) (*application, error) {
 		port:        port,
 		initError:   nil,
 		routeLocked: false,
+		filters:     make(map[string][]Filter),
 	}
 	err := app.init()
 	return app, err

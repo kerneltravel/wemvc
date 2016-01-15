@@ -5,7 +5,7 @@ type Download struct {
 	wemvc.Controller
 }
 
-func (t Download)Get() wemvc.Response {
+func (t Download)Get() wemvc.ActionResult {
 	var file = t.Request.URL.Query().Get("file")
 	if len(file) < 1 {
 		return t.NotFound()
