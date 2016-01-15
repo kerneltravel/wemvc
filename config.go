@@ -9,7 +9,7 @@ type ConnConfig interface {
 }
 
 type Configuration interface {
-	GetDefaultUrl() string
+	GetDefaultUrls() []string
 	GetConnConfig(string) ConnConfig
 	GetSetting(string) string
 	GetMIME(string) string
@@ -101,6 +101,9 @@ func (conf *configuration) GetMIME(ext string) string {
 	return conf.mimeColl[strings.ToLower(ext)]
 }
 
-func (conf *configuration) GetDefaultUrl() string {
-	return conf.DefaultUrl
+func (conf *configuration) GetDefaultUrls() []string {
+	if len(conf.DefaultUrl) < 1 {
+		return nil
+	}
+	return strings.Split(conf.DefaultUrl, ";")
 }

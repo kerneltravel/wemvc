@@ -10,6 +10,7 @@ func main() {
 	println("************************************************************")
 	wemvc.App.SetStaticPath("/css/")
 	wemvc.App.SetStaticPath("/js/")
+	wemvc.App.SetStaticPath("/favicon.ico")
 	wemvc.App.Run()
 	println("************************************************************")
 }

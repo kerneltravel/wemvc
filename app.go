@@ -63,7 +63,8 @@ func (app *application) SetStaticPath(path string) {
 	if !strings.HasPrefix(path, "/") {
 		panic(errors.New("The static path prefix should start with '/'"))
 	}
-	if !strings.HasSuffix(path, "/") {
+	var fullPath = app.MapPath(path)
+	if IsDir(fullPath) && !strings.HasSuffix(path, "/") {
 		path = path + "/"
 	}
 	app.staticPaths = append(app.staticPaths, strings.ToLower(path))

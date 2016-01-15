@@ -165,6 +165,21 @@ func (app *application) loadConfig() (*configuration, []string, error) {
 }
 
 func (app *application) serveStaticFile(res http.ResponseWriter, req *http.Request) {
+	if strings.HasSuffix(req.URL.Path, "/") {
+		var defaultUrls = app.GetConfig().GetDefaultUrls()
+		if len(defaultUrls) > 0 {
+			for _,f := range defaultUrls {
+				var file = app.MapPath(req.URL.Path + f)
+				if IsFile(file) {
+					http.ServeFile(res, req, file)
+					return
+				}
+			}
+		} else {
+			http.ServeFile(res, req, req.URL.Path + "index.html")
+			return
+		}
+	}
 	http.ServeFile(res, req, app.MapPath(req.URL.Path))
 }
 
