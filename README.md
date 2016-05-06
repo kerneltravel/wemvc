@@ -15,7 +15,7 @@ func (this HomeController) Index() wemvc.ActionResult {
 
 func (this HomeController) GetAbout() wemvc.ActionResult {
 	obj := make(map[string]interface{})
-	obj["viewData"] = this.RouteData
+	obj["routeData"] = this.RouteData
 	obj["headers"] = this.Request.Header
 	return this.JSON(obj)
 }
