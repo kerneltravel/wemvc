@@ -11,9 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
-
 	"sort"
-
 	"github.com/Simbory/wemvc/fsnotify"
 )
 
@@ -24,16 +22,17 @@ type Filter func(ctx Context)
 
 type application struct {
 	errorHandlers map[int]Handler
-	port          int
-	webRoot       string
-	config        *configuration
-	router        *Router
-	watcher       *fsnotify.Watcher
-	watchingFiles []string
-	initError     error
-	routeLocked   bool
-	staticPaths   []string
-	filters       map[string][]Filter
+	port           int
+	webRoot        string
+	config         *configuration
+	router         *Router
+	watcher        *fsnotify.Watcher
+	watchingFiles  []string
+	initError      error
+	routeLocked    bool
+	staticPaths    []string
+	filters        map[string][]Filter
+	sessionManager *sessionManager
 }
 
 func (app *application) GetWebRoot() string {
@@ -54,6 +53,16 @@ func (app *application) GetConfig() Configuration {
 func (app *application) MapPath(relativePath string) string {
 	var res = path.Join(app.GetWebRoot(), relativePath)
 	return fixPath(res)
+}
+
+func (app *application) GetSessionManager() *sessionManager {
+	if app.sessionManager == nil {
+		app.sessionManager = &sessionManager{
+			SessionID: "Session_ID",
+			ExpireMinutes: 30,
+		}
+	}
+	return app.sessionManager
 }
 
 func (app *application) SetStaticPath(path string) {

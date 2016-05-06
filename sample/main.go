@@ -1,8 +1,11 @@
 package main
 
-import "github.com/Simbory/wemvc"
-import _ "github.com/Simbory/wemvc/sample/controllers"
-import _ "github.com/Simbory/wemvc/sample/areas/admin/controllers"
+import (
+	_"github.com/Simbory/wemvc"
+	_"github.com/Simbory/wemvc/sample/controllers"
+	_ "github.com/Simbory/wemvc/sample/areas/admin/controllers"
+	"github.com/Simbory/wemvc"
+)
 
 func main() {
 	println("************************************************************")
@@ -11,6 +14,7 @@ func main() {
 	wemvc.App.SetStaticPath("/css/")
 	wemvc.App.SetStaticPath("/js/")
 	wemvc.App.SetStaticPath("/favicon.ico")
+	wemvc.App.GetSessionManager().SetProvider(wemvc.NewSessionProvider())
 	wemvc.App.Run()
 	println("************************************************************")
 }

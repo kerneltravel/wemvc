@@ -7,13 +7,16 @@ type Home struct {
 }
 
 func (this Home) GetIndex() wemvc.ActionResult {
-	this.ViewData["msg"] = "this is get action result"
+	this.ViewData["msg"] = this.Session().Get("msg")
 	this.ViewData["wwwroot"] = wemvc.App.GetWebRoot()
 	return this.View()
 }
 
-func (this Home) Index() wemvc.ActionResult {
-	this.ViewData["msg"] = wemvc.App.GetConfig().GetSetting("isDebug")
+func (this Home) PostIndex() wemvc.ActionResult {
+	msg := this.Request.Form.Get("msg")
+	this.ViewData["msg"] = msg
+	this.Session().Set("msg", msg)
 	this.ViewData["wwwroot"] = wemvc.App.GetWebRoot()
+	this.ViewData["s"] = this.Session().Get("s")
 	return this.View()
 }

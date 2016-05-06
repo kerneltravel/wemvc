@@ -8,13 +8,15 @@ import (
 
 // Controller the controller base struct
 type Controller struct {
-	Request    *http.Request
-	Response   http.ResponseWriter
-	RouteData  RouteData
-	controller string
-	actionName string
-	ViewData   map[string]interface{}
-	Items      map[string]interface{}
+	Request     *http.Request
+	Response    http.ResponseWriter
+	RouteData   RouteData
+	controller  string
+	actionName  string
+	session     *session
+	sessionData map[string]interface{}
+	ViewData    map[string]interface{}
+	Items       map[string]interface{}
 }
 
 // OnInit the OnInit method is firstly called while executing the controller
@@ -36,6 +38,14 @@ func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, control
 	}
 }
 
+// Session start the session
+func (ctrl *Controller) Session() *session {
+	if ctrl.session == nil {
+		ctrl.session = App.GetSessionManager().CreateSessionContext(ctrl.Response, ctrl.Request)
+	}
+	return ctrl.session
+}
+
 // OnLoad the OnLoad is called just after the OnInit
 func (ctrl *Controller) OnLoad() {
 }
@@ -51,7 +61,7 @@ func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
 	return resp
 }
 
-// View execute the default view file and renturn the HTML
+// View execute the default view file and return the HTML
 func (ctrl *Controller) View() ActionResult {
 	res, code := renderView(ctrl.controller+"/"+ctrl.actionName, ctrl.ViewData)
 	var resp = NewActionResult()
