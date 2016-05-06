@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"github.com/Simbory/wemvc/utils"
 )
 
 type viewFile struct {
@@ -114,7 +115,7 @@ func getTplDeep(root, file, parent string, t *template.Template) (*template.Temp
 	} else {
 		fileabspath = filepath.Join(root, file)
 	}
-	if e := IsFile(fileabspath); !e {
+	if e := utils.IsFile(fileabspath); !e {
 		var msg = "can't find template file \"" + file + "\""
 		return nil, [][]string{}, errors.New(msg)
 	}

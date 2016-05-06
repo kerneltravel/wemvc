@@ -14,7 +14,6 @@ func main() {
 	wemvc.App.SetStaticPath("/css/")
 	wemvc.App.SetStaticPath("/js/")
 	wemvc.App.SetStaticPath("/favicon.ico")
-	wemvc.App.GetSessionManager().SetProvider(wemvc.NewSessionProvider())
 	wemvc.App.Run()
 	println("************************************************************")
 }

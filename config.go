@@ -1,6 +1,9 @@
 package wemvc
 
-import "strings"
+import (
+	"strings"
+	"github.com/Simbory/wemvc/session"
+)
 
 type ConnConfig interface {
 	GetName() string
@@ -13,6 +16,7 @@ type Configuration interface {
 	GetConnConfig(string) ConnConfig
 	GetSetting(string) string
 	GetMIME(string) string
+	GetSessionConfig() *session.ManagerConfig
 }
 
 type connConfig struct {
@@ -59,12 +63,12 @@ type mimeGroup struct {
 }
 
 type configuration struct {
-	DefaultUrl  string       `xml:"defaultUrl"`
-	ConnStrings connGroup    `xml:"connStrings"`
-	Settings    settingGroup `xml:"settings"`
-	Mimes       mimeGroup    `xml:"mime"`
-
-	mimeColl map[string]string
+	DefaultUrl    string       		     `xml:"defaultUrl"`
+	ConnStrings   connGroup    		     `xml:"connStrings"`
+	Settings      settingGroup 		     `xml:"settings"`
+	Mimes         mimeGroup    		     `xml:"mime"`
+	SessionConfig *session.ManagerConfig `xml:"session"`
+	mimeColl      map[string]string
 }
 
 func (conf *configuration) GetConnConfig(connName string) ConnConfig {
@@ -74,6 +78,10 @@ func (conf *configuration) GetConnConfig(connName string) ConnConfig {
 		}
 	}
 	return nil
+}
+
+func (conf *configuration) GetSessionConfig() *session.ManagerConfig {
+	return conf.SessionConfig
 }
 
 func (conf *configuration) GetSetting(key string) string {

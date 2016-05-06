@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sort"
 	"github.com/Simbory/wemvc/fsnotify"
+	"github.com/Simbory/wemvc/session"
+	"github.com/Simbory/wemvc/utils"
 )
 
 // Handler the error handler define
@@ -32,7 +34,7 @@ type application struct {
 	routeLocked    bool
 	staticPaths    []string
 	filters        map[string][]Filter
-	sessionManager *sessionManager
+	globalSession  *session.SessionManager
 }
 
 func (app *application) GetWebRoot() string {
@@ -52,17 +54,10 @@ func (app *application) GetConfig() Configuration {
 
 func (app *application) MapPath(relativePath string) string {
 	var res = path.Join(app.GetWebRoot(), relativePath)
-	return fixPath(res)
+	return utils.FixPath(res)
 }
 
-func (app *application) GetSessionManager() *sessionManager {
-	if app.sessionManager == nil {
-		app.sessionManager = &sessionManager{
-			SessionID: "Session_ID",
-			ExpireMinutes: 30,
-		}
-	}
-	return app.sessionManager
+func (app *application) InitSessionManager(name string) {
 }
 
 func (app *application) SetStaticPath(path string) {
@@ -73,7 +68,7 @@ func (app *application) SetStaticPath(path string) {
 		panic(errors.New("The static path prefix should start with '/'"))
 	}
 	var fullPath = app.MapPath(path)
-	if IsDir(fullPath) && !strings.HasSuffix(path, "/") {
+	if utils.IsDir(fullPath) && !strings.HasSuffix(path, "/") {
 		path = path + "/"
 	}
 	app.staticPaths = append(app.staticPaths, strings.ToLower(path))
@@ -209,7 +204,7 @@ func init() {
 	if len(appRoot) < 1 {
 		println("arguments:")
 		flag.PrintDefaults()
-		appRoot = getCurrentDirectory()
+		appRoot = utils.GetCurrentDirectory()
 	}
 	println("using root:", appRoot)
 	println("using port:", appPort)
@@ -233,11 +228,11 @@ func newApp(root string, port int) (*application, error) {
 		webRoot = path.Join(exeDir, webRoot)
 	}
 
-	if !IsDir(webRoot) {
+	if !utils.IsDir(webRoot) {
 		return nil, errors.New("Path \"" + webRoot + "\" is not a directory")
 	}
 	app := &application{
-		webRoot:     fixPath(webRoot),
+		webRoot:     utils.FixPath(webRoot),
 		port:        port,
 		initError:   nil,
 		routeLocked: false,

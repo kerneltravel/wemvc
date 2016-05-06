@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/Simbory/wemvc/fsnotify"
+	"github.com/Simbory/wemvc/utils"
+	"github.com/Simbory/wemvc/session"
 )
 
 // init app func is used to init the application
@@ -45,7 +47,7 @@ func (app *application) init() error {
 	}
 	// build the view template and watch the changes
 	var viewDir = app.viewFolder()
-	if IsDir(viewDir) {
+	if utils.IsDir(viewDir) {
 		buildViews(viewDir)
 		app.watcher.Watch(viewDir)
 		filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
@@ -57,6 +59,24 @@ func (app *application) init() error {
 	}
 	// start to watch the files and dirs
 	go app.watchFile()
+	// init sessionManager
+	if app.config.SessionConfig != nil && len(app.config.SessionConfig.ManagerName) > 0 {
+		if app.config.SessionConfig.Gclifetime == 0 {
+			app.config.SessionConfig.Gclifetime = 3600
+		}
+		if app.config.SessionConfig.Maxlifetime == 0 {
+			app.config.SessionConfig.Maxlifetime = 3600
+		}
+		if app.config.SessionConfig.CookieLifeTime == 0 {
+			app.config.SessionConfig.CookieLifeTime = 3600
+		}
+		mgr, err := session.NewManager(app.config.SessionConfig.ManagerName, app.config.SessionConfig)
+		if err != nil {
+			panic(err)
+		}
+		app.globalSession = mgr
+		go app.globalSession.GC()
+	}
 	return nil
 }
 
@@ -81,7 +101,7 @@ func (app *application) watchFile() {
 					}
 				}
 			} else if app.isInViewFolder(strFile) {
-				if IsDir(strFile) {
+				if utils.IsDir(strFile) {
 					if ev.IsDelete() {
 						app.watcher.RemoveWatch(strFile)
 					} else if ev.IsCreate() {
@@ -115,12 +135,12 @@ func (app *application) isInViewFolder(f string) bool {
 func (app *application) loadConfig() (*configuration, []string, error) {
 	// load the config file
 	var configFile = app.MapPath("/web.config")
-	if IsFile(configFile) == false {
+	if utils.IsFile(configFile) == false {
 		return nil, nil, nil
 	}
 	var configData = &configuration{}
 	var files []string
-	err := file2Xml(configFile, configData)
+	err := utils.File2Xml(configFile, configData)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -128,7 +148,7 @@ func (app *application) loadConfig() (*configuration, []string, error) {
 	if len(configData.Settings.ConfigSource) > 0 {
 		configFile = app.MapPath(configData.Settings.ConfigSource)
 		var settings = &settingGroup{}
-		err = file2Xml(configFile, settings)
+		err = utils.File2Xml(configFile, settings)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -140,7 +160,7 @@ func (app *application) loadConfig() (*configuration, []string, error) {
 	if len(configData.ConnStrings.ConfigSource) > 0 {
 		configFile = app.MapPath(configData.ConnStrings.ConfigSource)
 		var conns = &connGroup{}
-		err = file2Xml(configFile, conns)
+		err = utils.File2Xml(configFile, conns)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -152,7 +172,7 @@ func (app *application) loadConfig() (*configuration, []string, error) {
 	if len(configData.Mimes.ConfigSource) > 0 {
 		configFile = app.MapPath(configData.Mimes.ConfigSource)
 		var mimes = &mimeGroup{}
-		err = file2Xml(configFile, mimes)
+		err = utils.File2Xml(configFile, mimes)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -169,7 +189,7 @@ func (app *application) serveStaticFile(res http.ResponseWriter, req *http.Reque
 		if len(defaultUrls) > 0 {
 			for _, f := range defaultUrls {
 				var file = app.MapPath(req.URL.Path + f)
-				if IsFile(file) {
+				if utils.IsFile(file) {
 					http.ServeFile(res, req, file)
 					return
 				}

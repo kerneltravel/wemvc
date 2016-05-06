@@ -1,5 +1,9 @@
 package controllers
-import "github.com/Simbory/wemvc"
+
+import (
+	"github.com/Simbory/wemvc"
+	"github.com/Simbory/wemvc/utils"
+)
 
 type Download struct {
 	wemvc.Controller
@@ -11,7 +15,7 @@ func (t Download)Get() wemvc.ActionResult {
 		return t.NotFound()
 	}
 	file = wemvc.App.MapPath(file)
-	if  !wemvc.IsFile(file) {
+	if  !utils.IsFile(file) {
 		return t.NotFound()
 	}
 	return t.File(file, "text/xml")
