@@ -7,8 +7,8 @@ import (
 
 // Context the request context interface
 type Context interface {
-	Response()  http.ResponseWriter
-	Request()   *http.Request
+	Response() http.ResponseWriter
+	Request() *http.Request
 	GetItem(key string) interface{}
 	SetItem(key string, data interface{})
 	End()
@@ -56,9 +56,9 @@ func (ctx *context) SetItem(key string, data interface{}) {
 	if ctx.items == nil {
 		ctx.items = make(map[string]interface{})
 	}
-	ctx.items[key]=data
+	ctx.items[key] = data
 }
 
 func (ctx *context) End() {
-	ctx.end = true;
+	ctx.end = true
 }

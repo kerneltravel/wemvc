@@ -6,7 +6,13 @@ type Home struct {
 	wemvc.Controller
 }
 
-func (this Home)Get() wemvc.ActionResult {
+func (this Home) GetIndex() wemvc.ActionResult {
+	this.ViewData["msg"] = "this is get action result"
+	this.ViewData["wwwroot"] = wemvc.App.GetWebRoot()
+	return this.View()
+}
+
+func (this Home) Index() wemvc.ActionResult {
 	this.ViewData["msg"] = wemvc.App.GetConfig().GetSetting("isDebug")
 	this.ViewData["wwwroot"] = wemvc.App.GetWebRoot()
 	return this.View()

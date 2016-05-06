@@ -9,13 +9,13 @@ type HomeController struct {
 	wemvc.Controller
 }
 
-func (this HomeController) Get() wemvc.ActionResult {
+func (this HomeController) Index() wemvc.ActionResult {
 	return this.Content("hello world!<br/><a href=\"/about\">About</a>", "text/html")
 }
 
 func (this HomeController) GetAbout() wemvc.ActionResult {
 	obj := make(map[string]interface{})
-	obj["viewData"] = this.ViewData
+	obj["viewData"] = this.RouteData
 	obj["headers"] = this.Request.Header
 	return this.JSON(obj)
 }

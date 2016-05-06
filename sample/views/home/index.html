@@ -2,5 +2,8 @@
 {{define "content"}}
 <i>"isDebug":{{.msg}}</i>
 <p>wwwroot: {{.wwwroot}}</p>
+<form method="post">
+    <button type="submit">Use Post Method</button>
+</form>
 {{end}}
 {{template "shared/_layout.html" .}}

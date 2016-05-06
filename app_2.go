@@ -7,7 +7,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -168,7 +167,7 @@ func (app *application) serveStaticFile(res http.ResponseWriter, req *http.Reque
 	if strings.HasSuffix(req.URL.Path, "/") {
 		var defaultUrls = app.GetConfig().GetDefaultUrls()
 		if len(defaultUrls) > 0 {
-			for _,f := range defaultUrls {
+			for _, f := range defaultUrls {
 				var file = app.MapPath(req.URL.Path + f)
 				if IsFile(file) {
 					http.ServeFile(res, req, file)
@@ -176,7 +175,7 @@ func (app *application) serveStaticFile(res http.ResponseWriter, req *http.Reque
 				}
 			}
 		} else {
-			http.ServeFile(res, req, req.URL.Path + "index.html")
+			http.ServeFile(res, req, req.URL.Path+"index.html")
 			return
 		}
 	}
@@ -189,40 +188,49 @@ func (app *application) serveDynamic(ctx *context) ActionResult {
 	cInfo, routeData, match := app.router.Lookup(ctx.req.Method, path)
 	if !match && cInfo != nil {
 		var action = routeData.ByName("action")
+		var method = strings.ToTitle(ctx.req.Method)
 		if len(action) < 1 {
-			action = strings.ToLower(ctx.req.Method)
-		} else {
-			action = strings.ToLower(ctx.req.Method + action)
+			action = "index"
 		}
-		if cInfo.containsAction(action) {
-			action = cInfo.actions[action]
+		// find the action method in controller
+		var actionMethod string
+		if cInfo.containsAction(strings.ToLower(method + "_" + action)) {
+			actionMethod = strings.ToLower(method + "_" + action)
+		} else if cInfo.containsAction(strings.ToLower(method + action)) {
+			actionMethod = strings.ToLower(method + action)
+		} else if cInfo.containsAction(strings.ToLower(action)) {
+			actionMethod = strings.ToLower(action)
+		}
+		if len(actionMethod) > 0 {
+			actionMethod = cInfo.actions[actionMethod]
 			ctx.routeData = routeData
 			ctx.actionName = action
-
-			resp = app.execute(ctx.req, ctx.w, cInfo.controllerType, action, routeData, ctx.items)
+			// execute the action method
+			resp = app.execute(ctx.req, ctx.w, cInfo.controllerType, actionMethod, action, routeData, ctx.items)
 		}
 	}
 	return resp
 }
 
-func (app *application) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
+func (app *application) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, actionMethod, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
 	var ctrl = reflect.New(t)
-	var initMethod = ctrl.MethodByName("OnInit")
 	cName := strings.ToLower(t.String())
 	cName = strings.Split(cName, ".")[1]
 	cName = strings.Replace(cName, "controller", "", -1)
-	reg, _ := regexp.Compile("^" + strings.ToLower(req.Method))
-	cAction := reg.ReplaceAllString(strings.ToLower(actionName), "")
+	cAction := actionName
 
 	// call OnInit method
-	initMethod.Call([]reflect.Value{
-		reflect.ValueOf(req),
-		reflect.ValueOf(w),
-		reflect.ValueOf(cName),
-		reflect.ValueOf(cAction),
-		reflect.ValueOf(routeData),
-		reflect.ValueOf(items),
-	})
+	onInitMethod := ctrl.MethodByName("OnInit")
+	if onInitMethod.IsValid() {
+		onInitMethod.Call([]reflect.Value{
+			reflect.ValueOf(req),
+			reflect.ValueOf(w),
+			reflect.ValueOf(cName),
+			reflect.ValueOf(cAction),
+			reflect.ValueOf(routeData),
+			reflect.ValueOf(items),
+		})
+	}
 	//parse form
 	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
 		if req.MultipartForm != nil {
@@ -239,9 +247,12 @@ func (app *application) execute(req *http.Request, w http.ResponseWriter, t refl
 		}
 	}
 	// call OnLoad method
-	ctrl.MethodByName("OnLoad").Call(nil)
+	onLoadMethod := ctrl.MethodByName("OnLoad")
+	if onLoadMethod.IsValid() {
+		onLoadMethod.Call(nil)
+	}
 	// call action method
-	m := ctrl.MethodByName(actionName)
+	m := ctrl.MethodByName(actionMethod)
 	if !m.IsValid() {
 		return nil
 	}
