@@ -24,6 +24,7 @@ type context struct {
 	items      map[string]interface{}
 }
 
+// Response get the response info
 func (ctx *context) Response() http.ResponseWriter {
 	if ctx.w == nil {
 		panic(errors.New("response writer cannot be empty"))
@@ -31,6 +32,7 @@ func (ctx *context) Response() http.ResponseWriter {
 	return ctx.w
 }
 
+/// Request get the request info
 func (ctx *context) Request() *http.Request {
 	if ctx.req == nil {
 		panic(errors.New("http request cannot be empty"))
@@ -38,6 +40,7 @@ func (ctx *context) Request() *http.Request {
 	return ctx.req
 }
 
+// RouteData get the route data
 func (ctx *context) RouteData() RouteData {
 	if ctx.routeData == nil {
 		ctx.routeData = RouteData{}
@@ -45,6 +48,7 @@ func (ctx *context) RouteData() RouteData {
 	return ctx.routeData
 }
 
+// GetItem get the context item
 func (ctx *context) GetItem(key string) interface{} {
 	if ctx.items == nil {
 		return nil
@@ -52,6 +56,7 @@ func (ctx *context) GetItem(key string) interface{} {
 	return ctx.items[key]
 }
 
+// SetItem set the context item
 func (ctx *context) SetItem(key string, data interface{}) {
 	if ctx.items == nil {
 		ctx.items = make(map[string]interface{})

@@ -15,22 +15,18 @@ func (cInfo *controllerInfo) containsAction(action string) bool {
 	if cInfo == nil || cInfo.actions == nil {
 		return false
 	}
-	for k := range cInfo.actions {
-		if k == action {
-			return true
-		}
-	}
-	return false
+	name, ok := cInfo.actions[action]
+	return ok && len(name) > 0
 }
 
 func createControllerInfo(t reflect.Type) *controllerInfo {
 	typeName := t.String()
 	if strings.HasPrefix(typeName, "*") {
-		panic("invalid controller type \"" + typeName + "\"")
+		panic("Invalid controller type: \"" + typeName + "\"")
 	}
 	numMethod := t.NumMethod()
 	if numMethod < 1 {
-		panic("this controller \"" + typeName + "\" has no action method")
+		panic("Thhe controller \"" + typeName + "\" has no action method")
 	}
 	obj := reflect.New(t)
 	var methods []string
@@ -43,7 +39,7 @@ func createControllerInfo(t reflect.Type) *controllerInfo {
 		methods = append(methods, methodName)
 	}
 	if len(methods) < 1 {
-		panic("this controller \"" + typeName + "\" has no action method")
+		panic("The controller \"" + typeName + "\" has no action method")
 	}
 	actions := make(map[string]string)
 	for _, m := range methods {
