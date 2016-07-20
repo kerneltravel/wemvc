@@ -42,7 +42,7 @@ func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, control
 // Session start the session
 func (ctrl *Controller) Session() session.Store {
 	if ctrl.session == nil {
-		session,err := App.globalSession.SessionStart(ctrl.Response, ctrl.Request)
+		session,err := AppServer.globalSession.SessionStart(ctrl.Response, ctrl.Request)
 		if err != nil {
 			panic(err)
 		}
@@ -140,5 +140,5 @@ func (ctrl *Controller) Redirect(url string, statusCode ...int) ActionResult {
 
 // NotFound return a 404 page as action result
 func (ctrl *Controller) NotFound() ActionResult {
-	return App.showError(ctrl.Request, 404)
+	return AppServer.showError(ctrl.Request, 404)
 }

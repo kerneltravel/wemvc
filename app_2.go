@@ -16,7 +16,7 @@ import (
 )
 
 // init app func is used to init the application
-func (app *application) init() error {
+func (app *appServer) init() error {
 	// load the config file
 	if config, f, err := app.loadConfig(); err != nil {
 		app.initError = err
@@ -35,7 +35,7 @@ func (app *application) init() error {
 	}
 	app.watcher = w
 	// start to watch the config files
-	err = app.watcher.Watch(app.GetWebRoot())
+	err = app.watcher.Watch(app.GetRootPath())
 	if err != nil {
 		panic(err)
 	}
@@ -81,7 +81,7 @@ func (app *application) init() error {
 }
 
 // watchFile is used to watching the required files: config files and view files
-func (app *application) watchFile() {
+func (app *appServer) watchFile() {
 	for {
 		select {
 		case ev := <-app.watcher.Event:
@@ -115,7 +115,7 @@ func (app *application) watchFile() {
 	}
 }
 
-func (app *application) isConfigFile(f string) bool {
+func (app *appServer) isConfigFile(f string) bool {
 	if app.MapPath("/web.config") == f {
 		return true
 	}
@@ -127,12 +127,12 @@ func (app *application) isConfigFile(f string) bool {
 	return false
 }
 
-func (app *application) isInViewFolder(f string) bool {
+func (app *appServer) isInViewFolder(f string) bool {
 	var viewPath = app.viewFolder()
 	return strings.HasPrefix(f, viewPath)
 }
 
-func (app *application) loadConfig() (*configuration, []string, error) {
+func (app *appServer) loadConfig() (*configuration, []string, error) {
 	// load the config file
 	var configFile = app.MapPath("/web.config")
 	if utils.IsFile(configFile) == false {
@@ -183,7 +183,7 @@ func (app *application) loadConfig() (*configuration, []string, error) {
 	return configData, files, nil
 }
 
-func (app *application) serveStaticFile(res http.ResponseWriter, req *http.Request) {
+func (app *appServer) serveStaticFile(res http.ResponseWriter, req *http.Request) {
 	if strings.HasSuffix(req.URL.Path, "/") {
 		var defaultUrls = app.GetConfig().GetDefaultUrls()
 		if len(defaultUrls) > 0 {
@@ -202,7 +202,7 @@ func (app *application) serveStaticFile(res http.ResponseWriter, req *http.Reque
 	http.ServeFile(res, req, app.MapPath(req.URL.Path))
 }
 
-func (app *application) serveDynamic(ctx *context) ActionResult {
+func (app *appServer) serveDynamic(ctx *context) ActionResult {
 	var path = ctx.req.URL.Path
 	var resp ActionResult
 	cInfo, routeData, match := app.router.Lookup(ctx.req.Method, path)
@@ -232,7 +232,7 @@ func (app *application) serveDynamic(ctx *context) ActionResult {
 	return resp
 }
 
-func (app *application) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, actionMethod, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
+func (app *appServer) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, actionMethod, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
 	var ctrl = reflect.New(t)
 	cName := strings.ToLower(t.String())
 	cName = strings.Split(cName, ".")[1]
@@ -255,7 +255,7 @@ func (app *application) execute(req *http.Request, w http.ResponseWriter, t refl
 	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
 		if req.MultipartForm != nil {
 			var size int64
-			var maxSize = App.GetConfig().GetSetting("MaxFormSize")
+			var maxSize = AppServer.GetConfig().GetSetting("MaxFormSize")
 			if len(maxSize) < 1 {
 				size = 10485760
 			} else {
@@ -288,7 +288,7 @@ func (app *application) execute(req *http.Request, w http.ResponseWriter, t refl
 	return nil
 }
 
-func (app *application) error404(req *http.Request) ActionResult {
+func (app *appServer) error404(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(404)
 	res.Write([]byte(`
@@ -301,7 +301,7 @@ func (app *application) error404(req *http.Request) ActionResult {
 	return res
 }
 
-func (app *application) error403(req *http.Request) ActionResult {
+func (app *appServer) error403(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(403)
 	res.Write([]byte(`
@@ -314,7 +314,7 @@ func (app *application) error403(req *http.Request) ActionResult {
 	return res
 }
 
-func (app *application) showError(req *http.Request, code int) ActionResult {
+func (app *appServer) showError(req *http.Request, code int) ActionResult {
 	var handler = app.errorHandlers[code]
 	if handler != nil {
 		return handler(req)
@@ -322,11 +322,11 @@ func (app *application) showError(req *http.Request, code int) ActionResult {
 	return app.error404(req)
 }
 
-func (app *application) viewFolder() string {
+func (app *appServer) viewFolder() string {
 	return app.MapPath("/views")
 }
 
-func (app *application) panicRecover(res http.ResponseWriter, req *http.Request) {
+func (app *appServer) panicRecover(res http.ResponseWriter, req *http.Request) {
 	rec := recover()
 	if rec == nil {
 		return

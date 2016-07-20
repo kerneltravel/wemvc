@@ -2,13 +2,10 @@ package wemvc
 
 import (
 	"errors"
-	"flag"
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"sort"
@@ -22,9 +19,9 @@ type Handler func(*http.Request) ActionResult
 
 type Filter func(ctx Context)
 
-type application struct {
+type appServer struct {
 	errorHandlers map[int]Handler
-	port           int
+	Port           int
 	webRoot        string
 	config         *configuration
 	router         *Router
@@ -37,30 +34,24 @@ type application struct {
 	globalSession  *session.SessionManager
 }
 
-func (app *application) GetWebRoot() string {
+// GetRootPath get the root file path of the web server
+func (app *appServer) GetRootPath() string {
 	return app.webRoot
 }
 
-func (app *application) Port(p ...int) int {
-	if len(p) > 0 {
-		app.port = p[0]
-	}
-	return app.port
-}
-
-func (app *application) GetConfig() Configuration {
+// GetConfig get the config data
+func (app *appServer) GetConfig() Configuration {
 	return app.config
 }
 
-func (app *application) MapPath(relativePath string) string {
-	var res = path.Join(app.GetWebRoot(), relativePath)
+// MapPath Returns the physical file path that corresponds to the specified virtual path.
+func (app *appServer) MapPath(virtualPath string) string {
+	var res = path.Join(app.GetRootPath(), virtualPath)
 	return utils.FixPath(res)
 }
 
-func (app *application) InitSessionManager(name string) {
-}
-
-func (app *application) SetStaticPath(path string) {
+// SetStaticPath set the path as a static path that the file under this path is served as static file
+func (app *appServer) SetStaticPath(path string) {
 	if len(path) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
 	}
@@ -74,7 +65,7 @@ func (app *application) SetStaticPath(path string) {
 	app.staticPaths = append(app.staticPaths, strings.ToLower(path))
 }
 
-func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (app *appServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// check init error
 	if app.initError != nil {
 		w.WriteHeader(500)
@@ -153,14 +144,16 @@ func (app *application) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (app *application) SetErrorHandler(code int, handler Handler) {
+// SetErrorHandler set the error handler
+func (app *appServer) SetErrorHandler(code int, handler Handler) {
 	if app.errorHandlers == nil {
 		app.errorHandlers = make(map[int]Handler)
 	}
 	app.errorHandlers[code] = handler
 }
 
-func (app *application) Route(strPth string, c interface{}) {
+// Route set the route
+func (app *appServer) Route(strPth string, c interface{}) {
 	if app.routeLocked {
 		println("The controller cannot be added after the application is started.")
 		os.Exit(-1)
@@ -174,7 +167,7 @@ func (app *application) Route(strPth string, c interface{}) {
 }
 
 // SetFilter add filter to each request
-func (app *application) SetFilter(pathPrefix string, filter Filter) {
+func (app *appServer) SetFilter(pathPrefix string, filter Filter) {
 	if !strings.HasPrefix(pathPrefix, "") {
 		panic("the filter path preix must starts with \"/\"")
 	}
@@ -184,56 +177,40 @@ func (app *application) SetFilter(pathPrefix string, filter Filter) {
 	app.filters[strings.ToLower(pathPrefix)] = append(app.filters[strings.ToLower(pathPrefix)], filter)
 }
 
-func (app *application) Run() error {
+func (app *appServer) Run() error {
 	app.routeLocked = true
-	port := fmt.Sprintf(":%d", app.port)
-	println("website started")
+	println("root:", app.webRoot)
+	println("port:", app.Port)
+	port := fmt.Sprintf(":%d", app.Port)
 	err := http.ListenAndServe(port, app)
 	return err
 }
 
 // App the application singleton
-var App *application
+var AppServer *appServer
 
 func init() {
-	root := flag.String("root", "", "the server root")
-	port := flag.Int("port", 8080, "server running port")
-	flag.Parse()
-	var appPort = *port
-	var appRoot = *root
-	if len(appRoot) < 1 {
-		println("arguments:")
-		flag.PrintDefaults()
-		appRoot = utils.GetCurrentDirectory()
-	}
-	println("using root:", appRoot)
-	println("using port:", appPort)
-	app, err := newApp(appRoot, appPort)
+	app, err := newApp(8080)
 	if err != nil {
 		println(err.Error())
 		os.Exit(-1)
 	}
-	App = app
+	AppServer = app
 }
 
-func newApp(root string, port int) (*application, error) {
-	if len(root) < 1 {
-		return nil, errors.New("Web root cannot be empty.")
+func getWorkPath() string {
+	p,err := os.Getwd()
+	if err != nil {
+		panic(err)
 	}
-	webRoot := strings.TrimSuffix(strings.TrimSuffix(root, "\\"), "/")
-	if strings.HasPrefix(webRoot, ".") {
-		file, _ := exec.LookPath(os.Args[0])
-		exePath, _ := filepath.Abs(file)
-		exeDir := filepath.Dir(exePath)
-		webRoot = path.Join(exeDir, webRoot)
-	}
+	return p
+}
 
-	if !utils.IsDir(webRoot) {
-		return nil, errors.New("Path \"" + webRoot + "\" is not a directory")
-	}
-	app := &application{
-		webRoot:     utils.FixPath(webRoot),
-		port:        port,
+func newApp(port int) (*appServer, error) {
+	var root = getWorkPath()
+	app := &appServer{
+		webRoot:     root,
+		Port:        port,
 		initError:   nil,
 		routeLocked: false,
 		filters:     make(map[string][]Filter),
