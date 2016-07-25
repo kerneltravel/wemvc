@@ -54,13 +54,13 @@ func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 	a := []byte(paths)
 	a = a[len([]byte(vf.root)):]
 	file := strings.TrimLeft(replace.Replace(string(a)), "/")
-	subdir := filepath.Dir(file)
-	if _, ok := vf.files[subdir]; ok {
-		vf.files[subdir] = append(vf.files[subdir], file)
+	subDir := filepath.Dir(file)
+	if _, ok := vf.files[subDir]; ok {
+		vf.files[subDir] = append(vf.files[subDir], file)
 	} else {
 		m := make([]string, 1)
 		m[0] = file
-		vf.files[subdir] = m
+		vf.files[subDir] = m
 	}
 	return nil
 }
@@ -95,12 +95,12 @@ func buildViews(dir string) error {
 
 func getTemplate(root, file string, others ...string) (t *template.Template, err error) {
 	t = template.New(file)
-	var submods [][]string
-	t, submods, err = getTplDeep(root, file, "", t)
+	var subMods [][]string
+	t, subMods, err = getTplDeep(root, file, "", t)
 	if err != nil {
 		return nil, err
 	}
-	t, err = getTplLoop(t, root, submods, others...)
+	t, err = getTplLoop(t, root, subMods, others...)
 
 	if err != nil {
 		return nil, err
@@ -109,17 +109,17 @@ func getTemplate(root, file string, others ...string) (t *template.Template, err
 }
 
 func getTplDeep(root, file, parent string, t *template.Template) (*template.Template, [][]string, error) {
-	var fileabspath string
+	var fileAbsPath string
 	if filepath.HasPrefix(file, "../") {
-		fileabspath = filepath.Join(root, filepath.Dir(parent), file)
+		fileAbsPath = filepath.Join(root, filepath.Dir(parent), file)
 	} else {
-		fileabspath = filepath.Join(root, file)
+		fileAbsPath = filepath.Join(root, file)
 	}
-	if e := utils.IsFile(fileabspath); !e {
+	if e := utils.IsFile(fileAbsPath); !e {
 		var msg = "can't find template file \"" + file + "\""
 		return nil, [][]string{}, errors.New(msg)
 	}
-	data, err := ioutil.ReadFile(fileabspath)
+	data, err := ioutil.ReadFile(fileAbsPath)
 	if err != nil {
 		return nil, [][]string{}, err
 	}
@@ -128,11 +128,11 @@ func getTplDeep(root, file, parent string, t *template.Template) (*template.Temp
 		return nil, [][]string{}, err
 	}
 	reg := regexp.MustCompile("{{" + "[ ]*template[ ]+\"([^\"]+)\"")
-	allsub := reg.FindAllStringSubmatch(string(data), -1)
-	for _, m := range allsub {
+	allSub := reg.FindAllStringSubmatch(string(data), -1)
+	for _, m := range allSub {
 		if len(m) == 2 {
-			tlook := t.Lookup(m[1])
-			if tlook != nil {
+			look := t.Lookup(m[1])
+			if look != nil {
 				continue
 			}
 			if !strings.HasSuffix(strings.ToLower(m[1]), ".html") {
@@ -144,54 +144,53 @@ func getTplDeep(root, file, parent string, t *template.Template) (*template.Temp
 			}
 		}
 	}
-	return t, allsub, nil
+	return t, allSub, nil
 }
 
-func getTplLoop(t0 *template.Template, root string, submods [][]string, others ...string) (t *template.Template, err error) {
+func getTplLoop(t0 *template.Template, root string, subMods [][]string, others ...string) (t *template.Template, err error) {
 	t = t0
-	for _, m := range submods {
+	for _, m := range subMods {
 		if len(m) == 2 {
-			templ := t.Lookup(m[1])
-			if templ != nil {
+			tpl := t.Lookup(m[1])
+			if tpl != nil {
 				continue
 			}
 			//first check filename
-			for _, otherfile := range others {
-				if otherfile == m[1] {
-					var submods1 [][]string
-					t, submods1, err = getTplDeep(root, otherfile, "", t)
+			for _, otherFile := range others {
+				if otherFile == m[1] {
+					var subMods1 [][]string
+					t, subMods1, err = getTplDeep(root, otherFile, "", t)
 					if err != nil {
 						return nil, err
-					} else if submods1 != nil && len(submods1) > 0 {
-						t, err = getTplLoop(t, root, submods1, others...)
+					} else if subMods1 != nil && len(subMods1) > 0 {
+						t, err = getTplLoop(t, root, subMods1, others...)
 					}
 					break
 				}
 			}
 			//second check define
-			for _, otherfile := range others {
-				fileabspath := filepath.Join(root, otherfile)
-				data, err := ioutil.ReadFile(fileabspath)
+			for _, otherFile := range others {
+				fileAbsPath := filepath.Join(root, otherFile)
+				data, err := ioutil.ReadFile(fileAbsPath)
 				if err != nil {
 					continue
 				}
 				reg := regexp.MustCompile("{{" + "[ ]*define[ ]+\"([^\"]+)\"")
-				allsub := reg.FindAllStringSubmatch(string(data), -1)
-				for _, sub := range allsub {
+				allSub := reg.FindAllStringSubmatch(string(data), -1)
+				for _, sub := range allSub {
 					if len(sub) == 2 && sub[1] == m[1] {
-						var submods1 [][]string
-						t, submods1, err = getTplDeep(root, otherfile, "", t)
+						var subMods1 [][]string
+						t, subMods1, err = getTplDeep(root, otherFile, "", t)
 						if err != nil {
 							return nil, err
-						} else if submods1 != nil && len(submods1) > 0 {
-							t, err = getTplLoop(t, root, submods1, others...)
+						} else if subMods1 != nil && len(subMods1) > 0 {
+							t, err = getTplLoop(t, root, subMods1, others...)
 						}
 						break
 					}
 				}
 			}
 		}
-
 	}
 	return
 }

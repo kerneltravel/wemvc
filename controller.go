@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"net/http"
 	"github.com/Simbory/wemvc/session"
+	"errors"
 )
 
 // Controller the controller base struct
@@ -20,7 +21,7 @@ type Controller struct {
 	Items       map[string]interface{}
 }
 
-// OnInit the OnInit method is firstly called while executing the controller
+// OnInit this method is called at first while executing the controller
 func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, controller, actionName string, routeData RouteData, ctxItems map[string]interface{}) {
 	ctrl.Request = req
 	ctrl.Response = w
@@ -42,7 +43,7 @@ func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, control
 // Session start the session
 func (ctrl *Controller) Session() session.Store {
 	if ctrl.session == nil {
-		session,err := AppServer.globalSession.SessionStart(ctrl.Response, ctrl.Request)
+		session,err := app.globalSession.SessionStart(ctrl.Response, ctrl.Request)
 		if err != nil {
 			panic(err)
 		}
@@ -51,7 +52,7 @@ func (ctrl *Controller) Session() session.Store {
 	return ctrl.session
 }
 
-// OnLoad the OnLoad is called just after the OnInit
+// OnLoad the OnLoad is called just after the OnInit method
 func (ctrl *Controller) OnLoad() {
 }
 
@@ -68,71 +69,71 @@ func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
 
 // View execute the default view file and return the HTML
 func (ctrl *Controller) View() ActionResult {
-	res, code := renderView(ctrl.controller+"/"+ctrl.actionName, ctrl.ViewData)
-	var resp = NewActionResult()
-	resp.Write([]byte(res))
-	if code != 200 {
-		resp.SetStatusCode(code)
-	}
-	return resp
+	return ctrl.ViewFile(ctrl.controller + "/" + ctrl.actionName)
 }
 
 // Content return the content as text
-func (ctrl *Controller) Content(str string, ctype ...string) ActionResult {
+func (ctrl *Controller) Content(str string, cntType string) ActionResult {
 	var resp = NewActionResult()
+	if len(cntType) < 1 {
+		resp.SetContentType("text/plain")
+	} else{
+		resp.SetContentType(cntType)
+	}
 	if len(str) > 0 {
 		resp.Write([]byte(str))
-	}
-	if len(ctype) > 0 && len(ctype[0]) > 0 {
-		resp.SetContentType(ctype[0])
-	} else {
-		resp.SetContentType("text/plain")
 	}
 	return resp
 }
 
-// JSON return the Json string as action result
-func (ctrl *Controller) JSON(data interface{}) ActionResult {
-	var resp = NewActionResult()
+// PlainText return the text as plain text
+func (ctrl *Controller) PlainText(content string) ActionResult {
+	return ctrl.Content(content, "text/plain")
+}
+
+func (ctrl *Controller) Javascript(code string) ActionResult {
+	return ctrl.Content(code, "application/x-javascript")
+}
+
+func (ctrl *Controller) Css(code string) ActionResult {
+	return ctrl.Content(code, "text/css")
+}
+
+// Json return the Json string as action result
+func (ctrl *Controller) Json(data interface{}) ActionResult {
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
-	resp.SetContentType("application/json")
-	resp.Write(bytes)
-	return resp
+	return ctrl.Content(string(bytes), "application/json")
 }
 
-// XML return the Xml string as action result
-func (ctrl *Controller) XML(obj interface{}) ActionResult {
-	var resp = NewActionResult()
-	bytes, err := xml.Marshal(obj)
+// Xml return the Xml string as action result
+func (ctrl *Controller) Xml(data interface{}) ActionResult {
+	bytes, err := xml.Marshal(data)
 	if err != nil {
 		panic(err)
 	}
-	resp.SetContentType("text/xml")
-	resp.Write(bytes)
-	return resp
+	return ctrl.Content(string(bytes), "text/xml")
 }
 
 // File serve the file as action result
-func (ctrl *Controller) File(path string, ctype string) ActionResult {
+func (ctrl *Controller) File(path string, cntType string) ActionResult {
 	var resp = &actionResult{
 		statusCode:  200,
 		resFile:     path,
-		contentType: ctype,
+		contentType: cntType,
 	}
 	return resp
 }
 
 // Redirect return a redirect url as action result
-func (ctrl *Controller) Redirect(url string, statusCode ...int) ActionResult {
-	var code = 302
-	if len(statusCode) > 0 && statusCode[0] == 301 {
-		code = 301
+func (ctrl *Controller) Redirect(url string, statusCode int) ActionResult {
+	if statusCode != 301 && statusCode != 302 {
+		panic(errors.New("Invalid redirect status code"))
 	}
 	var resp = &actionResult{
-		statusCode: code,
+		statusCode: statusCode,
 		redUrl:     url,
 	}
 	return resp
@@ -140,5 +141,5 @@ func (ctrl *Controller) Redirect(url string, statusCode ...int) ActionResult {
 
 // NotFound return a 404 page as action result
 func (ctrl *Controller) NotFound() ActionResult {
-	return AppServer.showError(ctrl.Request, 404)
+	return app.handleError(ctrl.Request, 404)
 }

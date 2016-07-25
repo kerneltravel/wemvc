@@ -9,14 +9,111 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sort"
 
 	"github.com/Simbory/wemvc/fsnotify"
 	"github.com/Simbory/wemvc/utils"
 	"github.com/Simbory/wemvc/session"
+	"fmt"
 )
 
+
+type server struct {
+	errorHandlers map[int]Handler
+	Port           int
+	webRoot        string
+	config         *configuration
+	router         *Router
+	watcher        *fsnotify.Watcher
+	watchingFiles  []string
+	initError      error
+	routeLocked    bool
+	staticPaths    []string
+	filters        map[string][]Filter
+	globalSession  *session.SessionManager
+}
+
+func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// check init error
+	if app.initError != nil {
+		w.WriteHeader(500)
+		w.Write([]byte(app.initError.Error()))
+		return
+	}
+	defer app.panicRecover(w, req)
+
+	var lUrl = strings.ToLower(req.URL.Path)
+	var ctx = &context{
+		req: req,
+		w:   w,
+		end: false,
+	}
+	// execute the filters
+	var tmpFilters = app.filters
+	var keys []string
+	for key := range tmpFilters {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if ctx.end {
+			return
+		}
+		if strings.HasPrefix(lUrl+"/", key) {
+			for _, f := range tmpFilters[key] {
+				f(ctx)
+			}
+		}
+	}
+	if ctx.end {
+		return
+	}
+
+	// serve the static file
+	for _, p := range app.staticPaths {
+		if strings.HasPrefix(lUrl, p) {
+			app.serveStaticFile(w, req)
+			return
+		}
+	}
+
+	// serve the dynamic page
+	var result ActionResult
+	result = app.serveDynamic(ctx)
+	// handle error 404
+	if result == nil {
+		result = app.handleError(req, 404)
+	}
+	// process the dynamic result
+	res, ok := result.(*actionResult)
+	if ok {
+		if len(res.resFile) > 0 {
+			http.ServeFile(w, req, res.resFile)
+			return
+		}
+		if len(res.redUrl) > 0 {
+			http.Redirect(w, req, res.redUrl, res.statusCode)
+			return
+		}
+		// write the result to browser
+		for k, v := range result.GetHeaders() {
+			//fmt.Println("Key: ", k, " Value: ", v)
+			w.Header().Add(k, v)
+		}
+		var contentType = fmt.Sprintf("%s;charset=%s", result.GetContentType(), result.GetEncoding())
+		w.Header().Add("Content-Type", contentType)
+		if result.GetStatusCode() != 200 {
+			w.WriteHeader(result.GetStatusCode())
+		}
+		var output = result.GetOutput()
+		if len(output) > 0 {
+			w.Write(result.GetOutput())
+		}
+	}
+}
+
 // init app func is used to init the application
-func (app *appServer) init() error {
+func (app *server) init() error {
 	// load the config file
 	if config, f, err := app.loadConfig(); err != nil {
 		app.initError = err
@@ -35,7 +132,7 @@ func (app *appServer) init() error {
 	}
 	app.watcher = w
 	// start to watch the config files
-	err = app.watcher.Watch(app.GetRootPath())
+	err = app.watcher.Watch(RootDir())
 	if err != nil {
 		panic(err)
 	}
@@ -81,7 +178,7 @@ func (app *appServer) init() error {
 }
 
 // watchFile is used to watching the required files: config files and view files
-func (app *appServer) watchFile() {
+func (app *server) watchFile() {
 	for {
 		select {
 		case ev := <-app.watcher.Event:
@@ -115,8 +212,8 @@ func (app *appServer) watchFile() {
 	}
 }
 
-func (app *appServer) isConfigFile(f string) bool {
-	if app.MapPath("/web.config") == f {
+func (app *server) isConfigFile(f string) bool {
+	if MapPath("/web.config") == f {
 		return true
 	}
 	for _, configFile := range app.watchingFiles {
@@ -127,14 +224,14 @@ func (app *appServer) isConfigFile(f string) bool {
 	return false
 }
 
-func (app *appServer) isInViewFolder(f string) bool {
+func (app *server) isInViewFolder(f string) bool {
 	var viewPath = app.viewFolder()
 	return strings.HasPrefix(f, viewPath)
 }
 
-func (app *appServer) loadConfig() (*configuration, []string, error) {
+func (app *server) loadConfig() (*configuration, []string, error) {
 	// load the config file
-	var configFile = app.MapPath("/web.config")
+	var configFile = MapPath("/web.config")
 	if utils.IsFile(configFile) == false {
 		return nil, nil, nil
 	}
@@ -146,7 +243,7 @@ func (app *appServer) loadConfig() (*configuration, []string, error) {
 	}
 	// load the setting config source file
 	if len(configData.Settings.ConfigSource) > 0 {
-		configFile = app.MapPath(configData.Settings.ConfigSource)
+		configFile = MapPath(configData.Settings.ConfigSource)
 		var settings = &settingGroup{}
 		err = utils.File2Xml(configFile, settings)
 		if err != nil {
@@ -158,19 +255,19 @@ func (app *appServer) loadConfig() (*configuration, []string, error) {
 	}
 	// load the connection string config source
 	if len(configData.ConnStrings.ConfigSource) > 0 {
-		configFile = app.MapPath(configData.ConnStrings.ConfigSource)
-		var conns = &connGroup{}
-		err = utils.File2Xml(configFile, conns)
+		configFile = MapPath(configData.ConnStrings.ConfigSource)
+		var connGroup = &connGroup{}
+		err = utils.File2Xml(configFile, connGroup)
 		if err != nil {
 			return nil, nil, err
 		}
-		configData.ConnStrings.ConnStrings = conns.ConnStrings
+		configData.ConnStrings.ConnStrings = connGroup.ConnStrings
 		configData.ConnStrings.ConfigSource = ""
 		files = append(files, configFile)
 	}
 	// load the mime config source
 	if len(configData.Mimes.ConfigSource) > 0 {
-		configFile = app.MapPath(configData.Mimes.ConfigSource)
+		configFile = MapPath(configData.Mimes.ConfigSource)
 		var mimes = &mimeGroup{}
 		err = utils.File2Xml(configFile, mimes)
 		if err != nil {
@@ -183,12 +280,12 @@ func (app *appServer) loadConfig() (*configuration, []string, error) {
 	return configData, files, nil
 }
 
-func (app *appServer) serveStaticFile(res http.ResponseWriter, req *http.Request) {
+func (app *server) serveStaticFile(res http.ResponseWriter, req *http.Request) {
 	if strings.HasSuffix(req.URL.Path, "/") {
-		var defaultUrls = app.GetConfig().GetDefaultUrls()
+		var defaultUrls = Config().GetDefaultUrls()
 		if len(defaultUrls) > 0 {
 			for _, f := range defaultUrls {
-				var file = app.MapPath(req.URL.Path + f)
+				var file = MapPath(req.URL.Path + f)
 				if utils.IsFile(file) {
 					http.ServeFile(res, req, file)
 					return
@@ -199,10 +296,10 @@ func (app *appServer) serveStaticFile(res http.ResponseWriter, req *http.Request
 			return
 		}
 	}
-	http.ServeFile(res, req, app.MapPath(req.URL.Path))
+	http.ServeFile(res, req, MapPath(req.URL.Path))
 }
 
-func (app *appServer) serveDynamic(ctx *context) ActionResult {
+func (app *server) serveDynamic(ctx *context) ActionResult {
 	var path = ctx.req.URL.Path
 	var resp ActionResult
 	cInfo, routeData, match := app.router.Lookup(ctx.req.Method, path)
@@ -232,7 +329,7 @@ func (app *appServer) serveDynamic(ctx *context) ActionResult {
 	return resp
 }
 
-func (app *appServer) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, actionMethod, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
+func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, actionMethod, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
 	var ctrl = reflect.New(t)
 	cName := strings.ToLower(t.String())
 	cName = strings.Split(cName, ".")[1]
@@ -255,7 +352,7 @@ func (app *appServer) execute(req *http.Request, w http.ResponseWriter, t reflec
 	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
 		if req.MultipartForm != nil {
 			var size int64
-			var maxSize = AppServer.GetConfig().GetSetting("MaxFormSize")
+			var maxSize = app.config.GetSetting("MaxFormSize")
 			if len(maxSize) < 1 {
 				size = 10485760
 			} else {
@@ -288,7 +385,7 @@ func (app *appServer) execute(req *http.Request, w http.ResponseWriter, t reflec
 	return nil
 }
 
-func (app *appServer) error404(req *http.Request) ActionResult {
+func (app *server) error404(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(404)
 	res.Write([]byte(`
@@ -301,7 +398,7 @@ func (app *appServer) error404(req *http.Request) ActionResult {
 	return res
 }
 
-func (app *appServer) error403(req *http.Request) ActionResult {
+func (app *server) error403(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(403)
 	res.Write([]byte(`
@@ -314,7 +411,7 @@ func (app *appServer) error403(req *http.Request) ActionResult {
 	return res
 }
 
-func (app *appServer) showError(req *http.Request, code int) ActionResult {
+func (app *server) handleError(req *http.Request, code int) ActionResult {
 	var handler = app.errorHandlers[code]
 	if handler != nil {
 		return handler(req)
@@ -322,11 +419,11 @@ func (app *appServer) showError(req *http.Request, code int) ActionResult {
 	return app.error404(req)
 }
 
-func (app *appServer) viewFolder() string {
-	return app.MapPath("/views")
+func (app *server) viewFolder() string {
+	return MapPath("/views")
 }
 
-func (app *appServer) panicRecover(res http.ResponseWriter, req *http.Request) {
+func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	rec := recover()
 	if rec == nil {
 		return
