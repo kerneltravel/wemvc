@@ -85,12 +85,13 @@ func SetFilter(pathPrefix string, filter Filter) {
 }
 
 // Run run the web application
-func Run() error {
+func Run(port int) error {
 	app.routeLocked = true
+	app.port = port
 	println("root:", app.webRoot)
-	println("port:", app.Port)
-	port := fmt.Sprintf(":%d", app.Port)
-	return http.ListenAndServe(port, app)
+	println("port:", app.port)
+	portStr := fmt.Sprintf(":%d", app.port)
+	return http.ListenAndServe(portStr, app)
 }
 
 // App the application singleton
@@ -100,7 +101,6 @@ func init() {
 	var root = getWorkPath()
 	app = &server{
 		webRoot:     root,
-		Port:        8080,
 		initError:   nil,
 		routeLocked: false,
 		filters:     make(map[string][]Filter),

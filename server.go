@@ -20,17 +20,17 @@ import (
 
 type server struct {
 	errorHandlers map[int]Handler
-	Port           int
-	webRoot        string
-	config         *configuration
-	router         *Router
-	watcher        *fsnotify.Watcher
-	watchingFiles  []string
-	initError      error
-	routeLocked    bool
-	staticPaths    []string
-	filters        map[string][]Filter
-	globalSession  *session.SessionManager
+	port          int
+	webRoot       string
+	config        *configuration
+	router        *Router
+	watcher       *fsnotify.Watcher
+	watchingFiles []string
+	initError     error
+	routeLocked   bool
+	staticPaths   []string
+	filters       map[string][]Filter
+	globalSession *session.SessionManager
 }
 
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {

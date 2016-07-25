@@ -17,17 +17,16 @@ func (this HomeController) GetAbout() wemvc.ActionResult {
 	obj := make(map[string]interface{})
 	obj["routeData"] = this.RouteData
 	obj["headers"] = this.Request.Header
-	return this.JSON(obj)
+	return this.Json(obj)
 }
 
 func init() {
-	wemvc.App.Route("/", HomeController{})
-	wemvc.App.Route("/:action", HomeController{})
+	wemvc.Route("/", HomeController{})
+	wemvc.Route("/:action", HomeController{})
 }
 
 func main() {
-	wemvc.App.Port(8080);
-	wemvc.App.Run();
+	wemvc.Run(8080);
 }
 ```
 ### another sample
