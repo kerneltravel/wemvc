@@ -301,6 +301,9 @@ func (app *server) serveStaticFile(res http.ResponseWriter, req *http.Request) {
 
 func (app *server) serveDynamic(ctx *context) ActionResult {
 	var path = ctx.req.URL.Path
+	if len(path) > 1 && strings.HasSuffix(path, "/") {
+		path = strings.TrimRight(path, "/")
+	}
 	var resp ActionResult
 	cInfo, routeData, match := app.router.Lookup(ctx.req.Method, path)
 	if !match && cInfo != nil {
