@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"path"
 	"reflect"
 	"strings"
+
 	"github.com/Simbory/wemvc/utils"
 )
 
@@ -15,6 +15,15 @@ import (
 type Handler func(*http.Request) ActionResult
 
 type Filter func(ctx Context)
+
+type LogWriter func(a ...interface{})
+
+func SetRootDir(rootDir string) {
+	if !utils.IsDir(rootDir) {
+		panic("invalid root dir")
+	}
+	app.webRoot = rootDir
+}
 
 // RootDir get the root file path of the web server
 func RootDir() string {
@@ -30,13 +39,11 @@ func Config() Configuration {
 // @param virtualPath: the virtual path starts with
 // @return the absolute file path
 func MapPath(virtualPath string) string {
-	var res = path.Join(RootDir(), virtualPath)
-	return utils.FixPath(res)
+	return app.mapPath(virtualPath)
 }
 
-/* AddStatic set the path as a static path that the file under this path is served as static file
- * @param pathPrefix: the path prefix starts with '/'
- */
+// AddStatic set the path as a static path that the file under this path is served as static file
+// @param pathPrefix: the path prefix starts with '/'
 func AddStatic(pathPrefix string) {
 	if len(pathPrefix) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
@@ -51,8 +58,8 @@ func AddStatic(pathPrefix string) {
 	app.staticPaths = append(app.staticPaths, strings.ToLower(pathPrefix))
 }
 
-// HandleErr handle the error code with the error handler
-func HandleErr(errorCode int, handler Handler) {
+// HandleError handle the error code with the error handler
+func HandleError(errorCode int, handler Handler) {
 	if app.errorHandlers == nil {
 		app.errorHandlers = make(map[int]Handler)
 	}
@@ -60,17 +67,22 @@ func HandleErr(errorCode int, handler Handler) {
 }
 
 // Route set the route
-func Route(strPth string, c interface{}) {
+func Route(routePath string, c interface{}, defaultAction ...string) {
 	if app.routeLocked {
 		println("The controller cannot be added after the application is started.")
 		os.Exit(-1)
 	}
 	var t = reflect.TypeOf(c)
-	cInfo := createControllerInfo(t)
+	var action = "index"
+	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
+		action = defaultAction[0]
+	}
+	cInfo := newControllerInfo(t, action)
 	if app.router == nil {
 		app.router = newRouter()
 	}
-	app.router.Handle(strPth, cInfo)
+	app.logWriter()("set route '" + routePath + "'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction)
+	app.router.Handle(routePath, cInfo)
 }
 
 // SetFilter set the route filter
@@ -84,12 +96,26 @@ func SetFilter(pathPrefix string, filter Filter) {
 	app.filters[strings.ToLower(pathPrefix)] = append(app.filters[strings.ToLower(pathPrefix)], filter)
 }
 
+// SetLogger set the log writer, the default log writer is fmt.Println
+func SetLogger(logWriter LogWriter) {
+	app.logger = logWriter
+}
+
 // Run run the web application
 func Run(port int) error {
+	app.logWriter()("use root dir '" + app.webRoot + "'")
+	err := app.init()
+	if err != nil {
+		println(err.Error())
+		os.Exit(-1)
+	}
 	app.routeLocked = true
 	app.port = port
-	println("root:", app.webRoot)
-	println("port:", app.port)
+	host,err := os.Hostname()
+	if err != nil {
+		host = "localhost"
+	}
+	app.logWriter()(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
 	portStr := fmt.Sprintf(":%d", app.port)
 	return http.ListenAndServe(portStr, app)
 }
@@ -105,15 +131,10 @@ func init() {
 		routeLocked: false,
 		filters:     make(map[string][]Filter),
 	}
-	err := app.init()
-	if err != nil {
-		println(err.Error())
-		os.Exit(-1)
-	}
 }
 
 func getWorkPath() string {
-	p,err := os.Getwd()
+	p, err := os.Getwd()
 	if err != nil {
 		panic(err)
 	}

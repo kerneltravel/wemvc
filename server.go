@@ -15,8 +15,9 @@ import (
 	"github.com/Simbory/wemvc/utils"
 	"github.com/Simbory/wemvc/session"
 	"fmt"
+	"runtime/debug"
+	"time"
 )
-
 
 type server struct {
 	errorHandlers map[int]Handler
@@ -31,6 +32,7 @@ type server struct {
 	staticPaths   []string
 	filters       map[string][]Filter
 	globalSession *session.SessionManager
+	logger        LogWriter
 }
 
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -56,35 +58,37 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		if ctx.end {
-			return
-		}
 		if strings.HasPrefix(lUrl+"/", key) {
 			for _, f := range tmpFilters[key] {
 				f(ctx)
+				if ctx.end {
+					return
+				}
 			}
 		}
 	}
-	if ctx.end {
-		return
-	}
-
+	var result ActionResult
 	// serve the static file
-	for _, p := range app.staticPaths {
-		if strings.HasPrefix(lUrl, p) {
-			app.serveStaticFile(w, req)
+	if app.isStaticRequest(lUrl) {
+		app.serveStaticFile(ctx)
+		if ctx.end {
 			return
+		} else{
+			result = app.handleError(req, 404)
+		}
+	} else {
+		// serve the dynamic page
+		result = app.serveDynamic(ctx)
+		// handle error 404
+		if result == nil {
+			result = app.handleError(req, 404)
 		}
 	}
-
-	// serve the dynamic page
-	var result ActionResult
-	result = app.serveDynamic(ctx)
-	// handle error 404
-	if result == nil {
-		result = app.handleError(req, 404)
-	}
 	// process the dynamic result
+	app.flushRequest(result, w, req)
+}
+
+func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req *http.Request) {
 	res, ok := result.(*actionResult)
 	if ok {
 		if len(res.resFile) > 0 {
@@ -112,7 +116,26 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// init app func is used to init the application
+// mapPath Returns the physical file path that corresponds to the specified virtual path.
+func (app *server) mapPath(virtualPath string) string {
+	var res = path.Join(RootDir(), virtualPath)
+	return utils.FixPath(res)
+}
+
+// isStaticRequest check the current request is indicate to static path
+func (app *server) isStaticRequest(url string) bool {
+	for _, p := range app.staticPaths {
+		if strings.HasPrefix(url, p) {
+			return true
+		}
+	}
+	return false
+}
+
+// init used to initialize the server
+// 1. load the config file
+// 2. watch the view file
+// 3. init the global session
 func (app *server) init() error {
 	// load the config file
 	if config, f, err := app.loadConfig(); err != nil {
@@ -157,7 +180,21 @@ func (app *server) init() error {
 	// start to watch the files and dirs
 	go app.watchFile()
 	// init sessionManager
-	if app.config.SessionConfig != nil && len(app.config.SessionConfig.ManagerName) > 0 {
+	defaultConfig := &session.ManagerConfig{
+		ManagerName: "memory",
+		Gclifetime: 3600,
+		Maxlifetime: 3600,
+		CookieLifeTime: 3600,
+	}
+	if app.config == nil {
+		app.config = &configuration{
+			SessionConfig: defaultConfig,
+		}
+	} else if app.config.SessionConfig == nil {
+		app.config.SessionConfig = defaultConfig
+	}
+
+	if len(app.config.SessionConfig.ManagerName) > 0 {
 		if app.config.SessionConfig.Gclifetime == 0 {
 			app.config.SessionConfig.Gclifetime = 3600
 		}
@@ -177,7 +214,7 @@ func (app *server) init() error {
 	return nil
 }
 
-// watchFile is used to watching the required files: config files and view files
+// watchFile used to watching the required files: config files and view files
 func (app *server) watchFile() {
 	for {
 		select {
@@ -213,7 +250,7 @@ func (app *server) watchFile() {
 }
 
 func (app *server) isConfigFile(f string) bool {
-	if MapPath("/web.config") == f {
+	if app.mapPath("/web.config") == f {
 		return true
 	}
 	for _, configFile := range app.watchingFiles {
@@ -231,20 +268,22 @@ func (app *server) isInViewFolder(f string) bool {
 
 func (app *server) loadConfig() (*configuration, []string, error) {
 	// load the config file
-	var configFile = MapPath("/web.config")
+	var configFile = app.mapPath("/web.config")
 	if utils.IsFile(configFile) == false {
 		return nil, nil, nil
 	}
 	var configData = &configuration{}
 	var files []string
+	app.logWriter()("load config file '" + configFile + "'")
 	err := utils.File2Xml(configFile, configData)
 	if err != nil {
 		return nil, nil, err
 	}
 	// load the setting config source file
 	if len(configData.Settings.ConfigSource) > 0 {
-		configFile = MapPath(configData.Settings.ConfigSource)
+		configFile = app.mapPath(configData.Settings.ConfigSource)
 		var settings = &settingGroup{}
+		app.logWriter()("load config file '" + configFile + "'")
 		err = utils.File2Xml(configFile, settings)
 		if err != nil {
 			return nil, nil, err
@@ -255,8 +294,9 @@ func (app *server) loadConfig() (*configuration, []string, error) {
 	}
 	// load the connection string config source
 	if len(configData.ConnStrings.ConfigSource) > 0 {
-		configFile = MapPath(configData.ConnStrings.ConfigSource)
+		configFile = app.mapPath(configData.ConnStrings.ConfigSource)
 		var connGroup = &connGroup{}
+		app.logWriter()("load config file '" + configFile + "'")
 		err = utils.File2Xml(configFile, connGroup)
 		if err != nil {
 			return nil, nil, err
@@ -267,8 +307,9 @@ func (app *server) loadConfig() (*configuration, []string, error) {
 	}
 	// load the mime config source
 	if len(configData.Mimes.ConfigSource) > 0 {
-		configFile = MapPath(configData.Mimes.ConfigSource)
+		configFile = app.mapPath(configData.Mimes.ConfigSource)
 		var mimes = &mimeGroup{}
+		app.logWriter()("load config file '" + configFile + "'")
 		err = utils.File2Xml(configFile, mimes)
 		if err != nil {
 			return nil, nil, err
@@ -280,23 +321,35 @@ func (app *server) loadConfig() (*configuration, []string, error) {
 	return configData, files, nil
 }
 
-func (app *server) serveStaticFile(res http.ResponseWriter, req *http.Request) {
-	if strings.HasSuffix(req.URL.Path, "/") {
-		var defaultUrls = Config().GetDefaultUrls()
-		if len(defaultUrls) > 0 {
-			for _, f := range defaultUrls {
-				var file = MapPath(req.URL.Path + f)
-				if utils.IsFile(file) {
-					http.ServeFile(res, req, file)
-					return
+func (app *server) serveStaticFile(ctx *context) {
+	var physicalFile = ""
+	var f = app.mapPath(ctx.req.URL.Path)
+	if utils.IsFile(f) {
+		physicalFile = f
+	} else {
+		absolutePath := ctx.req.URL.Path
+		if !strings.HasSuffix(absolutePath, "/") {
+			absolutePath = absolutePath + "/"
+		}
+		physicalPath := app.mapPath(absolutePath)
+		if utils.IsDir(physicalPath) {
+			var defaultUrls = app.config.GetDefaultUrls()
+			if len(defaultUrls) > 0 {
+				for _, f := range defaultUrls {
+					var file = app.mapPath(absolutePath + f)
+					if utils.IsFile(file) {
+						physicalFile = file
+						break
+					}
 				}
 			}
-		} else {
-			http.ServeFile(res, req, req.URL.Path+"index.html")
-			return
 		}
 	}
-	http.ServeFile(res, req, MapPath(req.URL.Path))
+	if len(physicalFile) > 0 {
+		app.logWriter()("handle static path:", ctx.req.URL.Path)
+		http.ServeFile(ctx.w, ctx.req, physicalFile)
+		ctx.end = true
+	}
 }
 
 func (app *server) serveDynamic(ctx *context) ActionResult {
@@ -310,7 +363,7 @@ func (app *server) serveDynamic(ctx *context) ActionResult {
 		var action = routeData.ByName("action")
 		var method = strings.ToTitle(ctx.req.Method)
 		if len(action) < 1 {
-			action = "index"
+			action = cInfo.defaultAction
 		}
 		// find the action method in controller
 		var actionMethod string
@@ -376,6 +429,7 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 	if !m.IsValid() {
 		return nil
 	}
+	app.logWriter()("handle dynamic path:", req.URL.Path + "        controller:", cName + "        action:", actionName)
 	values := m.Call(nil)
 	if len(values) == 1 {
 		value, valid := values[0].Interface().(ActionResult)
@@ -423,7 +477,24 @@ func (app *server) handleError(req *http.Request, code int) ActionResult {
 }
 
 func (app *server) viewFolder() string {
-	return MapPath("/views")
+	return app.mapPath("/views")
+}
+
+func defaultLogger(args ...interface{}) {
+	var now = time.Now()
+	var sic = make([]interface{}, len(args) + 1)
+	sic[0] = now.Format(time.RFC3339Nano) + ":"
+	for i := 0; i < len(args); i++ {
+		sic[i+1] = args[i]
+	}
+	fmt.Println(sic...)
+}
+
+func (app *server) logWriter() LogWriter {
+	if app.logger == nil {
+		return defaultLogger
+	}
+	return app.logger
 }
 
 func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
@@ -433,6 +504,7 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	}
 	res.WriteHeader(500)
 	if err, ok := rec.(error); ok {
+		app.logWriter()(string(debug.Stack()))
 		res.Write([]byte(`
 			<div style="max-width:90%;margin:15px auto 0 auto;">
 				<h1>ERROR 500</h1>

@@ -280,9 +280,12 @@ func (n *node) insertChild(numParams uint8, path, fullPath string, handle *contr
 			if path[i] != '/' {
 				panic("no / before catch-all in path '" + fullPath + "'")
 			}
+			paramName := path[strings.Index(path, "*") + 1:]
+			if paramName != "pathInfo" {
+				panic("the parameter name of the catch-all rule should be 'pathInfo': '" + fullPath + "'")
+			}
 
 			n.path = path[offset:i]
-
 			// first node: catchAll node with empty path
 			child := &node{
 				wildChild: true,
@@ -302,6 +305,7 @@ func (n *node) insertChild(numParams uint8, path, fullPath string, handle *contr
 				cInfo:     handle,
 				priority:  1,
 			}
+
 			n.children = []*node{child}
 
 			return

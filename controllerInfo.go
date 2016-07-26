@@ -9,6 +9,7 @@ type controllerInfo struct {
 	controllerName string
 	controllerType reflect.Type
 	actions        map[string]string
+	defaultAction  string
 }
 
 func (cInfo *controllerInfo) containsAction(action string) bool {
@@ -19,7 +20,7 @@ func (cInfo *controllerInfo) containsAction(action string) bool {
 	return ok && len(name) > 0
 }
 
-func createControllerInfo(t reflect.Type) *controllerInfo {
+func newControllerInfo(t reflect.Type, defaultAction string) *controllerInfo {
 	typeName := t.String()
 	if strings.HasPrefix(typeName, "*") {
 		panic("Invalid controller type: \"" + typeName + "\"")
@@ -49,5 +50,6 @@ func createControllerInfo(t reflect.Type) *controllerInfo {
 		controllerName: typeName,
 		controllerType: t,
 		actions:        actions,
+		defaultAction:  defaultAction,
 	}
 }

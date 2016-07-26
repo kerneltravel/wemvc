@@ -117,7 +117,7 @@ func newRouter() *Router {
 // communication with a proxy).
 func (r *Router) Handle(path string, cInfo *controllerInfo) {
 	if path[0] != '/' {
-		panic("path must begin with '/' in path '" + path + "'")
+		path = "/" + path
 	}
 	if r.tree == nil {
 		r.tree = new(node)
