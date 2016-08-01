@@ -18,6 +18,7 @@ import (
 	"time"
 	"encoding/xml"
 	"encoding/json"
+	"log"
 )
 
 type server struct {
@@ -33,7 +34,7 @@ type server struct {
 	staticPaths   []string
 	filters       map[string][]Filter
 	globalSession *session.SessionManager
-	logger        LogWriter
+	logger        *log.Logger
 }
 
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -275,7 +276,7 @@ func (app *server) loadConfig() (*configuration, []string, error) {
 	}
 	var configData = &configuration{}
 	var files []string
-	app.logWriter()("load config file '" + configFile + "'")
+	app.logWriter().Println("load config file '" + configFile + "'")
 	err := utils.File2Xml(configFile, configData)
 	if err != nil {
 		return nil, nil, err
@@ -284,7 +285,7 @@ func (app *server) loadConfig() (*configuration, []string, error) {
 	if len(configData.Settings.ConfigSource) > 0 {
 		configFile = app.mapPath(configData.Settings.ConfigSource)
 		var settings = &settingGroup{}
-		app.logWriter()("load config file '" + configFile + "'")
+		app.logWriter().Println("load config file '" + configFile + "'")
 		err = utils.File2Xml(configFile, settings)
 		if err != nil {
 			return nil, nil, err
@@ -297,7 +298,7 @@ func (app *server) loadConfig() (*configuration, []string, error) {
 	if len(configData.ConnStrings.ConfigSource) > 0 {
 		configFile = app.mapPath(configData.ConnStrings.ConfigSource)
 		var connGroup = &connGroup{}
-		app.logWriter()("load config file '" + configFile + "'")
+		app.logWriter().Println("load config file '" + configFile + "'")
 		err = utils.File2Xml(configFile, connGroup)
 		if err != nil {
 			return nil, nil, err
@@ -310,7 +311,7 @@ func (app *server) loadConfig() (*configuration, []string, error) {
 	if len(configData.Mimes.ConfigSource) > 0 {
 		configFile = app.mapPath(configData.Mimes.ConfigSource)
 		var mimes = &mimeGroup{}
-		app.logWriter()("load config file '" + configFile + "'")
+		app.logWriter().Println("load config file '" + configFile + "'")
 		err = utils.File2Xml(configFile, mimes)
 		if err != nil {
 			return nil, nil, err
@@ -347,7 +348,7 @@ func (app *server) serveStaticFile(ctx *context) {
 		}
 	}
 	if len(physicalFile) > 0 {
-		app.logWriter()("handle static path:", ctx.req.URL.Path)
+		app.logWriter().Println("handle static path:", ctx.req.URL.Path)
 		http.ServeFile(ctx.w, ctx.req, physicalFile)
 		ctx.end = true
 	}
@@ -430,7 +431,7 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 	if !m.IsValid() {
 		return nil
 	}
-	app.logWriter()("handle dynamic path:", req.URL.Path + "        controller:", cName + "        action:", actionName)
+	app.logWriter().Println("handle dynamic path:", req.URL.Path + "        controller:", cName + "        action:", actionName)
 	values := m.Call(nil)
 	if len(values) == 1 {
 		var result = values[0].Interface()
@@ -523,9 +524,9 @@ func defaultLogger(args ...interface{}) {
 	fmt.Println(sic...)
 }
 
-func (app *server) logWriter() LogWriter {
+func (app *server) logWriter() *log.Logger {
 	if app.logger == nil {
-		return defaultLogger
+		app.logger = log.New(os.Stdout, "", log.LstdFlags|log.Llongfile)
 	}
 	return app.logger
 }
@@ -538,7 +539,7 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(500)
 	if err, ok := rec.(error); ok {
 		var debugStack = string(debug.Stack())
-		app.logWriter()(debugStack)
+		app.logWriter().Println(debugStack)
 		debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
 		debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
 		res.Write([]byte(`

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Simbory/wemvc/utils"
+	"log"
 )
 
 // Handler the error handler define
@@ -81,7 +82,7 @@ func Route(routePath string, c interface{}, defaultAction ...string) {
 	if app.router == nil {
 		app.router = newRouter()
 	}
-	app.logWriter()("set route '" + routePath + "'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction + "\r\n")
+	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction+"\r\n")
 	app.router.Handle(routePath, cInfo)
 }
 
@@ -96,14 +97,24 @@ func SetFilter(pathPrefix string, filter Filter) {
 	app.filters[strings.ToLower(pathPrefix)] = append(app.filters[strings.ToLower(pathPrefix)], filter)
 }
 
-// SetLogger set the log writer, the default log writer is fmt.Println
-func SetLogger(logWriter LogWriter) {
-	app.logger = logWriter
+func Logger() *log.Logger {
+	return app.logWriter()
+}
+
+// SetLogFile set the log file, the default log file is os.Stdout
+func SetLogFile(name string) {
+	file, err := os.Create(name)
+	if err != nil {
+		log.Fatal(err.Error())
+		return
+	}
+	logger := log.New(file, "", log.LstdFlags|log.Llongfile)
+	app.logger = logger
 }
 
 // Run run the web application
 func Run(port int) error {
-	app.logWriter()("use root dir '" + app.webRoot + "'")
+	app.logWriter().Println("use root dir '" + app.webRoot + "'")
 	err := app.init()
 	if err != nil {
 		println(err.Error())
@@ -111,11 +122,11 @@ func Run(port int) error {
 	}
 	app.routeLocked = true
 	app.port = port
-	host,err := os.Hostname()
+	host, err := os.Hostname()
 	if err != nil {
 		host = "localhost"
 	}
-	app.logWriter()(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
+	app.logWriter().Println(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
 	portStr := fmt.Sprintf(":%d", app.port)
 	return http.ListenAndServe(portStr, app)
 }

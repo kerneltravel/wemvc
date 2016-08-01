@@ -31,16 +31,16 @@ func newControllerInfo(t reflect.Type, defaultAction string) *controllerInfo {
 	}
 	obj := reflect.New(t)
 	var methods []string
-	app.logWriter()("Analyze controller", typeName)
+	app.logWriter().Println("Analyze controller", typeName)
 	for i := 0; i < numMethod; i++ {
 		methodName := t.Method(i).Name
 		method := obj.MethodByName(methodName)
 		methodType := method.Type().String()
 		if !strings.HasSuffix(methodType, "wemvc.ActionResult") && !strings.HasSuffix(methodType, "interface {}") {
-			app.logWriter()("    Ignore method", methodName)
+			app.logWriter().Println("    Ignore method", methodName)
 			continue
 		} else {
-			app.logWriter()("    Found action method", methodName)
+			app.logWriter().Println("    Found action method", methodName)
 		}
 		methods = append(methods, methodName)
 	}
