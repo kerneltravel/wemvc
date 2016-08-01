@@ -81,7 +81,7 @@ func Route(routePath string, c interface{}, defaultAction ...string) {
 	if app.router == nil {
 		app.router = newRouter()
 	}
-	app.logWriter()("set route '" + routePath + "'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction)
+	app.logWriter()("set route '" + routePath + "'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction + "\r\n")
 	app.router.Handle(routePath, cInfo)
 }
 

@@ -5,7 +5,6 @@ import (
 	"encoding/xml"
 	"net/http"
 	"github.com/Simbory/wemvc/session"
-	"errors"
 )
 
 // Controller the controller base struct
@@ -127,16 +126,22 @@ func (ctrl *Controller) File(path string, cntType string) ActionResult {
 	return resp
 }
 
-// Redirect return a redirect url as action result
-func (ctrl *Controller) Redirect(url string, statusCode int) ActionResult {
-	if statusCode != 301 && statusCode != 302 {
-		panic(errors.New("Invalid redirect status code"))
-	}
+func (ctrl *Controller)redirect(url string, statusCode int) ActionResult {
 	var resp = &actionResult{
 		statusCode: statusCode,
 		redUrl:     url,
 	}
 	return resp
+}
+
+// Redirect Redirects a request to a new URL and specifies the new URL.
+func (ctrl *Controller) Redirect(url string) ActionResult {
+	return ctrl.redirect(url, 302)
+}
+
+// RedirectPermanent Performs a permanent redirection from the requested URL to the specified URL.
+func (ctrl *Controller) RedirectPermanent(url string) ActionResult {
+	return ctrl.redirect(url, 301)
 }
 
 // NotFound return a 404 page as action result

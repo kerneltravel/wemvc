@@ -1,7 +1,6 @@
 package wemvc
 
 import (
-	"errors"
 	"net/http"
 	"os"
 	"path"
@@ -17,6 +16,8 @@ import (
 	"fmt"
 	"runtime/debug"
 	"time"
+	"encoding/xml"
+	"encoding/json"
 )
 
 type server struct {
@@ -432,12 +433,28 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 	app.logWriter()("handle dynamic path:", req.URL.Path + "        controller:", cName + "        action:", actionName)
 	values := m.Call(nil)
 	if len(values) == 1 {
-		value, valid := values[0].Interface().(ActionResult)
+		var result = values[0].Interface()
+		value, valid := result.(ActionResult)
 		if !valid {
-			panic(errors.New("Invalid return type"))
-		} else {
-			return value
+			value = NewActionResult()
+			var cType = req.Header.Get("Content-Type")
+			if (cType == "text/xml") {
+				xmlBytes, err := xml.Marshal(result)
+				if err != nil {
+					panic(err)
+				}
+				value.SetContentType("text/xml")
+				value.Write(xmlBytes)
+			} else {
+				jsonBytes,err := json.Marshal(result)
+				if err != nil {
+					panic(err)
+				}
+				value.SetContentType("application/json")
+				value.Write(jsonBytes)
+			}
 		}
+		return value
 	}
 	return nil
 }
@@ -446,12 +463,20 @@ func (app *server) error404(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(404)
 	res.Write([]byte(`
-	<div style="max-width:90%;margin:15px auto 0 auto;">
-		<h1>ERROR 404</h1>
-		<hr/>
-		<p>The path "` + req.URL.Path + `" is not found!</p>
-		<i>wemvc server version ` + Version + `</i>
-	</div>`))
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>Error 404 - Not Found</title>
+		</head>
+		<body>
+			<div style="max-width:90%;margin:15px auto 0 auto;">
+			<h1>ERROR 404 - Not Found</h1>
+			<hr/>
+			<p>The path "` + req.URL.Path + `" is not found!</p>
+			<i>wemvc server version ` + Version + `</i>
+		</div>
+		</body>
+		</html>`))
 	return res
 }
 
@@ -459,12 +484,20 @@ func (app *server) error403(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(403)
 	res.Write([]byte(`
-	<div style="max-width:90%;margin:15px auto 0 auto;">
-		<h1>ERROR 403!</h1>
-		<hr/>
-		<p>Access denied for the path <b>` + req.URL.Path + `</b></p>
-		<i>wemvc server version ` + Version + `</i>
-	</div>`))
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>Error 403 - Forbidden</title>
+		</head>
+		<body>
+			<div style="max-width:90%;margin:15px auto 0 auto;">
+			<h1>Error 403 - Forbidden</h1>
+			<hr/>
+			<p>The server understood the request but refuses to authorize it: <b>` + req.URL.Path + `</b></p>
+			<i>wemvc server version ` + Version + `</i>
+			</div>
+		</body>
+		</html>`))
 	return res
 }
 
@@ -504,22 +537,40 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	}
 	res.WriteHeader(500)
 	if err, ok := rec.(error); ok {
-		app.logWriter()(string(debug.Stack()))
+		var debugStack = string(debug.Stack())
+		app.logWriter()(debugStack)
+		debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
+		debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
 		res.Write([]byte(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>Internal server Error</title>
+		</head>
+		<body>
 			<div style="max-width:90%;margin:15px auto 0 auto;">
-				<h1>ERROR 500</h1>
+				<h1>Internal server Error</h1>
 				<hr/>
-				<p>Internal server Error!</p>
 				<p>` + err.Error() + `</p>
+				<pre>` + debugStack + `</pre>
 				<i>wemvc server version ` + Version + `</i>
-			</div>`))
+			</div>
+		</body>
+		</html>`))
 	} else {
 		res.Write([]byte(`
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<title>Internal server Error</title>
+		</head>
+		<body>
 			<div style="max-width:90%;margin:15px auto 0 auto;">
-				<h1>ERROR 500</h1>
+				<h1>Internal server Error</h1>
 				<hr/>
-				<p>Internal server Error!</p>
 				<i>wemvc server version ` + Version + `</i>
-			</div>`))
+			</div>
+		</body>
+		</html>`))
 	}
 }
