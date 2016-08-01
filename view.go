@@ -23,20 +23,16 @@ type view struct {
 	err error
 }
 
-var views map[string]*view
-
-func addView(name string, v *view) {
-	if views == nil {
-		views = make(map[string]*view)
-	}
-	views[name] = v
+func (app *server)addView(name string, v *view) {
+	app.views[name] = v
 }
 
-func getView(name string) *view {
-	if views != nil {
-		return views[name]
+func (app *server)getView(name string) *view {
+	v,ok := app.views[name]
+	if !ok {
+		return nil
 	}
-	return nil
+	return v
 }
 
 func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
@@ -65,7 +61,7 @@ func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 	return nil
 }
 
-func buildViews(dir string) error {
+func (app *server)buildViews(dir string) error {
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -87,7 +83,7 @@ func buildViews(dir string) error {
 		for _, file := range v {
 			t, err := getTemplate(vf.root, file, v...)
 			v := &view{tpl: t, err: err}
-			addView(file, v)
+			app.addView(file, v)
 		}
 	}
 	return nil
@@ -195,13 +191,13 @@ func getTplLoop(t0 *template.Template, root string, subMods [][]string, others .
 	return
 }
 
-func renderView(viewPath string, viewData interface{}) (template.HTML, int) {
+func (app *server)renderView(viewPath string, viewData interface{}) (template.HTML, int) {
 	ext, _ := regexp.Compile(`\.[hH][tT][mM][lL]?$`)
 	if !ext.MatchString(viewPath) {
 		viewPath = viewPath + ".html"
 	}
 
-	tpl := getView(viewPath)
+	tpl := app.getView(viewPath)
 	if tpl == nil {
 		return template.HTML("cannot find the view " + viewPath), 500
 	}

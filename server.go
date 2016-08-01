@@ -6,19 +6,20 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
 
-	"github.com/Simbory/wemvc/fsnotify"
-	"github.com/Simbory/wemvc/utils"
-	"github.com/Simbory/wemvc/session"
+	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"log"
 	"runtime/debug"
 	"time"
-	"encoding/xml"
-	"encoding/json"
-	"log"
+
+	"github.com/Simbory/wemvc/fsnotify"
+	"github.com/Simbory/wemvc/session"
+	"github.com/Simbory/wemvc/utils"
 )
 
 type server struct {
@@ -35,6 +36,7 @@ type server struct {
 	filters       map[string][]Filter
 	globalSession *session.SessionManager
 	logger        *log.Logger
+	views         map[string]*view
 }
 
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -46,7 +48,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	defer app.panicRecover(w, req)
 
-	var lUrl = strings.ToLower(req.URL.Path)
+	var lowerURL = strings.ToLower(req.URL.Path)
 	var ctx = &context{
 		req: req,
 		w:   w,
@@ -60,7 +62,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		if strings.HasPrefix(lUrl+"/", key) {
+		if strings.HasPrefix(lowerURL+"/", key) {
 			for _, f := range tmpFilters[key] {
 				f(ctx)
 				if ctx.end {
@@ -71,13 +73,12 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	var result ActionResult
 	// serve the static file
-	if app.isStaticRequest(lUrl) {
+	if app.isStaticRequest(lowerURL) {
 		app.serveStaticFile(ctx)
 		if ctx.end {
 			return
-		} else{
-			result = app.handleError(req, 404)
 		}
+		result = app.handleError(req, 404)
 	} else {
 		// serve the dynamic page
 		result = app.serveDynamic(ctx)
@@ -97,8 +98,8 @@ func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req 
 			http.ServeFile(w, req, res.resFile)
 			return
 		}
-		if len(res.redUrl) > 0 {
-			http.Redirect(w, req, res.redUrl, res.statusCode)
+		if len(res.redURL) > 0 {
+			http.Redirect(w, req, res.redURL, res.statusCode)
 			return
 		}
 		// write the result to browser
@@ -147,7 +148,6 @@ func (app *server) init() error {
 		app.watchingFiles = f
 	}
 	// init the error handler
-	app.errorHandlers = make(map[int]Handler)
 	app.errorHandlers[404] = app.error404
 	app.errorHandlers[403] = app.error403
 	// init fsnotify watcher
@@ -170,7 +170,7 @@ func (app *server) init() error {
 	// build the view template and watch the changes
 	var viewDir = app.viewFolder()
 	if utils.IsDir(viewDir) {
-		buildViews(viewDir)
+		app.buildViews(viewDir)
 		app.watcher.Watch(viewDir)
 		filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
 			if info.IsDir() {
@@ -183,9 +183,9 @@ func (app *server) init() error {
 	go app.watchFile()
 	// init sessionManager
 	defaultConfig := &session.ManagerConfig{
-		ManagerName: "memory",
-		Gclifetime: 3600,
-		Maxlifetime: 3600,
+		ManagerName:    "memory",
+		Gclifetime:     3600,
+		Maxlifetime:    3600,
 		CookieLifeTime: 3600,
 	}
 	if app.config == nil {
@@ -244,7 +244,7 @@ func (app *server) watchFile() {
 						app.watcher.Watch(strFile)
 					}
 				} else if strings.HasSuffix(strFile, ".html") {
-					buildViews(app.viewFolder())
+					app.buildViews(app.viewFolder())
 				}
 			}
 		}
@@ -431,7 +431,7 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 	if !m.IsValid() {
 		return nil
 	}
-	app.logWriter().Println("handle dynamic path:", req.URL.Path + "        controller:", cName + "        action:", actionName)
+	app.logWriter().Println("handle dynamic path:", req.URL.Path+"        controller:", cName+"        action:", actionName)
 	values := m.Call(nil)
 	if len(values) == 1 {
 		var result = values[0].Interface()
@@ -439,7 +439,7 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 		if !valid {
 			value = NewActionResult()
 			var cType = req.Header.Get("Content-Type")
-			if (cType == "text/xml") {
+			if cType == "text/xml" {
 				xmlBytes, err := xml.Marshal(result)
 				if err != nil {
 					panic(err)
@@ -447,7 +447,7 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 				value.SetContentType("text/xml")
 				value.Write(xmlBytes)
 			} else {
-				jsonBytes,err := json.Marshal(result)
+				jsonBytes, err := json.Marshal(result)
 				if err != nil {
 					panic(err)
 				}
@@ -516,7 +516,7 @@ func (app *server) viewFolder() string {
 
 func defaultLogger(args ...interface{}) {
 	var now = time.Now()
-	var sic = make([]interface{}, len(args) + 1)
+	var sic = make([]interface{}, len(args)+1)
 	sic[0] = now.Format(time.RFC3339Nano) + ":"
 	for i := 0; i < len(args); i++ {
 		sic[i+1] = args[i]

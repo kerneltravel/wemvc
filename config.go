@@ -2,15 +2,18 @@ package wemvc
 
 import (
 	"strings"
+
 	"github.com/Simbory/wemvc/session"
 )
 
+// ConnConfig connection string config section interface
 type ConnConfig interface {
 	GetName() string
 	GetType() string
 	GetConnString() string
 }
 
+// Configuration global configuration section interface
 type Configuration interface {
 	GetDefaultUrls() []string
 	GetConnConfig(string) ConnConfig
@@ -63,10 +66,10 @@ type mimeGroup struct {
 }
 
 type configuration struct {
-	DefaultUrl    string       		     `xml:"defaultUrl"`
-	ConnStrings   connGroup    		     `xml:"connStrings"`
-	Settings      settingGroup 		     `xml:"settings"`
-	Mimes         mimeGroup    		     `xml:"mime"`
+	DefaultURL    string                 `xml:"defaultUrl"`
+	ConnStrings   connGroup              `xml:"connStrings"`
+	Settings      settingGroup           `xml:"settings"`
+	Mimes         mimeGroup              `xml:"mime"`
 	SessionConfig *session.ManagerConfig `xml:"session"`
 	mimeColl      map[string]string
 }
@@ -110,8 +113,8 @@ func (conf *configuration) GetMIME(ext string) string {
 }
 
 func (conf *configuration) GetDefaultUrls() []string {
-	if len(conf.DefaultUrl) < 1 {
+	if len(conf.DefaultURL) < 1 {
 		return nil
 	}
-	return strings.Split(conf.DefaultUrl, ";")
+	return strings.Split(conf.DefaultURL, ";")
 }

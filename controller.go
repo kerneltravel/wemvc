@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"net/http"
+
 	"github.com/Simbory/wemvc/session"
 )
 
@@ -42,7 +43,7 @@ func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, control
 // Session start the session
 func (ctrl *Controller) Session() session.Store {
 	if ctrl.session == nil {
-		session,err := app.globalSession.SessionStart(ctrl.Response, ctrl.Request)
+		session, err := app.globalSession.SessionStart(ctrl.Response, ctrl.Request)
 		if err != nil {
 			panic(err)
 		}
@@ -57,7 +58,7 @@ func (ctrl *Controller) OnLoad() {
 
 // ViewFile execute a view file and return the HTML
 func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
-	res, code := renderView(viewPath, ctrl.ViewData)
+	res, code := app.renderView(viewPath, ctrl.ViewData)
 	var resp = NewActionResult()
 	resp.Write([]byte(res))
 	if code != 200 {
@@ -76,7 +77,7 @@ func (ctrl *Controller) Content(str string, cntType string) ActionResult {
 	var resp = NewActionResult()
 	if len(cntType) < 1 {
 		resp.SetContentType("text/plain")
-	} else{
+	} else {
 		resp.SetContentType(cntType)
 	}
 	if len(str) > 0 {
@@ -126,10 +127,10 @@ func (ctrl *Controller) File(path string, cntType string) ActionResult {
 	return resp
 }
 
-func (ctrl *Controller)redirect(url string, statusCode int) ActionResult {
+func (ctrl *Controller) redirect(url string, statusCode int) ActionResult {
 	var resp = &actionResult{
 		statusCode: statusCode,
-		redUrl:     url,
+		redURL:     url,
 	}
 	return resp
 }

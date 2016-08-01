@@ -8,18 +8,22 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/Simbory/wemvc/utils"
 	"log"
+
+	"github.com/Simbory/wemvc/utils"
 )
 
 // Handler the error handler define
 type Handler func(*http.Request) ActionResult
 
+// Filter request filter func
 type Filter func(ctx Context)
 
-type LogWriter func(a ...interface{})
-
+// SetRootDir set the webroot of the web application
 func SetRootDir(rootDir string) {
+	if app.routeLocked {
+		panic(errors.New("Cannot set the web root while the application is running."))
+	}
 	if !utils.IsDir(rootDir) {
 		panic("invalid root dir")
 	}
@@ -61,9 +65,6 @@ func AddStatic(pathPrefix string) {
 
 // HandleError handle the error code with the error handler
 func HandleError(errorCode int, handler Handler) {
-	if app.errorHandlers == nil {
-		app.errorHandlers = make(map[int]Handler)
-	}
 	app.errorHandlers[errorCode] = handler
 }
 
@@ -137,10 +138,12 @@ var app *server
 func init() {
 	var root = getWorkPath()
 	app = &server{
-		webRoot:     root,
-		initError:   nil,
-		routeLocked: false,
-		filters:     make(map[string][]Filter),
+		webRoot:     	root,
+		initError:   	nil,
+		routeLocked: 	false,
+		filters:     	make(map[string][]Filter),
+		views:       	make(map[string]*view),
+		errorHandlers:	make(map[int]Handler),
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"io"
 )
 
+// ActionResult action result interface
 type ActionResult interface {
 	SetStatusCode(int)
 	GetStatusCode() int
@@ -29,7 +30,7 @@ type ActionResult interface {
 
 type actionResult struct {
 	resFile     string
-	redUrl      string
+	redURL      string
 	statusCode  int
 	contentType string
 	encoding    string
@@ -100,6 +101,7 @@ func (ares *actionResult) GetWriter() io.Writer {
 	return &ares.writer
 }
 
+// NewActionResult create a blank action result
 func NewActionResult() ActionResult {
 	return &actionResult{
 		statusCode:  200,
