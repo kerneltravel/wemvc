@@ -6,6 +6,7 @@ import (
 )
 
 type controllerInfo struct {
+	namespace      string
 	controllerName string
 	controllerType reflect.Type
 	actions        map[string]string
@@ -20,7 +21,7 @@ func (cInfo *controllerInfo) containsAction(action string) bool {
 	return ok && len(name) > 0
 }
 
-func newControllerInfo(t reflect.Type, defaultAction string) *controllerInfo {
+func newControllerInfo(namespace string, t reflect.Type, defaultAction string) *controllerInfo {
 	typeName := t.String()
 	if strings.HasPrefix(typeName, "*") {
 		panic("Invalid controller type: \"" + typeName + "\"")
@@ -52,6 +53,7 @@ func newControllerInfo(t reflect.Type, defaultAction string) *controllerInfo {
 		actions[strings.ToLower(m)] = m
 	}
 	return &controllerInfo{
+		namespace:      namespace,
 		controllerName: typeName,
 		controllerType: t,
 		actions:        actions,

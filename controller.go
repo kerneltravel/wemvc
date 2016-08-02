@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/Simbory/wemvc/session"
+	"html/template"
 )
 
 // Controller the controller base struct
@@ -13,6 +14,7 @@ type Controller struct {
 	Request     *http.Request
 	Response    http.ResponseWriter
 	RouteData   RouteData
+	ns   string
 	controller  string
 	actionName  string
 	session     session.Store
@@ -22,15 +24,12 @@ type Controller struct {
 }
 
 // OnInit this method is called at first while executing the controller
-func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, controller, actionName string, routeData RouteData, ctxItems map[string]interface{}) {
+func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, ns, controller, actionName string, routeData RouteData, ctxItems map[string]interface{}) {
 	ctrl.Request = req
 	ctrl.Response = w
 	ctrl.RouteData = routeData
-	if len(actionName) < 1 {
-		ctrl.actionName = "index"
-	} else {
-		ctrl.actionName = actionName
-	}
+	ctrl.ns = ns
+	ctrl.actionName = actionName
 	ctrl.controller = controller
 	ctrl.ViewData = make(map[string]interface{})
 	if ctxItems != nil {
@@ -58,7 +57,14 @@ func (ctrl *Controller) OnLoad() {
 
 // ViewFile execute a view file and return the HTML
 func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
-	res, code := app.renderView(viewPath, ctrl.ViewData)
+	var res template.HTML
+	var code int
+	if len(ctrl.ns) > 0 {
+		ns := app.namespace(ctrl.ns)
+		res,code = ns.renderView(viewPath, ctrl.ViewData)
+	} else {
+		res, code = app.renderView(viewPath, ctrl.ViewData)
+	}
 	var resp = NewActionResult()
 	resp.Write([]byte(res))
 	if code != 200 {

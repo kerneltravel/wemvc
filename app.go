@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 
 	"log"
@@ -47,6 +46,10 @@ func MapPath(virtualPath string) string {
 	return app.mapPath(virtualPath)
 }
 
+func Namespace(ns string) NamespaceSection {
+	return app.namespace(ns)
+}
+
 // AddStatic set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
 func AddStatic(pathPrefix string) {
@@ -70,21 +73,11 @@ func HandleError(errorCode int, handler Handler) {
 
 // Route set the route
 func Route(routePath string, c interface{}, defaultAction ...string) {
-	if app.routeLocked {
-		println("The controller cannot be added after the application is started.")
-		os.Exit(-1)
-	}
-	var t = reflect.TypeOf(c)
 	var action = "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
 		action = defaultAction[0]
 	}
-	cInfo := newControllerInfo(t, action)
-	if app.router == nil {
-		app.router = newRouter()
-	}
-	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction+"\r\n")
-	app.router.Handle(routePath, cInfo)
+	app.route("", routePath, c, action)
 }
 
 // SetFilter set the route filter

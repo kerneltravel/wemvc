@@ -23,18 +23,6 @@ type view struct {
 	err error
 }
 
-func (app *server)addView(name string, v *view) {
-	app.views[name] = v
-}
-
-func (app *server)getView(name string) *view {
-	v,ok := app.views[name]
-	if !ok {
-		return nil
-	}
-	return v
-}
-
 func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 	if f == nil {
 		return err
@@ -61,7 +49,20 @@ func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 	return nil
 }
 
-func (app *server)buildViews(dir string) error {
+func (app *server)addView(name string, v *view) {
+	app.views[name] = v
+}
+
+func (app *server)getView(name string) *view {
+	v,ok := app.views[name]
+	if !ok {
+		return nil
+	}
+	return v
+}
+
+func (app *server)buildViews() error {
+	var dir = app.viewFolder()
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
 			return nil

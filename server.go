@@ -15,11 +15,11 @@ import (
 	"fmt"
 	"log"
 	"runtime/debug"
-	"time"
 
 	"github.com/Simbory/wemvc/fsnotify"
 	"github.com/Simbory/wemvc/session"
 	"github.com/Simbory/wemvc/utils"
+	"errors"
 )
 
 type server struct {
@@ -37,6 +37,7 @@ type server struct {
 	globalSession *session.SessionManager
 	logger        *log.Logger
 	views         map[string]*view
+	namespaces    map[string]*namespace
 }
 
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -89,6 +90,19 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	// process the dynamic result
 	app.flushRequest(result, w, req)
+}
+
+func (app *server) route(namespace string, routePath string, c interface{}, action string) {
+	if app.routeLocked {
+		panic(errors.New("This route cannot be added, because the route table is locked."))
+	}
+	var t = reflect.TypeOf(c)
+	cInfo := newControllerInfo(namespace, t, action)
+	if app.router == nil {
+		app.router = newRouter()
+	}
+	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction+"\r\n")
+	app.router.Handle(routePath, cInfo)
 }
 
 func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req *http.Request) {
@@ -157,7 +171,8 @@ func (app *server) init() error {
 	}
 	app.watcher = w
 	// start to watch the config files
-	err = app.watcher.Watch(RootDir())
+	var globalConfig = app.mapPath("/web.config")
+	err = app.watcher.Watch(globalConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -170,7 +185,7 @@ func (app *server) init() error {
 	// build the view template and watch the changes
 	var viewDir = app.viewFolder()
 	if utils.IsDir(viewDir) {
-		app.buildViews(viewDir)
+		app.buildViews()
 		app.watcher.Watch(viewDir)
 		filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
 			if info.IsDir() {
@@ -178,6 +193,26 @@ func (app *server) init() error {
 			}
 			return nil
 		})
+	}
+	// process namespaces: build the views files and load the config
+	if app.namespaces != nil {
+		for name, ns := range app.namespaces {
+			app.logWriter().Println("Found namespace", name)
+			app.logWriter().Println("    load config file for namespace", name)
+			ns.loadConfig()
+			settingFile := ns.nsSettingFile()
+			app.watcher.Watch(settingFile)
+			app.logWriter().Println("    compile view files for namespace", name)
+			nsViewDir := ns.nsViewDir()
+			ns.compileViews()
+			app.watcher.Watch(nsViewDir)
+			filepath.Walk(nsViewDir, func(p string, info os.FileInfo, er error) error {
+				if info.IsDir() {
+					app.watcher.Watch(p)
+				}
+				return nil
+			})
+		}
 	}
 	// start to watch the files and dirs
 	go app.watchFile()
@@ -216,6 +251,31 @@ func (app *server) init() error {
 	return nil
 }
 
+func (app *server) namespace(nsName string) *namespace {
+	if len(nsName) > 0 {
+		if !strings.HasPrefix(nsName, "/") {
+			nsName = "/" + nsName
+		}
+		nsName = strings.TrimRight(nsName, "/")
+	}
+	if len(nsName) < 1 {
+		return nil
+	}
+	if app.namespaces == nil {
+		app.namespaces = make(map[string]*namespace)
+	}
+	ns,ok := app.namespaces[nsName];
+	if ok {
+		return ns
+	}
+	ns = &namespace{
+		name:nsName,
+		server: app,
+	}
+	app.namespaces[nsName] = ns
+	return ns
+}
+
 // watchFile used to watching the required files: config files and view files
 func (app *server) watchFile() {
 	for {
@@ -236,15 +296,32 @@ func (app *server) watchFile() {
 						app.watcher.Watch(f)
 					}
 				}
-			} else if app.isInViewFolder(strFile) {
-				if utils.IsDir(strFile) {
-					if ev.IsDelete() {
-						app.watcher.RemoveWatch(strFile)
-					} else if ev.IsCreate() {
-						app.watcher.Watch(strFile)
+			} else {
+				app.logWriter().Println("view file", strFile, "has been changed")
+				for _, ns := range app.namespaces {
+					if ns.isInViewFolder(strFile) {
+						if utils.IsDir(strFile) {
+							if ev.IsDelete() {
+								app.watcher.RemoveWatch(strFile)
+							} else if ev.IsCreate() {
+								app.watcher.Watch(strFile)
+							}
+						} else if strings.HasSuffix(strFile, ".html") {
+							ns.compileViews()
+						}
+						break
 					}
-				} else if strings.HasSuffix(strFile, ".html") {
-					app.buildViews(app.viewFolder())
+				}
+				if app.isInViewFolder(strFile) {
+					if utils.IsDir(strFile) {
+						if ev.IsDelete() {
+							app.watcher.RemoveWatch(strFile)
+						} else if ev.IsCreate() {
+							app.watcher.Watch(strFile)
+						}
+					} else if strings.HasSuffix(strFile, ".html") {
+						app.buildViews()
+					}
 				}
 			}
 		}
@@ -363,6 +440,7 @@ func (app *server) serveDynamic(ctx *context) ActionResult {
 	cInfo, routeData, match := app.router.Lookup(ctx.req.Method, path)
 	if !match && cInfo != nil {
 		var action = routeData.ByName("action")
+		var ns = cInfo.namespace
 		var method = strings.ToTitle(ctx.req.Method)
 		if len(action) < 1 {
 			action = cInfo.defaultAction
@@ -381,13 +459,13 @@ func (app *server) serveDynamic(ctx *context) ActionResult {
 			ctx.routeData = routeData
 			ctx.actionName = action
 			// execute the action method
-			resp = app.execute(ctx.req, ctx.w, cInfo.controllerType, actionMethod, action, routeData, ctx.items)
+			resp = app.execute(ctx.req, ctx.w, cInfo.controllerType, ns, actionMethod, action, routeData, ctx.items)
 		}
 	}
 	return resp
 }
 
-func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, actionMethod, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
+func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, ns, actionMethod, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
 	var ctrl = reflect.New(t)
 	cName := strings.ToLower(t.String())
 	cName = strings.Split(cName, ".")[1]
@@ -400,6 +478,7 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 		onInitMethod.Call([]reflect.Value{
 			reflect.ValueOf(req),
 			reflect.ValueOf(w),
+			reflect.ValueOf(ns),
 			reflect.ValueOf(cName),
 			reflect.ValueOf(cAction),
 			reflect.ValueOf(routeData),
@@ -512,16 +591,6 @@ func (app *server) handleError(req *http.Request, code int) ActionResult {
 
 func (app *server) viewFolder() string {
 	return app.mapPath("/views")
-}
-
-func defaultLogger(args ...interface{}) {
-	var now = time.Now()
-	var sic = make([]interface{}, len(args)+1)
-	sic[0] = now.Format(time.RFC3339Nano) + ":"
-	for i := 0; i < len(args); i++ {
-		sic[i+1] = args[i]
-	}
-	fmt.Println(sic...)
 }
 
 func (app *server) logWriter() *log.Logger {
