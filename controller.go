@@ -73,6 +73,13 @@ func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
 	return resp
 }
 
+func (ctrl *Controller)Namespace() NamespaceSection {
+	if len(ctrl.ns) < 1 {
+		return nil
+	}
+	return app.namespace(ctrl.ns)
+}
+
 // View execute the default view file and return the HTML
 func (ctrl *Controller) View() ActionResult {
 	return ctrl.ViewFile(ctrl.controller + "/" + ctrl.actionName)

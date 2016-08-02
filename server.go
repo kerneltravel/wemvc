@@ -197,10 +197,10 @@ func (app *server) init() error {
 	// process namespaces: build the views files and load the config
 	if app.namespaces != nil {
 		for name, ns := range app.namespaces {
-			app.logWriter().Println("Found namespace", name)
-			app.logWriter().Println("    load config file for namespace", name)
-			ns.loadConfig()
+			app.logWriter().Println("process namespace", name)
 			settingFile := ns.nsSettingFile()
+			app.logWriter().Println("    load config file for namespace", name, "'" + settingFile + "'")
+			ns.loadConfig()
 			app.watcher.Watch(settingFile)
 			app.logWriter().Println("    compile view files for namespace", name)
 			nsViewDir := ns.nsViewDir()
@@ -283,17 +283,26 @@ func (app *server) watchFile() {
 		case ev := <-app.watcher.Event:
 			strFile := path.Clean(ev.Name)
 			if app.isConfigFile(strFile) {
-				if config, f, err := app.loadConfig(); err != nil {
-					app.initError = err
-				} else {
-					app.initError = nil
-					app.config = config
-					for _, configFile := range app.watchingFiles {
-						app.watcher.RemoveWatch(configFile)
+				app.logWriter().Println("config file", strFile, "has been changed")
+				if !app.isNsConfigFile(strFile) {
+					if config, f, err := app.loadConfig(); err != nil {
+						app.initError = err
+					} else {
+						app.initError = nil
+						app.config = config
+						for _, configFile := range app.watchingFiles {
+							app.watcher.RemoveWatch(configFile)
+						}
+						app.watchingFiles = f
+						for _, f := range app.watchingFiles {
+							app.watcher.Watch(f)
+						}
 					}
-					app.watchingFiles = f
-					for _, f := range app.watchingFiles {
-						app.watcher.Watch(f)
+				} else {
+					for _, ns := range app.namespaces {
+						if ns.isConfigFile(strFile) {
+							ns.loadConfig()
+						}
 					}
 				}
 			} else {
@@ -332,8 +341,20 @@ func (app *server) isConfigFile(f string) bool {
 	if app.mapPath("/web.config") == f {
 		return true
 	}
+	if app.isNsConfigFile(f) {
+		return true
+	}
 	for _, configFile := range app.watchingFiles {
 		if configFile == f {
+			return true
+		}
+	}
+	return false
+}
+
+func (app *server)isNsConfigFile(f string) bool {
+	for _, ns := range app.namespaces {
+		if ns.isConfigFile(f) {
 			return true
 		}
 	}
@@ -425,7 +446,7 @@ func (app *server) serveStaticFile(ctx *context) {
 		}
 	}
 	if len(physicalFile) > 0 {
-		app.logWriter().Println("handle static path:", ctx.req.URL.Path)
+		app.logWriter().Println("handle static path '" + ctx.req.URL.Path + "'")
 		http.ServeFile(ctx.w, ctx.req, physicalFile)
 		ctx.end = true
 	}
@@ -510,7 +531,11 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 	if !m.IsValid() {
 		return nil
 	}
-	app.logWriter().Println("handle dynamic path:", req.URL.Path+"        controller:", cName+"        action:", actionName)
+	if len(ns) < 1 {
+		app.logWriter().Println("handle dynamic path '" + req.URL.Path+"' {\"controller\":\"", cName+"\",\"action\":\"" + actionName + "\"}")
+	} else {
+		app.logWriter().Println("handle dynamic path '" + req.URL.Path+"' {\"controller\":\"", cName+"\",\"action\":\"" + actionName + "\",\"namespace\":\"" + ns + "\"}")
+	}
 	values := m.Call(nil)
 	if len(values) == 1 {
 		var result = values[0].Interface()
@@ -586,6 +611,7 @@ func (app *server) handleError(req *http.Request, code int) ActionResult {
 	if handler != nil {
 		return handler(req)
 	}
+	app.logWriter().Fatalln("unhandled request", req.Method,  "'"+ req.URL.Path + "'")
 	return app.error404(req)
 }
 

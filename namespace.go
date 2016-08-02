@@ -62,6 +62,10 @@ func (ns *namespace)nsSettingFile() string {
 	return ns.server.mapPath(ns.GetName() + "/settings.config")
 }
 
+func (ns *namespace)isConfigFile(f string) bool {
+	return ns.nsSettingFile() == f
+}
+
 func (ns *namespace)nsViewDir() string {
 	return ns.server.mapPath(ns.GetName() + "/views")
 }
@@ -110,7 +114,6 @@ func (ns *namespace)compileViews() {
 	ns.views = nil
 	var dir = ns.nsViewDir()
 	if utils.IsDir(dir) {
-		ns.server.logWriter().Println("compile view files for namespace", ns.GetName())
 		vf := &viewFile{
 			root:  dir,
 			files: make(map[string][]string),
