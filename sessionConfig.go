@@ -1,11 +1,11 @@
-package session
+package wemvc
 
-type ManagerConfig struct {
+type SessionConfig struct {
 	ManagerName     string `xml:"manager,attr"`
 	CookieName      string `xml:"cookieName,attr"`
 	EnableSetCookie bool   `xml:"enableSetCookie,attr"`
-	Gclifetime      int64  `xml:"gclifetime,attr"`
-	Maxlifetime     int64  `xml:"maxLifetime,attr"`
+	GcLifetime      int64  `xml:"gclifetime,attr"`
+	MaxLifetime     int64  `xml:"maxLifetime,attr"`
 	Secure          bool   `xml:"secure,attr"`
 	CookieLifeTime  int    `xml:"cookieLifeTime,attr"`
 	ProviderConfig  string `xml:"providerConfig,attr"`

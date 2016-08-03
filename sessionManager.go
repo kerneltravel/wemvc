@@ -1,4 +1,4 @@
-package session
+package wemvc
 
 import (
 	"time"
@@ -10,8 +10,8 @@ import (
 )
 
 type SessionManager struct {
-	provider Provider
-	config   *ManagerConfig
+	provider SessionProvider
+	config   *SessionConfig
 }
 
 // NewManager Create new Manager with provider name and json config string.
@@ -26,16 +26,16 @@ type SessionManager struct {
 // 2. hashfunc  default sha1
 // 3. hashkey default beegosessionkey
 // 4. maxage default is none
-func NewManager(provideName string, config *ManagerConfig) (*SessionManager, error) {
+func NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error) {
 	provider, ok := provides[provideName]
 	if !ok {
 		return nil, fmt.Errorf("session: unknown provide %q (forgotten import?)", provideName)
 	}
 	config.EnableSetCookie = true
-	if config.Maxlifetime == 0 {
-		config.Maxlifetime = config.Gclifetime
+	if config.MaxLifetime == 0 {
+		config.MaxLifetime = config.GcLifetime
 	}
-	err := provider.SessionInit(config.Maxlifetime, config.ProviderConfig)
+	err := provider.SessionInit(config.MaxLifetime, config.ProviderConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (manager *SessionManager) sessionID() (string, error) {
 
 // SessionStart generate or read the session id from http request.
 // if session id exists, return SessionStore with this id.
-func (manager *SessionManager) SessionStart(w http.ResponseWriter, r *http.Request) (session Store, err error) {
+func (manager *SessionManager) SessionStart(w http.ResponseWriter, r *http.Request) (session SessionStore, err error) {
 	sessionID, err := manager.getSessionID(r)
 	if err != nil {
 		return nil, err
@@ -153,7 +153,7 @@ func (manager *SessionManager) SessionDestroy(w http.ResponseWriter, r *http.Req
 }
 
 // GetSessionStore Get SessionStore by its id.
-func (manager *SessionManager) GetSessionStore(sid string) (sessions Store, err error) {
+func (manager *SessionManager) GetSessionStore(sid string) (sessions SessionStore, err error) {
 	sessions, err = manager.provider.SessionRead(sid)
 	return
 }
@@ -162,11 +162,11 @@ func (manager *SessionManager) GetSessionStore(sid string) (sessions Store, err 
 // it can do gc in times after gc lifetime.
 func (manager *SessionManager) GC() {
 	manager.provider.SessionGC()
-	time.AfterFunc(time.Duration(manager.config.Gclifetime)*time.Second, func() { manager.GC() })
+	time.AfterFunc(time.Duration(manager.config.GcLifetime)*time.Second, func() { manager.GC() })
 }
 
 // SessionRegenerateID Regenerate a session id for this SessionStore who's id is saving in http request.
-func (manager *SessionManager) SessionRegenerateID(w http.ResponseWriter, r *http.Request) (session Store) {
+func (manager *SessionManager) SessionRegenerateID(w http.ResponseWriter, r *http.Request) (session SessionStore) {
 	sid, err := manager.sessionID()
 	if err != nil {
 		return

@@ -3,11 +3,6 @@ package wemvc
 import (
 	"strings"
 	"github.com/Simbory/wemvc/utils"
-	"os"
-	"path/filepath"
-	"regexp"
-	"bytes"
-	"html/template"
 )
 
 type NamespaceSection interface {
@@ -18,7 +13,10 @@ type NamespaceSection interface {
 }
 
 type nsSettingGroup struct {
-	Settings     []setting `xml:"add"`
+	Settings     []struct{
+		Key string `xml:"key,attr"`
+		Value string `xml:"value,attr"`
+	} `xml:"add"`
 }
 
 type namespace struct {
@@ -26,6 +24,7 @@ type namespace struct {
 	views    map[string]*view
 	server   *server
 	settings map[string]string
+	viewContainer
 }
 
 func (ns *namespace)GetName() string {
@@ -33,7 +32,7 @@ func (ns *namespace)GetName() string {
 }
 
 func (ns *namespace)GetNsDir() string {
-	return ns.server.mapPath(ns.GetName())
+	return ns.server.MapPath(ns.GetName())
 }
 
 func (ns *namespace)Route(routePath string, c interface{}, defaultAction ...string) NamespaceSection {
@@ -59,19 +58,15 @@ func (ns *namespace)GetSetting(key string) string {
 }
 
 func (ns *namespace)nsSettingFile() string {
-	return ns.server.mapPath(ns.GetName() + "/settings.config")
+	return ns.server.MapPath(ns.GetName() + "/settings.xml")
 }
 
 func (ns *namespace)isConfigFile(f string) bool {
 	return ns.nsSettingFile() == f
 }
 
-func (ns *namespace)nsViewDir() string {
-	return ns.server.mapPath(ns.GetName() + "/views")
-}
-
 func (ns *namespace) isInViewFolder(f string) bool {
-	var viewPath = ns.nsViewDir()
+	var viewPath = ns.viewFolder()
 	return strings.HasPrefix(f, viewPath)
 }
 
@@ -92,70 +87,6 @@ func (ns *namespace)loadConfig() {
 	}
 }
 
-func (ns *namespace)addView(name string, v *view) {
-	if ns.views == nil {
-		ns.views = make(map[string]*view)
-	}
-	ns.views[name] = v
-}
-
-func (ns *namespace)getView(name string) *view {
-	if ns.views == nil {
-		return nil
-	}
-	v,ok := ns.views[name]
-	if !ok {
-		return nil
-	}
-	return v
-}
-
-func (ns *namespace)compileViews() {
-	ns.views = nil
-	var dir = ns.nsViewDir()
-	if utils.IsDir(dir) {
-		vf := &viewFile{
-			root:  dir,
-			files: make(map[string][]string),
-		}
-		err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
-			return vf.visit(path, f, err)
-		})
-		if err != nil {
-			ns.server.logWriter().Printf("filepath.Walk() returned %v\n", err)
-			return
-		}
-		for _, v := range vf.files {
-			for _, file := range v {
-				t, err := getTemplate(vf.root, file, v...)
-				v := &view{tpl: t, err: err}
-				ns.addView(file, v)
-			}
-		}
-	}
-}
-
-func (ns *namespace)renderView(viewPath string, viewData interface{}) (template.HTML, int) {
-	ext, _ := regexp.Compile(`\.[hH][tT][mM][lL]?$`)
-	if !ext.MatchString(viewPath) {
-		viewPath = viewPath + ".html"
-	}
-
-	tpl := ns.getView(viewPath)
-	if tpl == nil {
-		return template.HTML("cannot find the view " + viewPath), 500
-	}
-	if tpl.err != nil {
-		return template.HTML(tpl.err.Error()), 500
-	}
-	if tpl.tpl == nil {
-		return template.HTML("cannot find the view " + viewPath), 500
-	}
-	var buf = &bytes.Buffer{}
-	err := tpl.tpl.Execute(buf, viewData)
-	if err != nil {
-		return template.HTML(err.Error()), 500
-	}
-	result := template.HTML(buf.Bytes())
-	return result, 200
+func (ns *namespace)viewFolder() string {
+	return ns.server.MapPath(ns.GetName() + "/views")
 }

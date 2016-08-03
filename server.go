@@ -17,7 +17,6 @@ import (
 	"runtime/debug"
 
 	"github.com/Simbory/wemvc/fsnotify"
-	"github.com/Simbory/wemvc/session"
 	"github.com/Simbory/wemvc/utils"
 	"errors"
 )
@@ -26,27 +25,39 @@ type server struct {
 	errorHandlers map[int]Handler
 	port          int
 	webRoot       string
-	config        *configuration
+	config        *config
 	router        *Router
 	watcher       *fsnotify.Watcher
-	watchingFiles []string
-	initError     error
 	routeLocked   bool
 	staticPaths   []string
 	filters       map[string][]Filter
-	globalSession *session.SessionManager
+	globalSession *SessionManager
 	logger        *log.Logger
-	views         map[string]*view
 	namespaces    map[string]*namespace
+	viewContainer
+}
+
+func (app *server) RootDir() string {
+	return app.webRoot
+}
+
+func (app *server) Config() Configuration {
+	return app.config
+}
+
+func (app *server) SetRootDir(rootDir string) Application {
+	if app.routeLocked {
+		panic(errors.New("Cannot set the web root while the application is running."))
+	}
+	if !utils.IsDir(rootDir) {
+		panic("invalid root dir")
+	}
+	app.webRoot = rootDir
+	return app
 }
 
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// check init error
-	if app.initError != nil {
-		w.WriteHeader(500)
-		w.Write([]byte(app.initError.Error()))
-		return
-	}
+	// handle 500 errors
 	defer app.panicRecover(w, req)
 
 	var lowerURL = strings.ToLower(req.URL.Path)
@@ -92,6 +103,82 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	app.flushRequest(result, w, req)
 }
 
+func (app *server) AddStatic(pathPrefix string) Application {
+	if len(pathPrefix) < 1 {
+		panic(errors.New("the static path prefix cannot be empty"))
+	}
+	if !strings.HasPrefix(pathPrefix, "/") {
+		panic(errors.New("The static path prefix should start with '/'"))
+	}
+	if !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix = pathPrefix + "/"
+	}
+	app.staticPaths = append(app.staticPaths, strings.ToLower(pathPrefix))
+	return app
+}
+
+func (app *server) HandleError(errorCode int, handler Handler) Application {
+	app.errorHandlers[errorCode] = handler
+	return app
+}
+
+func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Application {
+	var action = "index"
+	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
+		action = defaultAction[0]
+	}
+	app.route("", routePath, c, action)
+	return app
+}
+
+func (app *server) SetFilter(pathPrefix string, filter Filter) Application {
+	if !strings.HasPrefix(pathPrefix, "") {
+		panic("the filter path preix must starts with \"/\"")
+	}
+	if !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix = pathPrefix + "/"
+	}
+	app.filters[strings.ToLower(pathPrefix)] = append(app.filters[strings.ToLower(pathPrefix)], filter)
+	return app
+}
+
+func (app *server) Logger() *log.Logger {
+	return app.logWriter()
+}
+
+func (app *server) SetLogFile(name string) Application {
+	file, err := os.Create(name)
+	if err != nil {
+		log.Fatal(err.Error())
+		return app
+	}
+	logger := log.New(file, "", log.LstdFlags|log.Llongfile)
+	app.logger = logger
+	return app
+}
+
+func (app *server) Namespace(ns string) NamespaceSection {
+	return app.namespace(ns)
+}
+
+func (app *server) Run(port int) error {
+	app.logWriter().Println("use root dir '" + app.webRoot + "'")
+	err := app.init()
+	if err != nil {
+		println(err.Error())
+		os.Exit(-1)
+	}
+	app.routeLocked = true
+	app.port = port
+	host, err := os.Hostname()
+	if err != nil {
+		host = "localhost"
+	}
+	app.logWriter().Println(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
+	portStr := fmt.Sprintf(":%d", app.port)
+	return http.ListenAndServe(portStr, app)
+}
+
 func (app *server) route(namespace string, routePath string, c interface{}, action string) {
 	if app.routeLocked {
 		panic(errors.New("This route cannot be added, because the route table is locked."))
@@ -134,7 +221,7 @@ func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req 
 }
 
 // mapPath Returns the physical file path that corresponds to the specified virtual path.
-func (app *server) mapPath(virtualPath string) string {
+func (app *server) MapPath(virtualPath string) string {
 	var res = path.Join(RootDir(), virtualPath)
 	return utils.FixPath(res)
 }
@@ -154,13 +241,6 @@ func (app *server) isStaticRequest(url string) bool {
 // 2. watch the view file
 // 3. init the global session
 func (app *server) init() error {
-	// load the config file
-	if config, f, err := app.loadConfig(); err != nil {
-		app.initError = err
-	} else {
-		app.config = config
-		app.watchingFiles = f
-	}
 	// init the error handler
 	app.errorHandlers[404] = app.error404
 	app.errorHandlers[403] = app.error403
@@ -170,22 +250,20 @@ func (app *server) init() error {
 		return err
 	}
 	app.watcher = w
-	// start to watch the config files
-	var globalConfig = app.mapPath("/web.config")
-	err = app.watcher.Watch(globalConfig)
-	if err != nil {
-		panic(err)
-	}
-	if app.initError == nil && len(app.watchingFiles) > 0 {
-		for _, f := range app.watchingFiles {
-			var dir = filepath.Dir(f)
-			app.watcher.Watch(dir)
+	// load & watch the global config files
+	var globalConfigFile = app.MapPath("/config.xml")
+	var config = &config{svr:app}
+	if config.loadFile(globalConfigFile) {
+		err = app.watcher.Watch(globalConfigFile)
+		if err != nil {
+			panic(err)
 		}
 	}
+	app.config = config
 	// build the view template and watch the changes
 	var viewDir = app.viewFolder()
 	if utils.IsDir(viewDir) {
-		app.buildViews()
+		app.compileViews(viewDir)
 		app.watcher.Watch(viewDir)
 		filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
 			if info.IsDir() {
@@ -203,8 +281,8 @@ func (app *server) init() error {
 			ns.loadConfig()
 			app.watcher.Watch(settingFile)
 			app.logWriter().Println("    compile view files for namespace", name)
-			nsViewDir := ns.nsViewDir()
-			ns.compileViews()
+			nsViewDir := ns.viewFolder()
+			ns.compileViews(nsViewDir)
 			app.watcher.Watch(nsViewDir)
 			filepath.Walk(nsViewDir, func(p string, info os.FileInfo, er error) error {
 				if info.IsDir() {
@@ -217,37 +295,12 @@ func (app *server) init() error {
 	// start to watch the files and dirs
 	go app.watchFile()
 	// init sessionManager
-	defaultConfig := &session.ManagerConfig{
-		ManagerName:    "memory",
-		Gclifetime:     3600,
-		Maxlifetime:    3600,
-		CookieLifeTime: 3600,
+	mgr, err := NewSessionManager(app.config.SessionConfig.ManagerName, app.config.SessionConfig)
+	if err != nil {
+		panic(err)
 	}
-	if app.config == nil {
-		app.config = &configuration{
-			SessionConfig: defaultConfig,
-		}
-	} else if app.config.SessionConfig == nil {
-		app.config.SessionConfig = defaultConfig
-	}
-
-	if len(app.config.SessionConfig.ManagerName) > 0 {
-		if app.config.SessionConfig.Gclifetime == 0 {
-			app.config.SessionConfig.Gclifetime = 3600
-		}
-		if app.config.SessionConfig.Maxlifetime == 0 {
-			app.config.SessionConfig.Maxlifetime = 3600
-		}
-		if app.config.SessionConfig.CookieLifeTime == 0 {
-			app.config.SessionConfig.CookieLifeTime = 3600
-		}
-		mgr, err := session.NewManager(app.config.SessionConfig.ManagerName, app.config.SessionConfig)
-		if err != nil {
-			panic(err)
-		}
-		app.globalSession = mgr
-		go app.globalSession.GC()
-	}
+	app.globalSession = mgr
+	go app.globalSession.GC()
 	return nil
 }
 
@@ -282,27 +335,17 @@ func (app *server) watchFile() {
 		select {
 		case ev := <-app.watcher.Event:
 			strFile := path.Clean(ev.Name)
+			lowerStrFile := strings.ToLower(strFile)
 			if app.isConfigFile(strFile) {
 				app.logWriter().Println("config file", strFile, "has been changed")
-				if !app.isNsConfigFile(strFile) {
-					if config, f, err := app.loadConfig(); err != nil {
-						app.initError = err
-					} else {
-						app.initError = nil
-						app.config = config
-						for _, configFile := range app.watchingFiles {
-							app.watcher.RemoveWatch(configFile)
-						}
-						app.watchingFiles = f
-						for _, f := range app.watchingFiles {
-							app.watcher.Watch(f)
-						}
-					}
-				} else {
-					for _, ns := range app.namespaces {
-						if ns.isConfigFile(strFile) {
-							ns.loadConfig()
-						}
+				var conf = &config{svr:app}
+				if conf.loadFile(strFile) {
+					app.config = conf
+				}
+			} else if app.isNsConfigFile(strFile) {
+				for _, ns := range app.namespaces {
+					if ns.isConfigFile(strFile) {
+						ns.loadConfig()
 					}
 				}
 			} else {
@@ -315,8 +358,8 @@ func (app *server) watchFile() {
 							} else if ev.IsCreate() {
 								app.watcher.Watch(strFile)
 							}
-						} else if strings.HasSuffix(strFile, ".html") {
-							ns.compileViews()
+						} else if strings.HasSuffix(lowerStrFile, ".html") {
+							ns.compileViews(ns.viewFolder())
 						}
 						break
 					}
@@ -328,8 +371,8 @@ func (app *server) watchFile() {
 						} else if ev.IsCreate() {
 							app.watcher.Watch(strFile)
 						}
-					} else if strings.HasSuffix(strFile, ".html") {
-						app.buildViews()
+					} else if strings.HasSuffix(lowerStrFile, ".html") {
+						app.compileViews(app.viewFolder())
 					}
 				}
 			}
@@ -338,16 +381,8 @@ func (app *server) watchFile() {
 }
 
 func (app *server) isConfigFile(f string) bool {
-	if app.mapPath("/web.config") == f {
+	if app.MapPath("/config.xml") == f {
 		return true
-	}
-	if app.isNsConfigFile(f) {
-		return true
-	}
-	for _, configFile := range app.watchingFiles {
-		if configFile == f {
-			return true
-		}
 	}
 	return false
 }
@@ -366,64 +401,9 @@ func (app *server) isInViewFolder(f string) bool {
 	return strings.HasPrefix(f, viewPath)
 }
 
-func (app *server) loadConfig() (*configuration, []string, error) {
-	// load the config file
-	var configFile = app.mapPath("/web.config")
-	if utils.IsFile(configFile) == false {
-		return nil, nil, nil
-	}
-	var configData = &configuration{}
-	var files []string
-	app.logWriter().Println("load config file '" + configFile + "'")
-	err := utils.File2Xml(configFile, configData)
-	if err != nil {
-		return nil, nil, err
-	}
-	// load the setting config source file
-	if len(configData.Settings.ConfigSource) > 0 {
-		configFile = app.mapPath(configData.Settings.ConfigSource)
-		var settings = &settingGroup{}
-		app.logWriter().Println("load config file '" + configFile + "'")
-		err = utils.File2Xml(configFile, settings)
-		if err != nil {
-			return nil, nil, err
-		}
-		configData.Settings.Settings = settings.Settings
-		configData.Settings.ConfigSource = ""
-		files = append(files, configFile)
-	}
-	// load the connection string config source
-	if len(configData.ConnStrings.ConfigSource) > 0 {
-		configFile = app.mapPath(configData.ConnStrings.ConfigSource)
-		var connGroup = &connGroup{}
-		app.logWriter().Println("load config file '" + configFile + "'")
-		err = utils.File2Xml(configFile, connGroup)
-		if err != nil {
-			return nil, nil, err
-		}
-		configData.ConnStrings.ConnStrings = connGroup.ConnStrings
-		configData.ConnStrings.ConfigSource = ""
-		files = append(files, configFile)
-	}
-	// load the mime config source
-	if len(configData.Mimes.ConfigSource) > 0 {
-		configFile = app.mapPath(configData.Mimes.ConfigSource)
-		var mimes = &mimeGroup{}
-		app.logWriter().Println("load config file '" + configFile + "'")
-		err = utils.File2Xml(configFile, mimes)
-		if err != nil {
-			return nil, nil, err
-		}
-		configData.Mimes.Mimes = mimes.Mimes
-		configData.Mimes.ConfigSource = ""
-		files = append(files, configFile)
-	}
-	return configData, files, nil
-}
-
 func (app *server) serveStaticFile(ctx *context) {
 	var physicalFile = ""
-	var f = app.mapPath(ctx.req.URL.Path)
+	var f = app.MapPath(ctx.req.URL.Path)
 	if utils.IsFile(f) {
 		physicalFile = f
 	} else {
@@ -431,12 +411,12 @@ func (app *server) serveStaticFile(ctx *context) {
 		if !strings.HasSuffix(absolutePath, "/") {
 			absolutePath = absolutePath + "/"
 		}
-		physicalPath := app.mapPath(absolutePath)
+		physicalPath := app.MapPath(absolutePath)
 		if utils.IsDir(physicalPath) {
-			var defaultUrls = app.config.GetDefaultUrls()
+			var defaultUrls = app.config.getDefaultUrls()
 			if len(defaultUrls) > 0 {
 				for _, f := range defaultUrls {
-					var file = app.mapPath(absolutePath + f)
+					var file = app.MapPath(absolutePath + f)
 					if utils.IsFile(file) {
 						physicalFile = file
 						break
@@ -616,7 +596,7 @@ func (app *server) handleError(req *http.Request, code int) ActionResult {
 }
 
 func (app *server) viewFolder() string {
-	return app.mapPath("/views")
+	return app.MapPath("/views")
 }
 
 func (app *server) logWriter() *log.Logger {

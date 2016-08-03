@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"net/http"
-
-	"github.com/Simbory/wemvc/session"
 	"html/template"
 )
 
@@ -17,7 +15,7 @@ type Controller struct {
 	ns   string
 	controller  string
 	actionName  string
-	session     session.Store
+	session     SessionStore
 	sessionData map[string]interface{}
 	ViewData    map[string]interface{}
 	Items       map[string]interface{}
@@ -40,7 +38,7 @@ func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, ns, con
 }
 
 // Session start the session
-func (ctrl *Controller) Session() session.Store {
+func (ctrl *Controller) Session() SessionStore {
 	if ctrl.session == nil {
 		session, err := app.globalSession.SessionStart(ctrl.Response, ctrl.Request)
 		if err != nil {

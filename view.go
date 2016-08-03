@@ -1,9 +1,7 @@
 package wemvc
 
 import (
-	"bytes"
 	"errors"
-	"fmt"
 	"html/template"
 	"io/ioutil"
 	"os"
@@ -13,14 +11,14 @@ import (
 	"github.com/Simbory/wemvc/utils"
 )
 
-type viewFile struct {
-	root  string
-	files map[string][]string
-}
-
 type view struct {
 	tpl *template.Template
 	err error
+}
+
+type viewFile struct {
+	root  string
+	files map[string][]string
 }
 
 func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
@@ -45,47 +43,6 @@ func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 		m := make([]string, 1)
 		m[0] = file
 		vf.files[subDir] = m
-	}
-	return nil
-}
-
-func (app *server)addView(name string, v *view) {
-	app.views[name] = v
-}
-
-func (app *server)getView(name string) *view {
-	v,ok := app.views[name]
-	if !ok {
-		return nil
-	}
-	return v
-}
-
-func (app *server)buildViews() error {
-	var dir = app.viewFolder()
-	if _, err := os.Stat(dir); err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return errors.New("dir open err")
-	}
-	vf := &viewFile{
-		root:  dir,
-		files: make(map[string][]string),
-	}
-	err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
-		return vf.visit(path, f, err)
-	})
-	if err != nil {
-		fmt.Printf("filepath.Walk() returned %v\n", err)
-		return err
-	}
-	for _, v := range vf.files {
-		for _, file := range v {
-			t, err := getTemplate(vf.root, file, v...)
-			v := &view{tpl: t, err: err}
-			app.addView(file, v)
-		}
 	}
 	return nil
 }
@@ -190,29 +147,4 @@ func getTplLoop(t0 *template.Template, root string, subMods [][]string, others .
 		}
 	}
 	return
-}
-
-func (app *server)renderView(viewPath string, viewData interface{}) (template.HTML, int) {
-	ext, _ := regexp.Compile(`\.[hH][tT][mM][lL]?$`)
-	if !ext.MatchString(viewPath) {
-		viewPath = viewPath + ".html"
-	}
-
-	tpl := app.getView(viewPath)
-	if tpl == nil {
-		return template.HTML("cannot find the view " + viewPath), 500
-	}
-	if tpl.err != nil {
-		return template.HTML(tpl.err.Error()), 500
-	}
-	if tpl.tpl == nil {
-		return template.HTML("cannot find the view " + viewPath), 500
-	}
-	var buf = &bytes.Buffer{}
-	err := tpl.tpl.Execute(buf, viewData)
-	if err != nil {
-		return template.HTML(err.Error()), 500
-	}
-	result := template.HTML(buf.Bytes())
-	return result, 200
 }

@@ -2,119 +2,126 @@ package wemvc
 
 import (
 	"strings"
-
-	"github.com/Simbory/wemvc/session"
+	"github.com/Simbory/wemvc/utils"
 )
 
-// ConnConfig connection string config section interface
-type ConnConfig interface {
-	GetName() string
-	GetType() string
-	GetConnString() string
-}
-
-// Configuration global configuration section interface
 type Configuration interface {
-	GetDefaultUrls() []string
-	GetConnConfig(string) ConnConfig
+	GetConnConfig(string) (string,string)
 	GetSetting(string) string
-	GetMIME(string) string
-	GetSessionConfig() *session.ManagerConfig
 }
 
-type connConfig struct {
-	Name       string `xml:"name,attr"`
-	Type       string `xml:"type,attr"`
-	ConnString string `xml:"connString,attr"`
+type connSetting struct {
+	typeName   string
+	connString string
 }
 
-func (conf *connConfig) GetName() string {
-	return conf.Name
+type config struct {
+	DefaultURL    string `xml:"defaultUrl"`
+	ConnStrings   struct{
+					  ConnStrings  []struct{
+						  Name       string `xml:"name,attr"`
+						  Type       string `xml:"type,attr"`
+						  ConnString string `xml:"connString,attr"`
+					  } `xml:"add"`
+				  } `xml:"connStrings"`
+	Settings      struct{
+					  Settings []struct{
+						  Key string `xml:"key,attr"`
+						  Value string `xml:"value,attr"`
+					  } `xml:"add"`
+				  } `xml:"settings"`
+	SessionConfig *SessionConfig `xml:"session"`
+	settingMap    map[string]string
+	connMap       map[string]*connSetting
+	defaultUrls   []string
+	svr           *server
 }
 
-func (conf *connConfig) GetType() string {
-	return conf.Type
-}
-
-func (conf *connConfig) GetConnString() string {
-	return conf.ConnString
-}
-
-type connGroup struct {
-	ConfigSource string       `xml:"configSource,attr"`
-	ConnStrings  []connConfig `xml:"add"`
-}
-
-type setting struct {
-	Key   string `xml:"key,attr"`
-	Value string `xml:"value,attr"`
-}
-
-type settingGroup struct {
-	ConfigSource string    `xml:"configSource,attr"`
-	Settings     []setting `xml:"add"`
-}
-
-type mimeSetting struct {
-	FileExe string `xml:"ext,attr"`
-	Mime    string `xml:"mime,attr"`
-}
-
-type mimeGroup struct {
-	ConfigSource string        `xml:"configSource,attr"`
-	Mimes        []mimeSetting `xml:"add"`
-}
-
-type configuration struct {
-	DefaultURL    string                 `xml:"defaultUrl"`
-	ConnStrings   connGroup              `xml:"connStrings"`
-	Settings      settingGroup           `xml:"settings"`
-	Mimes         mimeGroup              `xml:"mime"`
-	SessionConfig *session.ManagerConfig `xml:"session"`
-	mimeColl      map[string]string
-}
-
-func (conf *configuration) GetConnConfig(connName string) ConnConfig {
-	for i := 0; i < len(conf.ConnStrings.ConnStrings); i++ {
-		if conf.ConnStrings.ConnStrings[i].Name == connName {
-			return &(conf.ConnStrings.ConnStrings[i])
+func (conf *config)loadFile(file string) bool {
+	conf.svr.logWriter().Printf("load config file '%s'\r\n", file)
+	res := false
+	conf.settingMap = make(map[string]string)
+	conf.connMap = make(map[string]*connSetting)
+	if utils.IsFile(file) {
+		err := utils.File2Xml(file, conf)
+		if err != nil{
+			goto defaultSetting
+		}
+		res =true
+		if len(conf.Settings.Settings) > 0 {
+			for _, s := range conf.Settings.Settings {
+				if len(s.Key) < 1 {
+					continue
+				}
+				if _,ok := conf.settingMap[s.Key];ok {
+					conf.svr.logWriter().Fatalf("Duplicate definition of setting key '%s', and the previous one will be ignored", s.Key)
+				}
+				conf.settingMap[s.Key] = s.Value
+			}
+		}
+		if len(conf.ConnStrings.ConnStrings) > 0 {
+			for _, conn := range conf.ConnStrings.ConnStrings {
+				if len(conn.Name) < 1 {
+					continue
+				}
+				if _,ok := conf.connMap[conn.Name]; ok {
+					conf.svr.logWriter().Fatalf("Duplicate definition of connection string '%s', and the previouse one will be ignored", conn.Name)
+				}
+				conf.connMap[conn.Name] = &connSetting{typeName: conn.Type, connString: conn.ConnString}
+			}
+		}
+		if len(conf.DefaultURL) > 0 {
+			splits := strings.Split(conf.DefaultURL, ";,")
+			for _, s := range splits {
+				if len(s) < 1{
+					continue
+				}
+				conf.defaultUrls = append(conf.defaultUrls, s)
+			}
 		}
 	}
-	return nil
+	defaultSetting:
+	if len(conf.defaultUrls) < 1 {
+		conf.defaultUrls = []string{"index.html","index.htm"}
+	}
+	if conf.SessionConfig == nil {
+		conf.SessionConfig = &SessionConfig{}
+	}
+	if len(conf.SessionConfig.ManagerName) < 1 {
+		conf.SessionConfig.ManagerName = "memory"
+	}
+	if conf.SessionConfig.GcLifetime == 0 {
+		conf.SessionConfig.GcLifetime = 3600
+	}
+	if conf.SessionConfig.MaxLifetime == 0 {
+		conf.SessionConfig.MaxLifetime = 3600
+	}
+	if conf.SessionConfig.CookieLifeTime == 0 {
+		conf.SessionConfig.CookieLifeTime = 3600
+	}
+	return res
 }
 
-func (conf *configuration) GetSessionConfig() *session.ManagerConfig {
+func (conf *config) GetConnConfig(connName string) (string,string) {
+	conn,ok := conf.connMap[connName]
+	if ok {
+		return conn.typeName, conn.connString
+	}
+	return "",""
+}
+
+func (conf *config) getSessionConfig() *SessionConfig {
 	return conf.SessionConfig
 }
 
-func (conf *configuration) GetSetting(key string) string {
-	for i := 0; i < len(conf.Settings.Settings); i++ {
-		if conf.Settings.Settings[i].Key == key {
-			return conf.Settings.Settings[i].Value
-		}
+func (conf *config) GetSetting(key string) string {
+	v,ok := conf.settingMap[key]
+	if ok {
+		return v
 	}
 	return ""
 }
 
-func (conf *configuration) GetMIME(ext string) string {
-	if len(ext) < 1 {
-		return ""
-	}
-	if conf.mimeColl == nil {
-		conf.mimeColl = make(map[string]string)
-		for _, mime := range conf.Mimes.Mimes {
-			if len(mime.FileExe) < 1 || len(mime.Mime) < 1 {
-				continue
-			}
-			conf.mimeColl[strings.ToLower(mime.FileExe)] = mime.Mime
-		}
-	}
-	return conf.mimeColl[strings.ToLower(ext)]
-}
-
-func (conf *configuration) GetDefaultUrls() []string {
-	if len(conf.DefaultURL) < 1 {
-		return nil
-	}
-	return strings.Split(conf.DefaultURL, ";")
+func (conf *config) getDefaultUrls() []string {
+	return conf.defaultUrls
 }

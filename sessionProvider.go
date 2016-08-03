@@ -1,84 +1,59 @@
-package session
+package wemvc
 
 import (
 	"container/list"
-	"net/http"
 	"sync"
 	"time"
 )
 
-var memoryProvider = &MemProvider{list: list.New(), sessions: make(map[string]*list.Element)}
 
-// MemSessionStore memory session store.
-// it saved sessions in a map in memory.
-type MemSessionStore struct {
-	sid          string                      //session id
-	timeAccessed time.Time                   //last access time
-	value        map[interface{}]interface{} //session store
-	lock         sync.RWMutex
+// Provider contains global session methods and saved SessionStores.
+// it can operate a SessionStore by its id.
+type SessionProvider interface {
+	SessionInit(gcLifetime int64, config string) error
+	SessionRead(sid string) (SessionStore, error)
+	SessionExist(sid string) bool
+	SessionRegenerate(oldSid, sid string) (SessionStore, error)
+	SessionDestroy(sid string) error
+	SessionAll() int //get all active session
+	SessionGC()
 }
 
-// Set value to memory session
-func (st *MemSessionStore) Set(key, value interface{}) error {
-	st.lock.Lock()
-	defer st.lock.Unlock()
-	st.value[key] = value
-	return nil
-}
+var provides = make(map[string]SessionProvider)
 
-// Get value from memory session by key
-func (st *MemSessionStore) Get(key interface{}) interface{} {
-	st.lock.RLock()
-	defer st.lock.RUnlock()
-	if v, ok := st.value[key]; ok {
-		return v
+// Register makes a session provide available by the provided name.
+// If Register is called twice with the same name or if driver is nil,
+// it panics.
+func Register(name string, provide SessionProvider) {
+	if provide == nil {
+		panic("session: Register provide is nil")
 	}
-	return nil
+	if _, dup := provides[name]; dup {
+		panic("session: Register called twice for provider " + name)
+	}
+	provides[name] = provide
 }
 
-// Delete in memory session by key
-func (st *MemSessionStore) Delete(key interface{}) error {
-	st.lock.Lock()
-	defer st.lock.Unlock()
-	delete(st.value, key)
-	return nil
-}
-
-// Flush clear all values in memory session
-func (st *MemSessionStore) Flush() error {
-	st.lock.Lock()
-	defer st.lock.Unlock()
-	st.value = make(map[interface{}]interface{})
-	return nil
-}
-
-// SessionID get this id of memory session store
-func (st *MemSessionStore) SessionID() string {
-	return st.sid
-}
-
-// SessionRelease Implement method, no used.
-func (st *MemSessionStore) SessionRelease(w http.ResponseWriter) {
-}
+var memoryProvider = &MemProvider{list: list.New(), sessions: make(map[string]*list.Element)}
 
 // MemProvider Implement the provider interface
 type MemProvider struct {
 	lock        sync.RWMutex             // locker
 	sessions    map[string]*list.Element // map in memory
 	list        *list.List               // for gc
-	maxlifetime int64
+	maxLifetime int64
 	savePath    string
 }
 
 // SessionInit init memory session
 func (pder *MemProvider) SessionInit(maxlifetime int64, savePath string) error {
-	pder.maxlifetime = maxlifetime
+	pder.maxLifetime = maxlifetime
 	pder.savePath = savePath
 	return nil
 }
 
 // SessionRead get memory session store by sid
-func (pder *MemProvider) SessionRead(sid string) (Store, error) {
+func (pder *MemProvider) SessionRead(sid string) (SessionStore, error) {
 	pder.lock.RLock()
 	if element, ok := pder.sessions[sid]; ok {
 		go pder.SessionUpdate(sid)
@@ -105,7 +80,7 @@ func (pder *MemProvider) SessionExist(sid string) bool {
 }
 
 // SessionRegenerate generate new sid for session store in memory session
-func (pder *MemProvider) SessionRegenerate(oldsid, sid string) (Store, error) {
+func (pder *MemProvider) SessionRegenerate(oldsid, sid string) (SessionStore, error) {
 	pder.lock.RLock()
 	if element, ok := pder.sessions[oldsid]; ok {
 		go pder.SessionUpdate(oldsid)
@@ -146,7 +121,7 @@ func (pder *MemProvider) SessionGC() {
 		if element == nil {
 			break
 		}
-		if (element.Value.(*MemSessionStore).timeAccessed.Unix() + pder.maxlifetime) < time.Now().Unix() {
+		if (element.Value.(*MemSessionStore).timeAccessed.Unix() + pder.maxLifetime) < time.Now().Unix() {
 			pder.lock.RUnlock()
 			pder.lock.Lock()
 			pder.list.Remove(element)
