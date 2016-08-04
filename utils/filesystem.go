@@ -1,10 +1,8 @@
 package utils
 
 import (
-	"path/filepath"
 	"os"
 	"strings"
-	"log"
 	"runtime"
 )
 
