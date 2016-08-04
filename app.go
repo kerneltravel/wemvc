@@ -30,7 +30,8 @@ type Application interface {
 	Logger() *log.Logger
 	Namespace(ns string) NamespaceSection
 	SetRootDir(rootDir string) Application
-	AddStatic(pathPrefix string) Application
+	ServeStaticDir(pathPrefix string) Application
+	ServeStaticFile(path string) Application
 	HandleError(errorCode int, handler Handler) Application
 	Route(routePath string, c interface{}, defaultAction ...string) Application
 	SetFilter(pathPrefix string, filter Filter) Application
@@ -55,10 +56,15 @@ func SetRootDir(rootDir string) Application {
 	return app.SetRootDir(rootDir)
 }
 
-// AddStatic set the path as a static path that the file under this path is served as static file
+// ServeStaticDir set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func AddStatic(pathPrefix string) Application {
-	return app.AddStatic(pathPrefix)
+func ServeStaticDir(pathPrefix string) Application {
+	return app.ServeStaticDir(pathPrefix)
+}
+
+// ServeStaticFile serve the path as static file
+func ServeStaticFile(path string) Application {
+	return app.ServeStaticFile(path)
 }
 
 // HandleError handle the error code with the error handler

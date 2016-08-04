@@ -19,6 +19,7 @@ import (
 
 	"github.com/Simbory/wemvc/fsnotify"
 	"github.com/Simbory/wemvc/utils"
+	"runtime"
 )
 
 type server struct {
@@ -30,6 +31,7 @@ type server struct {
 	watcher       *fsnotify.Watcher
 	routeLocked   bool
 	staticPaths   []string
+	staticFiles   []string
 	globalSession *SessionManager
 	logger        *log.Logger
 	namespaces    map[string]*namespace
@@ -111,7 +113,7 @@ error404:
 
 // AddStatic set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func (app *server) AddStatic(pathPrefix string) Application {
+func (app *server) ServeStaticDir(pathPrefix string) Application {
 	if len(pathPrefix) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
 	}
@@ -121,7 +123,24 @@ func (app *server) AddStatic(pathPrefix string) Application {
 	if !strings.HasSuffix(pathPrefix, "/") {
 		pathPrefix = pathPrefix + "/"
 	}
-	app.staticPaths = append(app.staticPaths, strings.ToLower(pathPrefix))
+	if runtime.GOOS == "windows" {
+		pathPrefix = strings.ToLower(pathPrefix)
+	}
+	app.staticPaths = append(app.staticPaths, pathPrefix)
+	return app
+}
+
+func (app *server) ServeStaticFile(path string) Application {
+	if len(path) < 1 {
+		panic(errors.New("the static path prefix cannot be empty"))
+	}
+	if strings.HasSuffix(path, "/") {
+		panic(errors.New("the static file path cannot be end with '/'"))
+	}
+	if runtime.GOOS == "windows" {
+		path = strings.ToLower(path)
+	}
+	app.staticFiles = append(app.staticFiles, path)
 	return app
 }
 
@@ -246,16 +265,6 @@ func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req 
 func (app *server) MapPath(virtualPath string) string {
 	var res = path.Join(RootDir(), virtualPath)
 	return utils.FixPath(res)
-}
-
-// isStaticRequest check the current request is indicate to static path
-func (app *server) isStaticRequest(url string) bool {
-	for _, p := range app.staticPaths {
-		if strings.HasPrefix(url, p) {
-			return true
-		}
-	}
-	return false
 }
 
 // init used to initialize the server
@@ -394,6 +403,24 @@ func (app *server) isNsConfigFile(f string) bool {
 func (app *server) isInViewFolder(f string) bool {
 	var viewPath = app.viewFolder()
 	return strings.HasPrefix(f, viewPath)
+}
+
+// isStaticRequest check the current request is indicate to static path
+func (app *server) isStaticRequest(url string) bool {
+	if runtime.GOOS == "windows" {
+		url = strings.ToLower(url)
+	}
+	for _, f := range app.staticFiles {
+		if f == url {
+			return true
+		}
+	}
+	for _, p := range app.staticPaths {
+		if strings.HasPrefix(url, p) {
+			return true
+		}
+	}
+	return false
 }
 
 func (app *server) serveStaticFile(ctx *context) {
