@@ -2,10 +2,11 @@ package wemvc
 
 import (
 	"net/http"
-	"time"
 	"sync"
+	"time"
 )
 
+// SessionStore the session store interface
 type SessionStore interface {
 	Set(key, value interface{}) error     //set session value
 	Get(key interface{}) interface{}      //get session value

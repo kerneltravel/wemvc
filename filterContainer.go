@@ -1,0 +1,47 @@
+package wemvc
+
+import (
+	"sort"
+	"strings"
+)
+
+type filterContainer struct {
+	filters map[string][]Filter
+}
+
+func (fc *filterContainer) execFilters(ctx *context) bool {
+	if len(fc.filters) < 1 {
+		return false
+	}
+	var lowerURL = strings.ToLower(ctx.req.URL.Path)
+	var tmpFilters = fc.filters
+	var keys []string
+	for key := range tmpFilters {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if strings.HasPrefix(lowerURL+"/", key) {
+			for _, f := range tmpFilters[key] {
+				f(ctx)
+				if ctx.end {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+func (fc *filterContainer) setFilter(pathPrefix string, filter Filter) {
+	if !strings.HasPrefix(pathPrefix, "") {
+		panic("the filter path prefix must starts with '/'")
+	}
+	if !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix = pathPrefix + "/"
+	}
+	if fc.filters == nil {
+		fc.filters = make(map[string][]Filter)
+	}
+	fc.filters[strings.ToLower(pathPrefix)] = append(fc.filters[strings.ToLower(pathPrefix)], filter)
+}

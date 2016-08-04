@@ -2,11 +2,13 @@ package wemvc
 
 import (
 	"strings"
+
 	"github.com/Simbory/wemvc/utils"
 )
 
+// Configuration the global config interface
 type Configuration interface {
-	GetConnConfig(string) (string,string)
+	GetConnConfig(string) (typeName string, connString string)
 	GetSetting(string) string
 }
 
@@ -16,20 +18,20 @@ type connSetting struct {
 }
 
 type config struct {
-	DefaultURL    string `xml:"defaultUrl"`
-	ConnStrings   struct{
-					  ConnStrings  []struct{
-						  Name       string `xml:"name,attr"`
-						  Type       string `xml:"type,attr"`
-						  ConnString string `xml:"connString,attr"`
-					  } `xml:"add"`
-				  } `xml:"connStrings"`
-	Settings      struct{
-					  Settings []struct{
-						  Key string `xml:"key,attr"`
-						  Value string `xml:"value,attr"`
-					  } `xml:"add"`
-				  } `xml:"settings"`
+	DefaultURL  string `xml:"defaultUrl"`
+	ConnStrings struct {
+		ConnStrings []struct {
+			Name       string `xml:"name,attr"`
+			Type       string `xml:"type,attr"`
+			ConnString string `xml:"connString,attr"`
+		} `xml:"add"`
+	} `xml:"connStrings"`
+	Settings struct {
+		Settings []struct {
+			Key   string `xml:"key,attr"`
+			Value string `xml:"value,attr"`
+		} `xml:"add"`
+	} `xml:"settings"`
 	SessionConfig *SessionConfig `xml:"session"`
 	settingMap    map[string]string
 	connMap       map[string]*connSetting
@@ -37,23 +39,23 @@ type config struct {
 	svr           *server
 }
 
-func (conf *config)loadFile(file string) bool {
+func (conf *config) loadFile(file string) bool {
 	conf.svr.logWriter().Printf("load config file '%s'\r\n", file)
 	res := false
 	conf.settingMap = make(map[string]string)
 	conf.connMap = make(map[string]*connSetting)
 	if utils.IsFile(file) {
 		err := utils.File2Xml(file, conf)
-		if err != nil{
+		if err != nil {
 			goto defaultSetting
 		}
-		res =true
+		res = true
 		if len(conf.Settings.Settings) > 0 {
 			for _, s := range conf.Settings.Settings {
 				if len(s.Key) < 1 {
 					continue
 				}
-				if _,ok := conf.settingMap[s.Key];ok {
+				if _, ok := conf.settingMap[s.Key]; ok {
 					conf.svr.logWriter().Fatalf("Duplicate definition of setting key '%s', and the previous one will be ignored", s.Key)
 				}
 				conf.settingMap[s.Key] = s.Value
@@ -64,7 +66,7 @@ func (conf *config)loadFile(file string) bool {
 				if len(conn.Name) < 1 {
 					continue
 				}
-				if _,ok := conf.connMap[conn.Name]; ok {
+				if _, ok := conf.connMap[conn.Name]; ok {
 					conf.svr.logWriter().Fatalf("Duplicate definition of connection string '%s', and the previouse one will be ignored", conn.Name)
 				}
 				conf.connMap[conn.Name] = &connSetting{typeName: conn.Type, connString: conn.ConnString}
@@ -73,16 +75,16 @@ func (conf *config)loadFile(file string) bool {
 		if len(conf.DefaultURL) > 0 {
 			splits := strings.Split(conf.DefaultURL, ";,")
 			for _, s := range splits {
-				if len(s) < 1{
+				if len(s) < 1 {
 					continue
 				}
 				conf.defaultUrls = append(conf.defaultUrls, s)
 			}
 		}
 	}
-	defaultSetting:
+defaultSetting:
 	if len(conf.defaultUrls) < 1 {
-		conf.defaultUrls = []string{"index.html","index.htm"}
+		conf.defaultUrls = []string{"index.html", "index.htm"}
 	}
 	if conf.SessionConfig == nil {
 		conf.SessionConfig = &SessionConfig{}
@@ -102,12 +104,12 @@ func (conf *config)loadFile(file string) bool {
 	return res
 }
 
-func (conf *config) GetConnConfig(connName string) (string,string) {
-	conn,ok := conf.connMap[connName]
+func (conf *config) GetConnConfig(connName string) (string, string) {
+	conn, ok := conf.connMap[connName]
 	if ok {
 		return conn.typeName, conn.connString
 	}
-	return "",""
+	return "", ""
 }
 
 func (conf *config) getSessionConfig() *SessionConfig {
@@ -115,7 +117,7 @@ func (conf *config) getSessionConfig() *SessionConfig {
 }
 
 func (conf *config) GetSetting(key string) string {
-	v,ok := conf.settingMap[key]
+	v, ok := conf.settingMap[key]
 	if ok {
 		return v
 	}

@@ -1,13 +1,13 @@
 package wemvc
 
 import (
-	"os"
-	"errors"
-	"path/filepath"
-	"fmt"
-	"regexp"
 	"bytes"
+	"errors"
+	"fmt"
 	"html/template"
+	"os"
+	"path/filepath"
+	"regexp"
 )
 
 type viewContainer struct {
@@ -15,28 +15,29 @@ type viewContainer struct {
 	views   map[string]*view
 }
 
-func (app *viewContainer)addView(name string, v *view) {
-	if app.views == nil {
-		app.views = make(map[string]*view)
+func (vc *viewContainer) addView(name string, v *view) {
+	if vc.views == nil {
+		vc.views = make(map[string]*view)
 	}
-	app.views[name] = v
+	vc.views[name] = v
 }
 
-func (app *viewContainer)getView(name string) *view {
-	v,ok := app.views[name]
+func (vc *viewContainer) getView(name string) *view {
+	v, ok := vc.views[name]
 	if !ok {
 		return nil
 	}
 	return v
 }
 
-func (app *viewContainer)compileViews(dir string) error {
+func (vc *viewContainer) compileViews(dir string) error {
 	if _, err := os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {
 			return nil
 		}
 		return errors.New("dir open err")
 	}
+	app.logWriter().Println("compile view files in dir", dir)
 	vf := &viewFile{
 		root:  dir,
 		files: make(map[string][]string),
@@ -52,19 +53,19 @@ func (app *viewContainer)compileViews(dir string) error {
 		for _, file := range v {
 			t, err := getTemplate(vf.root, file, v...)
 			v := &view{tpl: t, err: err}
-			app.addView(file, v)
+			vc.addView(file, v)
 		}
 	}
 	return nil
 }
 
-func (app *viewContainer)renderView(viewPath string, viewData interface{}) (template.HTML, int) {
+func (vc *viewContainer) renderView(viewPath string, viewData interface{}) (template.HTML, int) {
 	ext, _ := regexp.Compile(`\.[hH][tT][mM][lL]?$`)
 	if !ext.MatchString(viewPath) {
 		viewPath = viewPath + ".html"
 	}
 
-	tpl := app.getView(viewPath)
+	tpl := vc.getView(viewPath)
 	if tpl == nil {
 		return template.HTML("cannot find the view " + viewPath), 500
 	}

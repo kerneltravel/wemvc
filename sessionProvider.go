@@ -6,8 +6,7 @@ import (
 	"time"
 )
 
-
-// Provider contains global session methods and saved SessionStores.
+// SessionProvider contains global session methods and saved SessionStores.
 // it can operate a SessionStore by its id.
 type SessionProvider interface {
 	SessionInit(gcLifetime int64, config string) error
@@ -24,7 +23,7 @@ var provides = make(map[string]SessionProvider)
 // Register makes a session provide available by the provided name.
 // If Register is called twice with the same name or if driver is nil,
 // it panics.
-func Register(name string, provide SessionProvider) {
+func RegSessionProvider(name string, provide SessionProvider) {
 	if provide == nil {
 		panic("session: Register provide is nil")
 	}
@@ -34,10 +33,10 @@ func Register(name string, provide SessionProvider) {
 	provides[name] = provide
 }
 
-var memoryProvider = &MemProvider{list: list.New(), sessions: make(map[string]*list.Element)}
+var memoryProvider = &MemSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)}
 
 // MemProvider Implement the provider interface
-type MemProvider struct {
+type MemSessionProvider struct {
 	lock        sync.RWMutex             // locker
 	sessions    map[string]*list.Element // map in memory
 	list        *list.List               // for gc
@@ -46,14 +45,14 @@ type MemProvider struct {
 }
 
 // SessionInit init memory session
-func (pder *MemProvider) SessionInit(maxlifetime int64, savePath string) error {
+func (pder *MemSessionProvider) SessionInit(maxlifetime int64, savePath string) error {
 	pder.maxLifetime = maxlifetime
 	pder.savePath = savePath
 	return nil
 }
 
 // SessionRead get memory session store by sid
-func (pder *MemProvider) SessionRead(sid string) (SessionStore, error) {
+func (pder *MemSessionProvider) SessionRead(sid string) (SessionStore, error) {
 	pder.lock.RLock()
 	if element, ok := pder.sessions[sid]; ok {
 		go pder.SessionUpdate(sid)
@@ -70,7 +69,7 @@ func (pder *MemProvider) SessionRead(sid string) (SessionStore, error) {
 }
 
 // SessionExist check session store exist in memory session by sid
-func (pder *MemProvider) SessionExist(sid string) bool {
+func (pder *MemSessionProvider) SessionExist(sid string) bool {
 	pder.lock.RLock()
 	defer pder.lock.RUnlock()
 	if _, ok := pder.sessions[sid]; ok {
@@ -80,7 +79,7 @@ func (pder *MemProvider) SessionExist(sid string) bool {
 }
 
 // SessionRegenerate generate new sid for session store in memory session
-func (pder *MemProvider) SessionRegenerate(oldsid, sid string) (SessionStore, error) {
+func (pder *MemSessionProvider) SessionRegenerate(oldsid, sid string) (SessionStore, error) {
 	pder.lock.RLock()
 	if element, ok := pder.sessions[oldsid]; ok {
 		go pder.SessionUpdate(oldsid)
@@ -102,7 +101,7 @@ func (pder *MemProvider) SessionRegenerate(oldsid, sid string) (SessionStore, er
 }
 
 // SessionDestroy delete session store in memory session by id
-func (pder *MemProvider) SessionDestroy(sid string) error {
+func (pder *MemSessionProvider) SessionDestroy(sid string) error {
 	pder.lock.Lock()
 	defer pder.lock.Unlock()
 	if element, ok := pder.sessions[sid]; ok {
@@ -114,7 +113,7 @@ func (pder *MemProvider) SessionDestroy(sid string) error {
 }
 
 // SessionGC clean expired session stores in memory session
-func (pder *MemProvider) SessionGC() {
+func (pder *MemSessionProvider) SessionGC() {
 	pder.lock.RLock()
 	for {
 		element := pder.list.Back()
@@ -136,12 +135,12 @@ func (pder *MemProvider) SessionGC() {
 }
 
 // SessionAll get count number of memory session
-func (pder *MemProvider) SessionAll() int {
+func (pder *MemSessionProvider) SessionAll() int {
 	return pder.list.Len()
 }
 
 // SessionUpdate expand time of session store by id in memory session
-func (pder *MemProvider) SessionUpdate(sid string) error {
+func (pder *MemSessionProvider) SessionUpdate(sid string) error {
 	pder.lock.Lock()
 	defer pder.lock.Unlock()
 	if element, ok := pder.sessions[sid]; ok {
@@ -153,5 +152,5 @@ func (pder *MemProvider) SessionUpdate(sid string) error {
 }
 
 func init() {
-	Register("memory", memoryProvider)
+	RegSessionProvider("memory", memoryProvider)
 }

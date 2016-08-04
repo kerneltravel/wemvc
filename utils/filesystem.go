@@ -8,14 +8,6 @@ import (
 	"runtime"
 )
 
-func GetCurrentDirectory() string {
-	dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		log.Fatal(err)
-	}
-	return strings.Replace(dir, "\\", "/", -1)
-}
-
 func FixPath(src string) string {
 	var res string
 	if runtime.GOOS == `windows` {

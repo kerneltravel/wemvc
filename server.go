@@ -6,7 +6,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -16,9 +15,10 @@ import (
 	"log"
 	"runtime/debug"
 
+	"errors"
+
 	"github.com/Simbory/wemvc/fsnotify"
 	"github.com/Simbory/wemvc/utils"
-	"errors"
 )
 
 type server struct {
@@ -26,25 +26,28 @@ type server struct {
 	port          int
 	webRoot       string
 	config        *config
-	router        *Router
+	router        *router
 	watcher       *fsnotify.Watcher
 	routeLocked   bool
 	staticPaths   []string
-	filters       map[string][]Filter
 	globalSession *SessionManager
 	logger        *log.Logger
 	namespaces    map[string]*namespace
 	viewContainer
+	filterContainer
 }
 
+// RootDir get the root file path of the web server
 func (app *server) RootDir() string {
 	return app.webRoot
 }
 
+// Config get the config data
 func (app *server) Config() Configuration {
 	return app.config
 }
 
+// SetRootDir set the webroot of the web application
 func (app *server) SetRootDir(rootDir string) Application {
 	if app.routeLocked {
 		panic(errors.New("Cannot set the web root while the application is running."))
@@ -56,6 +59,7 @@ func (app *server) SetRootDir(rootDir string) Application {
 	return app
 }
 
+// ServeHTTP serve the
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// handle 500 errors
 	defer app.panicRecover(w, req)
@@ -66,23 +70,6 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w:   w,
 		end: false,
 	}
-	// execute the filters
-	var tmpFilters = app.filters
-	var keys []string
-	for key := range tmpFilters {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		if strings.HasPrefix(lowerURL+"/", key) {
-			for _, f := range tmpFilters[key] {
-				f(ctx)
-				if ctx.end {
-					return
-				}
-			}
-		}
-	}
 	var result ActionResult
 	// serve the static file
 	if app.isStaticRequest(lowerURL) {
@@ -90,19 +77,40 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if ctx.end {
 			return
 		}
-		result = app.handleError(req, 404)
 	} else {
 		// serve the dynamic page
-		result = app.serveDynamic(ctx)
-		// handle error 404
-		if result == nil {
-			result = app.handleError(req, 404)
+		ctx = app.execRoute(ctx)
+		if ctx != nil {
+			// execute the global filters
+			if len(ctx.ns) < 1 {
+				if app.execFilters(ctx) {
+					return
+				}
+			} else {
+				ns, ok := app.namespaces[ctx.ns]
+				if ok && ns != nil {
+					if ns.execFilters(ctx) {
+						return
+					}
+				} else {
+					result = nil
+					goto error404
+				}
+			}
+			result = app.handleDynamic(ctx)
 		}
+	}
+	// handle error 404
+error404:
+	if result == nil {
+		result = app.handleError(req, 404)
 	}
 	// process the dynamic result
 	app.flushRequest(result, w, req)
 }
 
+// AddStatic set the path as a static path that the file under this path is served as static file
+// @param pathPrefix: the path prefix starts with '/'
 func (app *server) AddStatic(pathPrefix string) Application {
 	if len(pathPrefix) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
@@ -132,13 +140,7 @@ func (app *server) Route(routePath string, c interface{}, defaultAction ...strin
 }
 
 func (app *server) SetFilter(pathPrefix string, filter Filter) Application {
-	if !strings.HasPrefix(pathPrefix, "") {
-		panic("the filter path preix must starts with \"/\"")
-	}
-	if !strings.HasSuffix(pathPrefix, "/") {
-		pathPrefix = pathPrefix + "/"
-	}
-	app.filters[strings.ToLower(pathPrefix)] = append(app.filters[strings.ToLower(pathPrefix)], filter)
+	app.setFilter(pathPrefix, filter)
 	return app
 }
 
@@ -157,8 +159,29 @@ func (app *server) SetLogFile(name string) Application {
 	return app
 }
 
-func (app *server) Namespace(ns string) NamespaceSection {
-	return app.namespace(ns)
+func (app *server) Namespace(nsName string) NamespaceSection {
+	if len(nsName) > 0 {
+		if !strings.HasPrefix(nsName, "/") {
+			nsName = "/" + nsName
+		}
+		nsName = strings.TrimRight(nsName, "/")
+	}
+	if len(nsName) < 1 {
+		panic("invalid namespace")
+	}
+	if app.namespaces == nil {
+		app.namespaces = make(map[string]*namespace)
+	}
+	ns, ok := app.namespaces[nsName]
+	if ok {
+		return ns
+	}
+	ns = &namespace{
+		name:   nsName,
+		server: app,
+	}
+	app.namespaces[nsName] = ns
+	return ns
 }
 
 func (app *server) Run(port int) error {
@@ -189,7 +212,7 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 		app.router = newRouter()
 	}
 	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction+"\r\n")
-	app.router.Handle(routePath, cInfo)
+	app.router.handle(routePath, cInfo)
 }
 
 func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req *http.Request) {
@@ -203,20 +226,19 @@ func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req 
 			http.Redirect(w, req, res.redURL, res.statusCode)
 			return
 		}
-		// write the result to browser
-		for k, v := range result.GetHeaders() {
-			//fmt.Println("Key: ", k, " Value: ", v)
-			w.Header().Add(k, v)
-		}
-		var contentType = fmt.Sprintf("%s;charset=%s", result.GetContentType(), result.GetEncoding())
-		w.Header().Add("Content-Type", contentType)
-		if result.GetStatusCode() != 200 {
-			w.WriteHeader(result.GetStatusCode())
-		}
-		var output = result.GetOutput()
-		if len(output) > 0 {
-			w.Write(result.GetOutput())
-		}
+	}
+	// write the result to browser
+	for k, v := range result.GetHeaders() {
+		w.Header().Add(k, v)
+	}
+	var contentType = fmt.Sprintf("%s;charset=%s", result.GetContentType(), result.GetEncoding())
+	w.Header().Add("Content-Type", contentType)
+	if result.GetStatusCode() != 200 {
+		w.WriteHeader(result.GetStatusCode())
+	}
+	var output = result.GetOutput()
+	if len(output) > 0 {
+		w.Write(result.GetOutput())
 	}
 }
 
@@ -252,7 +274,7 @@ func (app *server) init() error {
 	app.watcher = w
 	// load & watch the global config files
 	var globalConfigFile = app.MapPath("/config.xml")
-	var config = &config{svr:app}
+	var config = &config{svr: app}
 	if config.loadFile(globalConfigFile) {
 		err = app.watcher.Watch(globalConfigFile)
 		if err != nil {
@@ -277,10 +299,8 @@ func (app *server) init() error {
 		for name, ns := range app.namespaces {
 			app.logWriter().Println("process namespace", name)
 			settingFile := ns.nsSettingFile()
-			app.logWriter().Println("    load config file for namespace", name, "'" + settingFile + "'")
 			ns.loadConfig()
 			app.watcher.Watch(settingFile)
-			app.logWriter().Println("    compile view files for namespace", name)
 			nsViewDir := ns.viewFolder()
 			ns.compileViews(nsViewDir)
 			app.watcher.Watch(nsViewDir)
@@ -304,31 +324,6 @@ func (app *server) init() error {
 	return nil
 }
 
-func (app *server) namespace(nsName string) *namespace {
-	if len(nsName) > 0 {
-		if !strings.HasPrefix(nsName, "/") {
-			nsName = "/" + nsName
-		}
-		nsName = strings.TrimRight(nsName, "/")
-	}
-	if len(nsName) < 1 {
-		return nil
-	}
-	if app.namespaces == nil {
-		app.namespaces = make(map[string]*namespace)
-	}
-	ns,ok := app.namespaces[nsName];
-	if ok {
-		return ns
-	}
-	ns = &namespace{
-		name:nsName,
-		server: app,
-	}
-	app.namespaces[nsName] = ns
-	return ns
-}
-
 // watchFile used to watching the required files: config files and view files
 func (app *server) watchFile() {
 	for {
@@ -338,7 +333,7 @@ func (app *server) watchFile() {
 			lowerStrFile := strings.ToLower(strFile)
 			if app.isConfigFile(strFile) {
 				app.logWriter().Println("config file", strFile, "has been changed")
-				var conf = &config{svr:app}
+				var conf = &config{svr: app}
 				if conf.loadFile(strFile) {
 					app.config = conf
 				}
@@ -387,7 +382,7 @@ func (app *server) isConfigFile(f string) bool {
 	return false
 }
 
-func (app *server)isNsConfigFile(f string) bool {
+func (app *server) isNsConfigFile(f string) bool {
 	for _, ns := range app.namespaces {
 		if ns.isConfigFile(f) {
 			return true
@@ -432,13 +427,13 @@ func (app *server) serveStaticFile(ctx *context) {
 	}
 }
 
-func (app *server) serveDynamic(ctx *context) ActionResult {
+func (app *server) execRoute(ctx *context) *context {
 	var path = ctx.req.URL.Path
 	if len(path) > 1 && strings.HasSuffix(path, "/") {
 		path = strings.TrimRight(path, "/")
 	}
-	var resp ActionResult
-	cInfo, routeData, match := app.router.Lookup(ctx.req.Method, path)
+	//var resp ActionResult
+	cInfo, routeData, match := app.router.lookup(ctx.req.Method, path)
 	if !match && cInfo != nil {
 		var action = routeData.ByName("action")
 		var ns = cInfo.namespace
@@ -459,36 +454,41 @@ func (app *server) serveDynamic(ctx *context) ActionResult {
 			actionMethod = cInfo.actions[actionMethod]
 			ctx.routeData = routeData
 			ctx.actionName = action
-			// execute the action method
-			resp = app.execute(ctx.req, ctx.w, cInfo.controllerType, ns, actionMethod, action, routeData, ctx.items)
+			ctx.ctrlType = cInfo.controllerType
+			ctx.ns = ns
+			ctx.actionMethod = actionMethod
+			ctx.actionName = action
+			ctx.routeData = routeData
+			cName := strings.ToLower(ctx.ctrlType.String())
+			cName = strings.Split(cName, ".")[1]
+			cName = strings.Replace(cName, "controller", "", -1)
+			ctx.ctrlName = cName
+			return ctx
 		}
 	}
-	return resp
+	return nil
 }
 
-func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.Type, ns, actionMethod, actionName string, routeData RouteData, items map[string]interface{}) ActionResult {
-	var ctrl = reflect.New(t)
-	cName := strings.ToLower(t.String())
-	cName = strings.Split(cName, ".")[1]
-	cName = strings.Replace(cName, "controller", "", -1)
-	cAction := actionName
+func (app *server) handleDynamic(ctx *context) ActionResult {
+	var ctrl = reflect.New(ctx.ctrlType)
+	cAction := ctx.actionName
 
 	// call OnInit method
 	onInitMethod := ctrl.MethodByName("OnInit")
 	if onInitMethod.IsValid() {
 		onInitMethod.Call([]reflect.Value{
-			reflect.ValueOf(req),
-			reflect.ValueOf(w),
-			reflect.ValueOf(ns),
-			reflect.ValueOf(cName),
+			reflect.ValueOf(ctx.req),
+			reflect.ValueOf(ctx.w),
+			reflect.ValueOf(ctx.ns),
+			reflect.ValueOf(ctx.ctrlName),
 			reflect.ValueOf(cAction),
-			reflect.ValueOf(routeData),
-			reflect.ValueOf(items),
+			reflect.ValueOf(ctx.routeData),
+			reflect.ValueOf(ctx.items),
 		})
 	}
 	//parse form
-	if req.Method == "POST" || req.Method == "PUT" || req.Method == "PATCH" {
-		if req.MultipartForm != nil {
+	if ctx.req.Method == "POST" || ctx.req.Method == "PUT" || ctx.req.Method == "PATCH" {
+		if ctx.req.MultipartForm != nil {
 			var size int64
 			var maxSize = app.config.GetSetting("MaxFormSize")
 			if len(maxSize) < 1 {
@@ -496,9 +496,9 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 			} else {
 				size, _ = strconv.ParseInt(maxSize, 10, 64)
 			}
-			req.ParseMultipartForm(size)
+			ctx.req.ParseMultipartForm(size)
 		} else {
-			req.ParseForm()
+			ctx.req.ParseForm()
 		}
 	}
 	// call OnLoad method
@@ -507,14 +507,14 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 		onLoadMethod.Call(nil)
 	}
 	// call action method
-	m := ctrl.MethodByName(actionMethod)
+	m := ctrl.MethodByName(ctx.actionMethod)
 	if !m.IsValid() {
 		return nil
 	}
-	if len(ns) < 1 {
-		app.logWriter().Println("handle dynamic path '" + req.URL.Path+"' {\"controller\":\"", cName+"\",\"action\":\"" + actionName + "\"}")
+	if len(ctx.ns) < 1 {
+		app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\"}")
 	} else {
-		app.logWriter().Println("handle dynamic path '" + req.URL.Path+"' {\"controller\":\"", cName+"\",\"action\":\"" + actionName + "\",\"namespace\":\"" + ns + "\"}")
+		app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\",\"namespace\":\""+ctx.ns+"\"}")
 	}
 	values := m.Call(nil)
 	if len(values) == 1 {
@@ -522,7 +522,7 @@ func (app *server) execute(req *http.Request, w http.ResponseWriter, t reflect.T
 		value, valid := result.(ActionResult)
 		if !valid {
 			value = NewActionResult()
-			var cType = req.Header.Get("Content-Type")
+			var cType = ctx.req.Header.Get("Content-Type")
 			if cType == "text/xml" {
 				xmlBytes, err := xml.Marshal(result)
 				if err != nil {
@@ -591,7 +591,7 @@ func (app *server) handleError(req *http.Request, code int) ActionResult {
 	if handler != nil {
 		return handler(req)
 	}
-	app.logWriter().Fatalln("unhandled request", req.Method,  "'"+ req.URL.Path + "'")
+	app.logWriter().Fatalln("unhandled request", req.Method, "'"+req.URL.Path+"'")
 	return app.error404(req)
 }
 

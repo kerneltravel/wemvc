@@ -44,7 +44,7 @@
 package wemvc
 
 // Param is a single URL parameter, consisting of a key and a value.
-type Param struct {
+type RouteParam struct {
 	Key   string
 	Value string
 }
@@ -52,7 +52,7 @@ type Param struct {
 // RouteData is a Param-slice, as returned by the router.
 // The slice is ordered, the first URL parameter is also the first slice value.
 // It is therefore safe to read values by the index.
-type RouteData []Param
+type RouteData []RouteParam
 
 // ByName returns the value of the first Param which key matches the given name.
 // If no matching Param is found, an empty string is returned.
@@ -67,7 +67,7 @@ func (ps RouteData) ByName(name string) string {
 
 // Router is a http.Handler which can be used to dispatch requests to different
 // handler functions via configurable routes
-type Router struct {
+type router struct {
 	tree *node
 
 	// Enables automatic redirection if the current route can't be matched but a
@@ -99,8 +99,8 @@ type Router struct {
 
 // New returns a new initialized Router.
 // Path auto-correction, including trailing slashes, is enabled by default.
-func newRouter() *Router {
-	return &Router{
+func newRouter() *router {
+	return &router{
 		RedirectTrailingSlash:  true,
 		RedirectFixedPath:      true,
 		HandleMethodNotAllowed: true,
@@ -115,7 +115,7 @@ func newRouter() *Router {
 // This function is intended for bulk loading and to allow the usage of less
 // frequently used, non-standardized or custom methods (e.g. for internal
 // communication with a proxy).
-func (r *Router) Handle(path string, cInfo *controllerInfo) {
+func (r *router) handle(path string, cInfo *controllerInfo) {
 	if path[0] != '/' {
 		path = "/" + path
 	}
@@ -130,7 +130,7 @@ func (r *Router) Handle(path string, cInfo *controllerInfo) {
 // If the path was found, it returns the handle function and the path parameter
 // values. Otherwise the third return value indicates whether a redirection to
 // the same path with an extra / without the trailing slash should be performed.
-func (r *Router) Lookup(method, path string) (*controllerInfo, RouteData, bool) {
+func (r *router) lookup(method, path string) (*controllerInfo, RouteData, bool) {
 	if root := r.tree; root != nil {
 		return root.getValue(path)
 	}

@@ -1,9 +1,9 @@
 package wemvc
 
 import (
+	"log"
 	"net/http"
 	"os"
-	"log"
 )
 
 // Handler the error handler define
@@ -22,6 +22,7 @@ func Config() Configuration {
 	return app.Config()
 }
 
+// Application the application interface that define the useful function
 type Application interface {
 	RootDir() string
 	Config() Configuration
@@ -44,6 +45,7 @@ func MapPath(virtualPath string) string {
 	return app.MapPath(virtualPath)
 }
 
+// Namespace return the namespace by name
 func Namespace(ns string) NamespaceSection {
 	return app.Namespace(ns)
 }
@@ -64,7 +66,7 @@ func HandleError(errorCode int, handler Handler) Application {
 	return app.HandleError(errorCode, handler)
 }
 
-// Route set the route
+// Route set the route rule
 func Route(routePath string, c interface{}, defaultAction ...string) Application {
 	return app.Route(routePath, c, defaultAction...)
 }
@@ -74,6 +76,7 @@ func SetFilter(pathPrefix string, filter Filter) Application {
 	return app.SetFilter(pathPrefix, filter)
 }
 
+// Logger return the log writer
 func Logger() *log.Logger {
 	return app.Logger()
 }
@@ -85,7 +88,7 @@ func SetLogFile(name string) Application {
 
 // Run run the web application
 func Run(port int) error {
-    return app.Run(port)
+	return app.Run(port)
 }
 
 // App the application singleton
@@ -94,12 +97,12 @@ var app *server
 func init() {
 	var root = getWorkPath()
 	app = &server{
-		webRoot:     	root,
-		routeLocked: 	false,
-		filters:     	make(map[string][]Filter),
-		errorHandlers:	make(map[int]Handler),
+		webRoot:       root,
+		routeLocked:   false,
+		errorHandlers: make(map[int]Handler),
 	}
 	app.views = make(map[string]*view)
+	app.filters = make(map[string][]Filter)
 }
 
 func getWorkPath() string {

@@ -1,20 +1,21 @@
 package wemvc
 
 import (
-	"time"
-	"net/http"
-	"fmt"
-	"net/url"
-	"encoding/hex"
 	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"net/http"
+	"net/url"
+	"time"
 )
 
+// SessionManager the session manager struct
 type SessionManager struct {
 	provider SessionProvider
 	config   *SessionConfig
 }
 
-// NewManager Create new Manager with provider name and json config string.
+// NewSessionManager Create new Manager with provider name and json config string.
 // provider name:
 // 1. cookie
 // 2. file
@@ -46,7 +47,7 @@ func NewSessionManager(provideName string, config *SessionConfig) (*SessionManag
 
 	return &SessionManager{
 		provider: provider,
-		config: config,
+		config:   config,
 	}, nil
 }
 

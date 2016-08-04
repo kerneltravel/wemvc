@@ -1,5 +1,6 @@
 package wemvc
 
+// SessionConfig the session config struct
 type SessionConfig struct {
 	ManagerName     string `xml:"manager,attr"`
 	CookieName      string `xml:"cookieName,attr"`

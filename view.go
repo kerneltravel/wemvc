@@ -2,13 +2,13 @@ package wemvc
 
 import (
 	"errors"
+	"github.com/Simbory/wemvc/utils"
 	"html/template"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-	"github.com/Simbory/wemvc/utils"
 )
 
 type view struct {

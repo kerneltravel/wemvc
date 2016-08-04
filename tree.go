@@ -164,7 +164,7 @@ func (n *node) addRoute(path string, cInfo *controllerInfo) {
 				}
 
 				// Check if a child with the next path byte exists
-				for i := 0; i < len(n.indices); i++ {
+				for i = 0; i < len(n.indices); i++ {
 					if c == n.indices[i] {
 						i = n.incrementChildPrio(i)
 						n = n.children[i]
@@ -280,7 +280,7 @@ func (n *node) insertChild(numParams uint8, path, fullPath string, handle *contr
 			if path[i] != '/' {
 				panic("no / before catch-all in path '" + fullPath + "'")
 			}
-			paramName := path[strings.Index(path, "*") + 1:]
+			paramName := path[strings.Index(path, "*")+1:]
 			if paramName != "pathInfo" {
 				panic("the parameter name of the catch-all rule should be 'pathInfo': '" + fullPath + "'")
 			}
