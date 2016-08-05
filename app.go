@@ -7,10 +7,10 @@ import (
 )
 
 // Handler the error handler define
-type Handler func(*http.Request) ActionResult
+type CtxHandler func(*http.Request) ActionResult
 
 // Filter request filter func
-type Filter func(ctx Context)
+type FilterFunc func(ctx Context)
 
 // RootDir get the root file path of the web server
 func RootDir() string {
@@ -30,11 +30,11 @@ type Application interface {
 	Logger() *log.Logger
 	Namespace(ns string) NamespaceSection
 	SetRootDir(rootDir string) Application
-	ServeStaticDir(pathPrefix string) Application
-	ServeStaticFile(path string) Application
-	HandleError(errorCode int, handler Handler) Application
+	StaticDir(pathPrefix string) Application
+	StaticFile(path string) Application
+	HandleError(errorCode int, handler CtxHandler) Application
 	Route(routePath string, c interface{}, defaultAction ...string) Application
-	SetFilter(pathPrefix string, filter Filter) Application
+	Filter(pathPrefix string, filter FilterFunc) Application
 	SetLogFile(name string) Application
 	Run(port int) error
 }
@@ -58,17 +58,17 @@ func SetRootDir(rootDir string) Application {
 
 // ServeStaticDir set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func ServeStaticDir(pathPrefix string) Application {
-	return app.ServeStaticDir(pathPrefix)
+func StaticDir(pathPrefix string) Application {
+	return app.StaticDir(pathPrefix)
 }
 
 // ServeStaticFile serve the path as static file
-func ServeStaticFile(path string) Application {
-	return app.ServeStaticFile(path)
+func StaticFile(path string) Application {
+	return app.StaticFile(path)
 }
 
 // HandleError handle the error code with the error handler
-func HandleError(errorCode int, handler Handler) Application {
+func HandleError(errorCode int, handler CtxHandler) Application {
 	return app.HandleError(errorCode, handler)
 }
 
@@ -78,8 +78,8 @@ func Route(routePath string, c interface{}, defaultAction ...string) Application
 }
 
 // SetFilter set the route filter
-func SetFilter(pathPrefix string, filter Filter) Application {
-	return app.SetFilter(pathPrefix, filter)
+func Filter(pathPrefix string, filter FilterFunc) Application {
+	return app.Filter(pathPrefix, filter)
 }
 
 // Logger return the log writer
@@ -105,10 +105,10 @@ func init() {
 	app = &server{
 		webRoot:       root,
 		routeLocked:   false,
-		errorHandlers: make(map[int]Handler),
+		errorHandlers: make(map[int]CtxHandler),
 	}
 	app.views = make(map[string]*view)
-	app.filters = make(map[string][]Filter)
+	app.filters = make(map[string][]FilterFunc)
 }
 
 func getWorkPath() string {

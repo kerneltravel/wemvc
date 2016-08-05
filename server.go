@@ -23,7 +23,7 @@ import (
 )
 
 type server struct {
-	errorHandlers map[int]Handler
+	errorHandlers map[int]CtxHandler
 	port          int
 	webRoot       string
 	config        *config
@@ -66,7 +66,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// handle 500 errors
 	defer app.panicRecover(w, req)
 
-	var lowerURL = strings.ToLower(req.URL.Path)
+	// var lowerURL = strings.ToLower(req.URL.Path)
 	var ctx = &context{
 		req: req,
 		w:   w,
@@ -74,7 +74,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	var result ActionResult
 	// serve the static file
-	if app.isStaticRequest(lowerURL) {
+	if app.isStaticRequest(req.URL.Path) {
 		app.serveStaticFile(ctx)
 		if ctx.end {
 			return
@@ -113,12 +113,12 @@ error404:
 
 // AddStatic set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func (app *server) ServeStaticDir(pathPrefix string) Application {
+func (app *server) StaticDir(pathPrefix string) Application {
 	if len(pathPrefix) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
 	}
 	if !strings.HasPrefix(pathPrefix, "/") {
-		panic(errors.New("The static path prefix should start with '/'"))
+		pathPrefix = "/" + pathPrefix
 	}
 	if !strings.HasSuffix(pathPrefix, "/") {
 		pathPrefix = pathPrefix + "/"
@@ -130,9 +130,12 @@ func (app *server) ServeStaticDir(pathPrefix string) Application {
 	return app
 }
 
-func (app *server) ServeStaticFile(path string) Application {
+func (app *server) StaticFile(path string) Application {
 	if len(path) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
 	}
 	if strings.HasSuffix(path, "/") {
 		panic(errors.New("the static file path cannot be end with '/'"))
@@ -144,7 +147,7 @@ func (app *server) ServeStaticFile(path string) Application {
 	return app
 }
 
-func (app *server) HandleError(errorCode int, handler Handler) Application {
+func (app *server) HandleError(errorCode int, handler CtxHandler) Application {
 	app.errorHandlers[errorCode] = handler
 	return app
 }
@@ -158,7 +161,7 @@ func (app *server) Route(routePath string, c interface{}, defaultAction ...strin
 	return app
 }
 
-func (app *server) SetFilter(pathPrefix string, filter Filter) Application {
+func (app *server) Filter(pathPrefix string, filter FilterFunc) Application {
 	app.setFilter(pathPrefix, filter)
 	return app
 }
@@ -426,9 +429,11 @@ func (app *server) isStaticRequest(url string) bool {
 func (app *server) serveStaticFile(ctx *context) {
 	var physicalFile = ""
 	var f = app.MapPath(ctx.req.URL.Path)
-	if utils.IsFile(f) {
-		physicalFile = f
-	} else {
+	stat,err := os.Stat(f)
+	if err != nil {
+		return
+	}
+	if stat.IsDir() {
 		absolutePath := ctx.req.URL.Path
 		if !strings.HasSuffix(absolutePath, "/") {
 			absolutePath = absolutePath + "/"
@@ -446,6 +451,8 @@ func (app *server) serveStaticFile(ctx *context) {
 				}
 			}
 		}
+	} else {
+		physicalFile = f
 	}
 	if len(physicalFile) > 0 {
 		app.logWriter().Println("handle static path '" + ctx.req.URL.Path + "'")
