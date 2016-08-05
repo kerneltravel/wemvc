@@ -429,7 +429,7 @@ func (app *server) isStaticRequest(url string) bool {
 func (app *server) serveStaticFile(ctx *context) {
 	var physicalFile = ""
 	var f = app.MapPath(ctx.req.URL.Path)
-	stat,err := os.Stat(f)
+	stat, err := os.Stat(f)
 	if err != nil {
 		return
 	}

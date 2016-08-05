@@ -3,8 +3,8 @@ package wemvc
 import (
 	"strings"
 
-	"github.com/Simbory/wemvc/utils"
 	"errors"
+	"github.com/Simbory/wemvc/utils"
 )
 
 // NamespaceSection the namespace section interface
