@@ -16,6 +16,7 @@ type NamespaceSection interface {
 	StaticDir(string) NamespaceSection
 	StaticFile(string) NamespaceSection
 	GetSetting(string) string
+	AddViewFunc(name string, f interface{}) NamespaceSection
 }
 
 type nsSettingGroup struct {
@@ -99,6 +100,11 @@ func (ns *namespace) StaticFile(file string) NamespaceSection {
 		panic(errors.New("the static file path cannot be end with '/'"))
 	}
 	ns.server.StaticFile(ns.GetName() + file)
+	return ns
+}
+
+func (ns *namespace)AddViewFunc(name string, f interface{}) NamespaceSection {
+	ns.addViewFunc(name, f)
 	return ns
 }
 

@@ -11,8 +11,20 @@ import (
 )
 
 type viewContainer struct {
-	viewDir string
-	views   map[string]*view
+	viewDir  string
+	views    map[string]*view
+	funcMaps template.FuncMap
+}
+
+func (vc *viewContainer) addViewFunc(name string, f interface{}) {
+	if len(name) < 1 || f == nil {
+		return
+	}
+	if vc.funcMaps == nil {
+		vc.funcMaps = make(template.FuncMap)
+	}
+	app.logWriter().Println("add global view func:", name)
+	vc.funcMaps[name] = f
 }
 
 func (vc *viewContainer) addView(name string, v *view) {
@@ -51,7 +63,7 @@ func (vc *viewContainer) compileViews(dir string) error {
 	}
 	for _, v := range vf.files {
 		for _, file := range v {
-			t, err := getTemplate(vf.root, file, v...)
+			t, err := getTemplate(vf.root, file, vc.funcMaps, v...)
 			v := &view{tpl: t, err: err}
 			vc.addView(file, v)
 		}
@@ -74,6 +86,12 @@ func (vc *viewContainer) renderView(viewPath string, viewData interface{}) (temp
 	}
 	if tpl.tpl == nil {
 		return template.HTML("cannot find the view " + viewPath), 500
+	}
+	fm := make(template.FuncMap)
+	if vc.funcMaps != nil {
+		for n, f := range vc.funcMaps {
+			fm[n] = f
+		}
 	}
 	var buf = &bytes.Buffer{}
 	err := tpl.tpl.Execute(buf, viewData)

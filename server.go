@@ -152,6 +152,11 @@ func (app *server) HandleError(errorCode int, handler CtxHandler) Application {
 	return app
 }
 
+func (app *server) AddViewFunc(name string, f interface{}) Application {
+	app.addViewFunc(name, f)
+	return app
+}
+
 func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Application {
 	var action = "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {

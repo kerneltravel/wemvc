@@ -36,6 +36,7 @@ type Application interface {
 	Route(routePath string, c interface{}, defaultAction ...string) Application
 	Filter(pathPrefix string, filter FilterFunc) Application
 	SetLogFile(name string) Application
+	AddViewFunc(name string, f interface{}) Application
 	Run(port int) error
 }
 
@@ -49,6 +50,10 @@ func MapPath(virtualPath string) string {
 // Namespace return the namespace by name
 func Namespace(ns string) NamespaceSection {
 	return app.Namespace(ns)
+}
+
+func AddViewFunc(name string, f interface{}) Application {
+	return app.AddViewFunc(name, f)
 }
 
 // SetRootDir set the webroot of the web application
