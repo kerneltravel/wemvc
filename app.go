@@ -6,10 +6,10 @@ import (
 	"os"
 )
 
-// Handler the error handler define
+// CtxHandler the error handler define
 type CtxHandler func(*http.Request) ActionResult
 
-// Filter request filter func
+// FilterFunc request filter func
 type FilterFunc func(ctx Context)
 
 // RootDir get the root file path of the web server
@@ -52,6 +52,7 @@ func Namespace(ns string) NamespaceSection {
 	return app.Namespace(ns)
 }
 
+// AddViewFunc add the view func map
 func AddViewFunc(name string, f interface{}) Application {
 	return app.AddViewFunc(name, f)
 }
@@ -61,13 +62,13 @@ func SetRootDir(rootDir string) Application {
 	return app.SetRootDir(rootDir)
 }
 
-// ServeStaticDir set the path as a static path that the file under this path is served as static file
+// StaticDir set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
 func StaticDir(pathPrefix string) Application {
 	return app.StaticDir(pathPrefix)
 }
 
-// ServeStaticFile serve the path as static file
+// StaticFile serve the path as static file
 func StaticFile(path string) Application {
 	return app.StaticFile(path)
 }
@@ -82,7 +83,7 @@ func Route(routePath string, c interface{}, defaultAction ...string) Application
 	return app.Route(routePath, c, defaultAction...)
 }
 
-// SetFilter set the route filter
+// Filter set the route filter
 func Filter(pathPrefix string, filter FilterFunc) Application {
 	return app.Filter(pathPrefix, filter)
 }

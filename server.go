@@ -77,6 +77,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if app.isStaticRequest(req.URL.Path) {
 		app.serveStaticFile(ctx)
 		if ctx.end {
+			ctx = nil
 			return
 		}
 	} else {
@@ -109,6 +110,7 @@ error404:
 	}
 	// process the dynamic result
 	app.flushRequest(result, w, req)
+	result = nil
 }
 
 // AddStatic set the path as a static path that the file under this path is served as static file
