@@ -22,6 +22,24 @@ import (
 	"runtime"
 )
 
+// Server the application interface that define the useful function
+type Server interface {
+	RootDir() string
+	Config() Configuration
+	MapPath(virtualPath string) string
+	Logger() *log.Logger
+	Namespace(ns string) NamespaceSection
+	SetRootDir(rootDir string) Server
+	ServeStaticDir(pathPrefix string) Server
+	ServeStaticFile(path string) Server
+	HandleError(errorCode int, handler Handler) Server
+	Route(routePath string, c interface{}, defaultAction ...string) Server
+	SetFilter(pathPrefix string, filter Filter) Server
+	SetLogFile(name string) Server
+	SetViewExt(ext string) Server
+	Run(port int) error
+}
+
 type server struct {
 	errorHandlers map[int]Handler
 	port          int
@@ -49,8 +67,8 @@ func (app *server) Config() Configuration {
 	return app.config
 }
 
-// SetRootDir set the webroot of the web application
-func (app *server) SetRootDir(rootDir string) Application {
+// SetRootDir set the root directory of the web application
+func (app *server) SetRootDir(rootDir string) Server {
 	if app.routeLocked {
 		panic(errors.New("Cannot set the web root while the application is running."))
 	}
@@ -58,6 +76,24 @@ func (app *server) SetRootDir(rootDir string) Application {
 		panic("invalid root dir")
 	}
 	app.webRoot = rootDir
+	return app
+}
+
+// SetViewExt set the view file extension
+func (app *server) SetViewExt(ext string) Server {
+	if len(ext) < 1 || !strings.HasPrefix(ext, ".") {
+		return app
+	}
+	if runtime.GOOS == "windows" {
+		app.viewExt = strings.ToLower(ext);
+	} else {
+		app.viewExt = ext
+	}
+	if app.namespaces != nil {
+		for _, ns := range app.namespaces {
+			ns.viewDir = app.viewDir
+		}
+	}
 	return app
 }
 
@@ -113,7 +149,7 @@ error404:
 
 // AddStatic set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func (app *server) ServeStaticDir(pathPrefix string) Application {
+func (app *server) ServeStaticDir(pathPrefix string) Server {
 	if len(pathPrefix) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
 	}
@@ -130,7 +166,7 @@ func (app *server) ServeStaticDir(pathPrefix string) Application {
 	return app
 }
 
-func (app *server) ServeStaticFile(path string) Application {
+func (app *server) ServeStaticFile(path string) Server {
 	if len(path) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
 	}
@@ -144,12 +180,12 @@ func (app *server) ServeStaticFile(path string) Application {
 	return app
 }
 
-func (app *server) HandleError(errorCode int, handler Handler) Application {
+func (app *server) HandleError(errorCode int, handler Handler) Server {
 	app.errorHandlers[errorCode] = handler
 	return app
 }
 
-func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Application {
+func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Server {
 	var action = "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
 		action = defaultAction[0]
@@ -158,7 +194,7 @@ func (app *server) Route(routePath string, c interface{}, defaultAction ...strin
 	return app
 }
 
-func (app *server) SetFilter(pathPrefix string, filter Filter) Application {
+func (app *server) SetFilter(pathPrefix string, filter Filter) Server {
 	app.setFilter(pathPrefix, filter)
 	return app
 }
@@ -167,7 +203,7 @@ func (app *server) Logger() *log.Logger {
 	return app.logWriter()
 }
 
-func (app *server) SetLogFile(name string) Application {
+func (app *server) SetLogFile(name string) Server {
 	file, err := os.Create(name)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -199,6 +235,7 @@ func (app *server) Namespace(nsName string) NamespaceSection {
 		name:   nsName,
 		server: app,
 	}
+	ns.viewExt = app.viewExt
 	app.namespaces[nsName] = ns
 	return ns
 }
@@ -676,4 +713,16 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 		</body>
 		</html>`))
 	}
+}
+
+func newServer(webRoot string) *server {
+	var app = &server{
+		webRoot:       webRoot,
+		routeLocked:   false,
+		errorHandlers: make(map[int]Handler),
+	}
+	app.views = make(map[string]*view)
+	app.filters = make(map[string][]Filter)
+	app.viewExt = ".html"
+	return app
 }

@@ -7,10 +7,11 @@ import (
 	"html/template"
 	"os"
 	"path/filepath"
-	"regexp"
+	"strings"
 )
 
 type viewContainer struct {
+	viewExt string
 	viewDir string
 	views   map[string]*view
 }
@@ -41,6 +42,7 @@ func (vc *viewContainer) compileViews(dir string) error {
 	vf := &viewFile{
 		root:  dir,
 		files: make(map[string][]string),
+		viewExt: vc.viewExt,
 	}
 	err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {
 		return vf.visit(path, f, err)
@@ -51,7 +53,7 @@ func (vc *viewContainer) compileViews(dir string) error {
 	}
 	for _, v := range vf.files {
 		for _, file := range v {
-			t, err := getTemplate(vf.root, file, v...)
+			t, err := getTemplate(vf.root, file, vf.viewExt, v...)
 			v := &view{tpl: t, err: err}
 			vc.addView(file, v)
 		}
@@ -59,12 +61,14 @@ func (vc *viewContainer) compileViews(dir string) error {
 	return nil
 }
 
+// renderView render the view template with ViewData and get the result
 func (vc *viewContainer) renderView(viewPath string, viewData interface{}) (template.HTML, int) {
-	ext, _ := regexp.Compile(`\.[hH][tT][mM][lL]?$`)
-	if !ext.MatchString(viewPath) {
-		viewPath = viewPath + ".html"
+	if len(viewPath) < 1 {
+		return template.HTML("the view path canot be empty"), 500
 	}
-
+	if !strings.HasSuffix(viewPath, vc.viewExt) {
+		viewPath = viewPath + vc.viewExt
+	}
 	tpl := vc.getView(viewPath)
 	if tpl == nil {
 		return template.HTML("cannot find the view " + viewPath), 500
@@ -80,6 +84,5 @@ func (vc *viewContainer) renderView(viewPath string, viewData interface{}) (temp
 	if err != nil {
 		return template.HTML(err.Error()), 500
 	}
-	result := template.HTML(buf.Bytes())
-	return result, 200
+	return template.HTML(buf.Bytes()), 200
 }

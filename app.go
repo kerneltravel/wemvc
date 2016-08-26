@@ -22,23 +22,6 @@ func Config() Configuration {
 	return app.Config()
 }
 
-// Application the application interface that define the useful function
-type Application interface {
-	RootDir() string
-	Config() Configuration
-	MapPath(virtualPath string) string
-	Logger() *log.Logger
-	Namespace(ns string) NamespaceSection
-	SetRootDir(rootDir string) Application
-	ServeStaticDir(pathPrefix string) Application
-	ServeStaticFile(path string) Application
-	HandleError(errorCode int, handler Handler) Application
-	Route(routePath string, c interface{}, defaultAction ...string) Application
-	SetFilter(pathPrefix string, filter Filter) Application
-	SetLogFile(name string) Application
-	Run(port int) error
-}
-
 // MapPath Returns the physical file path that corresponds to the specified virtual path.
 // @param virtualPath: the virtual path starts with
 // @return the absolute file path
@@ -52,33 +35,38 @@ func Namespace(ns string) NamespaceSection {
 }
 
 // SetRootDir set the webroot of the web application
-func SetRootDir(rootDir string) Application {
+func SetRootDir(rootDir string) Server {
 	return app.SetRootDir(rootDir)
+}
+
+// SetViewExt set the view file extension
+func SetViewExt(ext string) Server {
+	return app.SetViewExt(ext)
 }
 
 // ServeStaticDir set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func ServeStaticDir(pathPrefix string) Application {
+func ServeStaticDir(pathPrefix string) Server {
 	return app.ServeStaticDir(pathPrefix)
 }
 
 // ServeStaticFile serve the path as static file
-func ServeStaticFile(path string) Application {
+func ServeStaticFile(path string) Server {
 	return app.ServeStaticFile(path)
 }
 
 // HandleError handle the error code with the error handler
-func HandleError(errorCode int, handler Handler) Application {
+func HandleError(errorCode int, handler Handler) Server {
 	return app.HandleError(errorCode, handler)
 }
 
 // Route set the route rule
-func Route(routePath string, c interface{}, defaultAction ...string) Application {
+func Route(routePath string, c interface{}, defaultAction ...string) Server {
 	return app.Route(routePath, c, defaultAction...)
 }
 
 // SetFilter set the route filter
-func SetFilter(pathPrefix string, filter Filter) Application {
+func SetFilter(pathPrefix string, filter Filter) Server {
 	return app.SetFilter(pathPrefix, filter)
 }
 
@@ -88,7 +76,7 @@ func Logger() *log.Logger {
 }
 
 // SetLogFile set the log file, the default log file is os.Stdout
-func SetLogFile(name string) Application {
+func SetLogFile(name string) Server {
 	return app.SetLogFile(name)
 }
 
@@ -97,18 +85,15 @@ func Run(port int) error {
 	return app.Run(port)
 }
 
+func NewServer(webRoot string) Server {
+	return newServer(webRoot)
+}
+
 // App the application singleton
 var app *server
 
 func init() {
-	var root = getWorkPath()
-	app = &server{
-		webRoot:       root,
-		routeLocked:   false,
-		errorHandlers: make(map[int]Handler),
-	}
-	app.views = make(map[string]*view)
-	app.filters = make(map[string][]Filter)
+	app = newServer(getWorkPath())
 }
 
 func getWorkPath() string {

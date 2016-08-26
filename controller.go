@@ -60,11 +60,13 @@ func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
 	if len(ctrl.ns) > 0 {
 		ns := app.namespaces[ctrl.ns]
 		if ns != nil {
+			ctrl.initViewData()
 			res, code = ns.renderView(viewPath, ctrl.ViewData)
 		} else {
 			return ctrl.NotFound()
 		}
 	} else {
+		ctrl.initViewData()
 		res, code = app.renderView(viewPath, ctrl.ViewData)
 	}
 	var resp = NewActionResult()
@@ -73,6 +75,10 @@ func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
 		resp.SetStatusCode(code)
 	}
 	return resp
+}
+
+func (ctrl *Controller) initViewData() {
+	ctrl.ViewData["Request"] = ctrl.Request
 }
 
 // Namespace return the namespace using in this controller
