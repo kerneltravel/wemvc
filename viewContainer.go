@@ -24,7 +24,7 @@ func (vc *viewContainer) addViewFunc(name string, f interface{}) {
 	if vc.funcMaps == nil {
 		vc.funcMaps = make(template.FuncMap)
 	}
-	app.logWriter().Println("add global view func:", name)
+	app.logWriter().Println("add view func:", name)
 	vc.funcMaps[name] = f
 }
 

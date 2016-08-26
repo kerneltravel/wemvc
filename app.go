@@ -51,13 +51,13 @@ func SetViewExt(ext string) Server {
 
 // ServeStaticDir set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func ServeStaticDir(pathPrefix string) Server {
-	return app.ServeStaticDir(pathPrefix)
+func StaticDir(pathPrefix string) Server {
+	return app.StaticDir(pathPrefix)
 }
 
 // ServeStaticFile serve the path as static file
-func ServeStaticFile(path string) Server {
-	return app.ServeStaticFile(path)
+func StaticFile(path string) Server {
+	return app.StaticFile(path)
 }
 
 // HandleError handle the error code with the error handler
@@ -72,7 +72,7 @@ func Route(routePath string, c interface{}, defaultAction ...string) Server {
 
 // SetFilter set the route filter
 func SetFilter(pathPrefix string, filter FilterFunc) Server {
-	return app.SetFilter(pathPrefix, filter)
+	return app.Filter(pathPrefix, filter)
 }
 
 // Logger return the log writer

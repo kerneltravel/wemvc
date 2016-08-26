@@ -30,13 +30,14 @@ type Server interface {
 	Logger() *log.Logger
 	Namespace(ns string) NamespaceSection
 	SetRootDir(rootDir string) Server
-	ServeStaticDir(pathPrefix string) Server
-	ServeStaticFile(path string) Server
-	HandleError(errorCode int, handler Handler) Server
+	StaticDir(pathPrefix string) Server
+	StaticFile(path string) Server
+	HandleError(errorCode int, handler CtxHandler) Server
 	Route(routePath string, c interface{}, defaultAction ...string) Server
-	SetFilter(pathPrefix string, filter Filter) Server
+	Filter(pathPrefix string, filter FilterFunc) Server
 	SetLogFile(name string) Server
 	SetViewExt(ext string) Server
+	AddViewFunc(name string, f interface{}) Server
 	Run(port int) error
 }
 
@@ -151,8 +152,7 @@ error404:
 
 // AddStatic set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func (app *server) ServeStaticDir(pathPrefix string) Server {
-func (app *server) StaticDir(pathPrefix string) Application {
+func (app *server) StaticDir(pathPrefix string) Server {
 	if len(pathPrefix) < 1 {
 		panic(errors.New("the static path prefix cannot be empty"))
 	}
@@ -191,13 +191,12 @@ func (app *server) HandleError(errorCode int, handler CtxHandler) Server {
 	return app
 }
 
-func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Server {
-func (app *server) AddViewFunc(name string, f interface{}) Application {
+func (app *server) AddViewFunc(name string, f interface{}) Server {
 	app.addViewFunc(name, f)
 	return app
 }
 
-func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Application {
+func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Server {
 	var action = "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
 		action = defaultAction[0]
@@ -735,10 +734,10 @@ func newServer(webRoot string) *server {
 	var app = &server{
 		webRoot:       webRoot,
 		routeLocked:   false,
-		errorHandlers: make(map[int]Handler),
+		errorHandlers: make(map[int]CtxHandler),
 	}
 	app.views = make(map[string]*view)
-	app.filters = make(map[string][]Filter)
+	app.filters = make(map[string][]FilterFunc)
 	app.viewExt = ".html"
 	return app
 }
