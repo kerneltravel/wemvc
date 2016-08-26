@@ -48,8 +48,11 @@ func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 	return nil
 }
 
-func getTemplate(root, file, viewExt string, others ...string) (t *template.Template, err error) {
+func getTemplate(root, file, viewExt string, funcMap template.FuncMap, others ...string) (t *template.Template, err error) {
 	t = template.New(file)
+	if funcMap != nil {
+		t.Funcs(funcMap)
+	}
 	var subMods [][]string
 	t, subMods, err = getTplDeep(root, file, viewExt, "", t)
 	if err != nil {

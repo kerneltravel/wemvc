@@ -3,6 +3,7 @@ package wemvc
 import (
 	"strings"
 
+	"errors"
 	"github.com/Simbory/wemvc/utils"
 )
 
@@ -11,8 +12,11 @@ type NamespaceSection interface {
 	GetName() string
 	GetNsDir() string
 	Route(string, interface{}, ...string) NamespaceSection
-	SetFilter(string, Filter) NamespaceSection
+	Filter(string, FilterFunc) NamespaceSection
+	StaticDir(string) NamespaceSection
+	StaticFile(string) NamespaceSection
 	GetSetting(string) string
+	AddViewFunc(name string, f interface{}) NamespaceSection
 }
 
 type nsSettingGroup struct {
@@ -53,7 +57,7 @@ func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...str
 	return ns
 }
 
-func (ns *namespace) SetFilter(pathPrefix string, filter Filter) NamespaceSection {
+func (ns *namespace) Filter(pathPrefix string, filter FilterFunc) NamespaceSection {
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = "/" + pathPrefix
 	}
@@ -70,6 +74,38 @@ func (ns *namespace) GetSetting(key string) string {
 		return v
 	}
 	return ""
+}
+
+func (ns *namespace) StaticDir(pathPrefix string) NamespaceSection {
+	if len(pathPrefix) < 1 {
+		panic(errors.New("the static path prefix cannot be empty"))
+	}
+	if !strings.HasPrefix(pathPrefix, "/") {
+		pathPrefix = "/" + pathPrefix
+	}
+	if !strings.HasSuffix(pathPrefix, "/") {
+		pathPrefix = pathPrefix + "/"
+	}
+	ns.server.StaticDir(ns.GetName() + pathPrefix)
+	return ns
+}
+func (ns *namespace) StaticFile(file string) NamespaceSection {
+	if len(file) < 1 {
+		panic(errors.New("the static path prefix cannot be empty"))
+	}
+	if !strings.HasPrefix(file, "/") {
+		file = "/" + file
+	}
+	if strings.HasSuffix(file, "/") {
+		panic(errors.New("the static file path cannot be end with '/'"))
+	}
+	ns.server.StaticFile(ns.GetName() + file)
+	return ns
+}
+
+func (ns *namespace)AddViewFunc(name string, f interface{}) NamespaceSection {
+	ns.addViewFunc(name, f)
+	return ns
 }
 
 func (ns *namespace) nsSettingFile() string {
@@ -89,7 +125,7 @@ func (ns *namespace) loadConfig() {
 	var path = ns.nsSettingFile()
 	if utils.IsFile(path) {
 		var settings = &nsSettingGroup{}
-		ns.server.logWriter().Println("    load config file '" + path + "' for namespace '" + ns.GetName() + "'")
+		ns.server.logWriter().Println("load config file '" + path + "' for namespace '" + ns.GetName() + "'")
 		err := utils.File2Xml(path, settings)
 		if err != nil {
 			return

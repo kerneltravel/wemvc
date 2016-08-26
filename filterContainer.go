@@ -6,7 +6,7 @@ import (
 )
 
 type filterContainer struct {
-	filters map[string][]Filter
+	filters map[string][]FilterFunc
 }
 
 func (fc *filterContainer) execFilters(ctx *context) bool {
@@ -33,7 +33,7 @@ func (fc *filterContainer) execFilters(ctx *context) bool {
 	return false
 }
 
-func (fc *filterContainer) setFilter(pathPrefix string, filter Filter) {
+func (fc *filterContainer) setFilter(pathPrefix string, filter FilterFunc) {
 	if !strings.HasPrefix(pathPrefix, "") {
 		panic("the filter path prefix must starts with '/'")
 	}
@@ -41,7 +41,7 @@ func (fc *filterContainer) setFilter(pathPrefix string, filter Filter) {
 		pathPrefix = pathPrefix + "/"
 	}
 	if fc.filters == nil {
-		fc.filters = make(map[string][]Filter)
+		fc.filters = make(map[string][]FilterFunc)
 	}
 	fc.filters[strings.ToLower(pathPrefix)] = append(fc.filters[strings.ToLower(pathPrefix)], filter)
 }

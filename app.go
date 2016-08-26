@@ -6,11 +6,11 @@ import (
 	"os"
 )
 
-// Handler the error handler define
-type Handler func(*http.Request) ActionResult
+// CtxHandler the error handler define
+type CtxHandler func(*http.Request) ActionResult
 
-// Filter request filter func
-type Filter func(ctx Context)
+// FilterFunc request filter func
+type FilterFunc func(ctx Context)
 
 // RootDir get the root file path of the web server
 func RootDir() string {
@@ -32,6 +32,11 @@ func MapPath(virtualPath string) string {
 // Namespace return the namespace by name
 func Namespace(ns string) NamespaceSection {
 	return app.Namespace(ns)
+}
+
+// AddViewFunc add the view func map
+func AddViewFunc(name string, f interface{}) Server {
+	return app.AddViewFunc(name, f)
 }
 
 // SetRootDir set the webroot of the web application
@@ -56,7 +61,7 @@ func ServeStaticFile(path string) Server {
 }
 
 // HandleError handle the error code with the error handler
-func HandleError(errorCode int, handler Handler) Server {
+func HandleError(errorCode int, handler CtxHandler) Server {
 	return app.HandleError(errorCode, handler)
 }
 
@@ -66,7 +71,7 @@ func Route(routePath string, c interface{}, defaultAction ...string) Server {
 }
 
 // SetFilter set the route filter
-func SetFilter(pathPrefix string, filter Filter) Server {
+func SetFilter(pathPrefix string, filter FilterFunc) Server {
 	return app.SetFilter(pathPrefix, filter)
 }
 
