@@ -82,6 +82,9 @@ func (app *server) SetRootDir(rootDir string) Server {
 
 // SetViewExt set the view file extension
 func (app *server) SetViewExt(ext string) Server {
+	if app.routeLocked {
+		return app
+	}
 	if len(ext) < 1 || !strings.HasPrefix(ext, ".") {
 		return app
 	}
