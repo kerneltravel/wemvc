@@ -71,10 +71,10 @@ func (app *server) Config() Configuration {
 // SetRootDir set the root directory of the web application
 func (app *server) SetRootDir(rootDir string) Server {
 	if app.routeLocked {
-		panic(errors.New("Cannot set the web root while the application is running."))
+		panic(setRootError)
 	}
 	if !utils.IsDir(rootDir) {
-		panic("invalid root dir")
+		panic(invalidRootError)
 	}
 	app.webRoot = rootDir
 	return app
@@ -157,7 +157,7 @@ error404:
 // @param pathPrefix: the path prefix starts with '/'
 func (app *server) StaticDir(pathPrefix string) Server {
 	if len(pathPrefix) < 1 {
-		panic(errors.New("the static path prefix cannot be empty"))
+		panic(pathPrefixEmptyError)
 	}
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = "/" + pathPrefix
@@ -174,13 +174,13 @@ func (app *server) StaticDir(pathPrefix string) Server {
 
 func (app *server) StaticFile(path string) Server {
 	if len(path) < 1 {
-		panic(errors.New("the static path prefix cannot be empty"))
+		panic(pathPrefixEmptyError)
 	}
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 	if strings.HasSuffix(path, "/") {
-		panic(errors.New("the static file path cannot be end with '/'"))
+		panic(invalidPathError)
 	}
 	if runtime.GOOS == "windows" {
 		path = strings.ToLower(path)
@@ -236,7 +236,7 @@ func (app *server) Namespace(nsName string) NamespaceSection {
 		nsName = strings.TrimRight(nsName, "/")
 	}
 	if len(nsName) < 1 {
-		panic("invalid namespace")
+		panic(invalidNsError)
 	}
 	if app.namespaces == nil {
 		app.namespaces = make(map[string]*namespace)

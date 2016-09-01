@@ -35,7 +35,7 @@ func (fc *filterContainer) execFilters(ctx *context) bool {
 
 func (fc *filterContainer) setFilter(pathPrefix string, filter FilterFunc) {
 	if !strings.HasPrefix(pathPrefix, "") {
-		panic("the filter path prefix must starts with '/'")
+		panic(filterPathError)
 	}
 	if !strings.HasSuffix(pathPrefix, "/") {
 		pathPrefix = pathPrefix + "/"

@@ -6,15 +6,48 @@ import (
 	"bytes"
 )
 
-type endRequestError struct {
+type endRequestError struct {}
+
+var emptyViewPathError = errors.New("The view path is empty.")
+
+var openDirError = errors.New("Failed to open the directory.")
+
+var setRootError = errors.New("The web root cannot be change while the application is running.")
+
+var invalidRootError = errors.New("The root directory is invalid.")
+
+var pathPrefixEmptyError = errors.New("The path prefix cannot be empty.")
+
+var invalidPathError = errors.New("The path of the static file cannot be end with '/'");
+
+var invalidNsError = errors.New("The namespace is invalid.")
+
+var resEmptyError = errors.New("The response writer cannot be empty")
+
+var reqEmptyError = errors.New("The http request cannot be empty")
+
+var filterPathError = errors.New("The filter path prefix must starts with '/'")
+
+var notFoundTplError = func(file string) error {
+	return errors.New("can't find template file \"" + file + "\"")
 }
 
-var emptyViewPath = errors.New("the view path canot be empty")
+var sessionProvNilError = errors.New("The session provider is nil")
 
-var openDirError = errors.New("dir open err")
+var sessionRegTwiceError = func(name string) error {
+	return errors.New("session: Register called twice for provider " + name)
+}
 
-func errorViewPath(viewPath string) error {
+var viewPathNotFoundError = func(viewPath string) error {
 	return errors.New("cannot find the view path " + viewPath)
+}
+
+var invalidCtrlTypeError = func(typeName string) error {
+	return errors.New("Invalid controller type: \"" + typeName + "\"")
+}
+
+var ctrlNoActionError = func(typeName string) error {
+	return errors.New("Thhe controller \"" + typeName + "\" has no action method")
 }
 
 var errorTpl,_ = template.New("error").Parse(`<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">

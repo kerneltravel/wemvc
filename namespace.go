@@ -78,7 +78,7 @@ func (ns *namespace) GetSetting(key string) string {
 
 func (ns *namespace) StaticDir(pathPrefix string) NamespaceSection {
 	if len(pathPrefix) < 1 {
-		panic(errors.New("the static path prefix cannot be empty"))
+		panic(pathPrefixEmptyError)
 	}
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = "/" + pathPrefix
@@ -91,13 +91,13 @@ func (ns *namespace) StaticDir(pathPrefix string) NamespaceSection {
 }
 func (ns *namespace) StaticFile(file string) NamespaceSection {
 	if len(file) < 1 {
-		panic(errors.New("the static path prefix cannot be empty"))
+		panic(pathPrefixEmptyError)
 	}
 	if !strings.HasPrefix(file, "/") {
 		file = "/" + file
 	}
 	if strings.HasSuffix(file, "/") {
-		panic(errors.New("the static file path cannot be end with '/'"))
+		panic(invalidPathError)
 	}
 	ns.server.StaticFile(ns.GetName() + file)
 	return ns

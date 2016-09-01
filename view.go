@@ -74,8 +74,7 @@ func getTplDeep(root, file, viewExt, parent string, t *template.Template) (*temp
 		fileAbsPath = filepath.Join(root, file)
 	}
 	if e := utils.IsFile(fileAbsPath); !e {
-		var msg = "can't find template file \"" + file + "\""
-		return nil, [][]string{}, errors.New(msg)
+		return nil, [][]string{}, notFoundTplError(file)
 	}
 	data, err := ioutil.ReadFile(fileAbsPath)
 	if err != nil {

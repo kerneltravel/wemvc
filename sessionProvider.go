@@ -25,10 +25,10 @@ var provides = make(map[string]SessionProvider)
 // it panics.
 func RegSessionProvider(name string, provide SessionProvider) {
 	if provide == nil {
-		panic("session: Register provide is nil")
+		panic(sessionProvNilError)
 	}
 	if _, dup := provides[name]; dup {
-		panic("session: Register called twice for provider " + name)
+		panic(sessionRegTwiceError(name))
 	}
 	provides[name] = provide
 }

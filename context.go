@@ -60,7 +60,7 @@ func (ctx *context) CtrlName() string {
 // Response get the response info
 func (ctx *context) Response() http.ResponseWriter {
 	if ctx.w == nil {
-		panic(errors.New("response writer cannot be empty"))
+		panic(resEmptyError)
 	}
 	return ctx.w
 }
@@ -68,7 +68,7 @@ func (ctx *context) Response() http.ResponseWriter {
 /// Request get the request info
 func (ctx *context) Request() *http.Request {
 	if ctx.req == nil {
-		panic(errors.New("http request cannot be empty"))
+		panic(reqEmptyError)
 	}
 	return ctx.req
 }

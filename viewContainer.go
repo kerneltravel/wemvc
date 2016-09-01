@@ -73,20 +73,20 @@ func (vc *viewContainer) compileViews(dir string) error {
 // renderView render the view template with ViewData and get the result
 func (vc *viewContainer) renderView(viewPath string, viewData interface{}) (template.HTML, int) {
 	if len(viewPath) < 1 {
-		panic(emptyViewPath)
+		panic(emptyViewPathError)
 	}
 	if !strings.HasSuffix(viewPath, vc.viewExt) {
 		viewPath = viewPath + vc.viewExt
 	}
 	tpl := vc.getView(viewPath)
 	if tpl == nil {
-		panic(errorViewPath(viewPath))
+		panic(viewPathNotFoundError(viewPath))
 	}
 	if tpl.err != nil {
 		panic(tpl.err)
 	}
 	if tpl.tpl == nil {
-		panic(errorViewPath(viewPath))
+		panic(viewPathNotFoundError(viewPath))
 	}
 	var buf = &bytes.Buffer{}
 	err := tpl.tpl.Execute(buf, viewData)
