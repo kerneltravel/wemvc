@@ -2,8 +2,6 @@ package wemvc
 
 import (
 	"bytes"
-	"errors"
-	"fmt"
 	"html/template"
 	"os"
 	"path/filepath"
@@ -48,7 +46,7 @@ func (vc *viewContainer) compileViews(dir string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return errors.New("dir open err")
+		return openDirError
 	}
 	app.logWriter().Println("compile view files in dir", dir)
 	vf := &viewFile{
@@ -60,7 +58,6 @@ func (vc *viewContainer) compileViews(dir string) error {
 		return vf.visit(path, f, err)
 	})
 	if err != nil {
-		fmt.Printf("filepath.Walk() returned %v\n", err)
 		return err
 	}
 	for _, v := range vf.files {
@@ -76,31 +73,25 @@ func (vc *viewContainer) compileViews(dir string) error {
 // renderView render the view template with ViewData and get the result
 func (vc *viewContainer) renderView(viewPath string, viewData interface{}) (template.HTML, int) {
 	if len(viewPath) < 1 {
-		return template.HTML("the view path canot be empty"), 500
+		panic(emptyViewPath)
 	}
 	if !strings.HasSuffix(viewPath, vc.viewExt) {
 		viewPath = viewPath + vc.viewExt
 	}
 	tpl := vc.getView(viewPath)
 	if tpl == nil {
-		return template.HTML("cannot find the view " + viewPath), 500
+		panic(errorViewPath(viewPath))
 	}
 	if tpl.err != nil {
-		return template.HTML(tpl.err.Error()), 500
+		panic(tpl.err)
 	}
 	if tpl.tpl == nil {
-		return template.HTML("cannot find the view " + viewPath), 500
-	}
-	fm := make(template.FuncMap)
-	if vc.funcMaps != nil {
-		for n, f := range vc.funcMaps {
-			fm[n] = f
-		}
+		panic(errorViewPath(viewPath))
 	}
 	var buf = &bytes.Buffer{}
 	err := tpl.tpl.Execute(buf, viewData)
 	if err != nil {
-		return template.HTML(err.Error()), 500
+		panic(err)
 	}
 	return template.HTML(buf.Bytes()), 200
 }

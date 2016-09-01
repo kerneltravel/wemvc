@@ -89,7 +89,7 @@ func (app *server) SetViewExt(ext string) Server {
 		return app
 	}
 	if runtime.GOOS == "windows" {
-		app.viewExt = strings.ToLower(ext);
+		app.viewExt = strings.ToLower(ext)
 	} else {
 		app.viewExt = ext
 	}
@@ -510,18 +510,20 @@ func (app *server) serveStaticFile(ctx *context) {
 }
 
 func (app *server) execRoute(ctx *context) *context {
-	var path = ctx.req.URL.Path
-	if len(path) > 1 && strings.HasSuffix(path, "/") {
-		path = strings.TrimRight(path, "/")
+	var urlPath = ctx.req.URL.Path
+	if len(urlPath) > 1 && strings.HasSuffix(urlPath, "/") {
+		urlPath = strings.TrimRight(urlPath, "/")
 	}
 	//var resp ActionResult
-	cInfo, routeData, match := app.router.lookup(ctx.req.Method, path)
+	cInfo, routeData, match := app.router.lookup(ctx.req.Method, urlPath)
 	if !match && cInfo != nil {
 		var action = routeData.ByName("action")
 		var ns = cInfo.namespace
 		var method = strings.ToTitle(ctx.req.Method)
 		if len(action) < 1 {
 			action = cInfo.defaultAction
+		} else {
+			action = strings.Replace(action, "-", "_", -1)
 		}
 		// find the action method in controller
 		var actionMethod string
@@ -629,42 +631,14 @@ func (app *server) handleDynamic(ctx *context) ActionResult {
 func (app *server) error404(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(404)
-	res.Write([]byte(`
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>Error 404 - Not Found</title>
-		</head>
-		<body>
-			<div style="max-width:90%;margin:15px auto 0 auto;">
-			<h1>ERROR 404 - Not Found</h1>
-			<hr/>
-			<p>The path "` + req.URL.Path + `" is not found!</p>
-			<i>wemvc server version ` + Version + `</i>
-		</div>
-		</body>
-		</html>`))
+	res.Write(renderError(404, "Not Found", "The resource you are looking for has been removed, had its name changed, or is temporarily unavailable", ""))
 	return res
 }
 
 func (app *server) error403(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(403)
-	res.Write([]byte(`
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>Error 403 - Forbidden</title>
-		</head>
-		<body>
-			<div style="max-width:90%;margin:15px auto 0 auto;">
-			<h1>Error 403 - Forbidden</h1>
-			<hr/>
-			<p>The server understood the request but refuses to authorize it: <b>` + req.URL.Path + `</b></p>
-			<i>wemvc server version ` + Version + `</i>
-			</div>
-		</body>
-		</html>`))
+	res.Write(renderError(403, "Forbidden", `The server understood the request but refuses to authorize it: <b>` + req.URL.Path + `</b>`, ""))
 	return res
 }
 
@@ -693,43 +667,20 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	if rec == nil {
 		return
 	}
+	// detect end request
+	_,ok := rec.(*endRequestError)
+	if ok {
+		return
+	}
+	// process 500 error
 	res.WriteHeader(500)
 	if err, ok := rec.(error); ok {
 		var debugStack = string(debug.Stack())
-		app.logWriter().Println(debugStack)
 		debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
 		debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
-		res.Write([]byte(`
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>Internal server Error</title>
-		</head>
-		<body>
-			<div style="max-width:90%;margin:15px auto 0 auto;">
-				<h1>Internal server Error</h1>
-				<hr/>
-				<p>` + err.Error() + `</p>
-				<pre>` + debugStack + `</pre>
-				<i>wemvc server version ` + Version + `</i>
-			</div>
-		</body>
-		</html>`))
+		res.Write(renderError(500, "Internal Server Error", err.Error(), debugStack))
 	} else {
-		res.Write([]byte(`
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<title>Internal server Error</title>
-		</head>
-		<body>
-			<div style="max-width:90%;margin:15px auto 0 auto;">
-				<h1>Internal server Error</h1>
-				<hr/>
-				<i>wemvc server version ` + Version + `</i>
-			</div>
-		</body>
-		</html>`))
+		res.Write(renderError(500, "Internal Server Error", err.Error(), ""))
 	}
 }
 

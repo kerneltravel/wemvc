@@ -71,7 +71,7 @@ func Route(routePath string, c interface{}, defaultAction ...string) Server {
 }
 
 // SetFilter set the route filter
-func SetFilter(pathPrefix string, filter FilterFunc) Server {
+func Filter(pathPrefix string, filter FilterFunc) Server {
 	return app.Filter(pathPrefix, filter)
 }
 

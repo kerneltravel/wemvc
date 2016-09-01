@@ -20,14 +20,14 @@ type connSetting struct {
 type config struct {
 	DefaultURL  string `xml:"defaultUrl"`
 	ConnStrings struct {
-		ConnStrings []struct {
+		List []struct {
 			Name       string `xml:"name,attr"`
 			Type       string `xml:"type,attr"`
 			ConnString string `xml:"connString,attr"`
 		} `xml:"add"`
 	} `xml:"connStrings"`
 	Settings struct {
-		Settings []struct {
+		List []struct {
 			Key   string `xml:"key,attr"`
 			Value string `xml:"value,attr"`
 		} `xml:"add"`
@@ -50,8 +50,8 @@ func (conf *config) loadFile(file string) bool {
 			goto defaultSetting
 		}
 		res = true
-		if len(conf.Settings.Settings) > 0 {
-			for _, s := range conf.Settings.Settings {
+		if len(conf.Settings.List) > 0 {
+			for _, s := range conf.Settings.List {
 				if len(s.Key) < 1 {
 					continue
 				}
@@ -61,8 +61,8 @@ func (conf *config) loadFile(file string) bool {
 				conf.settingMap[s.Key] = s.Value
 			}
 		}
-		if len(conf.ConnStrings.ConnStrings) > 0 {
-			for _, conn := range conf.ConnStrings.ConnStrings {
+		if len(conf.ConnStrings.List) > 0 {
+			for _, conn := range conf.ConnStrings.List {
 				if len(conn.Name) < 1 {
 					continue
 				}

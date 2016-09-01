@@ -173,3 +173,7 @@ func (ctrl *Controller) RedirectPermanent(url string) ActionResult {
 func (ctrl *Controller) NotFound() ActionResult {
 	return app.handleError(ctrl.Request, 404)
 }
+
+func (ctrl *Controller) EndRequest() {
+	panic(&endRequestError{})
+}

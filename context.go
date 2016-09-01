@@ -99,6 +99,7 @@ func (ctx *context) SetItem(key string, data interface{}) {
 
 func (ctx *context) EndContext() {
 	ctx.end = true
+	panic(&endRequestError{})
 }
 
 func (ctx *context) IsEnd() bool {
