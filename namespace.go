@@ -3,7 +3,6 @@ package wemvc
 import (
 	"strings"
 
-	"errors"
 	"github.com/Simbory/wemvc/utils"
 )
 

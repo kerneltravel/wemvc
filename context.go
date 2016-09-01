@@ -1,7 +1,6 @@
 package wemvc
 
 import (
-	"errors"
 	"net/http"
 	"reflect"
 )

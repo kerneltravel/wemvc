@@ -1,7 +1,6 @@
 package wemvc
 
 import (
-	"errors"
 	"github.com/Simbory/wemvc/utils"
 	"html/template"
 	"io/ioutil"
