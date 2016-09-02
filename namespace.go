@@ -104,6 +104,7 @@ func (ns *namespace) StaticFile(file string) NamespaceSection {
 
 func (ns *namespace)AddViewFunc(name string, f interface{}) NamespaceSection {
 	ns.addViewFunc(name, f)
+	ns.server.logWriter().Println("add view func:", name)
 	return ns
 }
 

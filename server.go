@@ -111,6 +111,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		req: req,
 		w:   w,
 		end: false,
+		app: *app,
 	}
 	var result ActionResult
 	// serve the static file
@@ -196,6 +197,7 @@ func (app *server) HandleError(errorCode int, handler CtxHandler) Server {
 
 func (app *server) AddViewFunc(name string, f interface{}) Server {
 	app.addViewFunc(name, f)
+	app.logWriter().Println("add view func:", name)
 	return app
 }
 
@@ -277,7 +279,7 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 		panic(errors.New("This route cannot be added, because the route table is locked."))
 	}
 	var t = reflect.TypeOf(c)
-	cInfo := newControllerInfo(namespace, t, action)
+	cInfo := newControllerInfo(app, namespace, t, action)
 	if app.router == nil {
 		app.router = newRouter()
 	}
@@ -314,7 +316,7 @@ func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req 
 
 // mapPath Returns the physical file path that corresponds to the specified virtual path.
 func (app *server) MapPath(virtualPath string) string {
-	var res = path.Join(RootDir(), virtualPath)
+	var res = path.Join(app.RootDir(), virtualPath)
 	return utils.FixPath(res)
 }
 
@@ -346,6 +348,7 @@ func (app *server) init() error {
 	var viewDir = app.viewFolder()
 	if utils.IsDir(viewDir) {
 		app.compileViews(viewDir)
+		app.logWriter().Println("compile view files in dir", viewDir)
 		app.watcher.Watch(viewDir)
 		filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
 			if info.IsDir() {
@@ -363,9 +366,13 @@ func (app *server) init() error {
 			app.watcher.Watch(settingFile)
 			nsViewDir := ns.viewFolder()
 			ns.compileViews(nsViewDir)
+			app.logWriter().Println("compile view files in dir", nsViewDir)
 			app.watcher.Watch(nsViewDir)
 			filepath.Walk(nsViewDir, func(p string, info os.FileInfo, er error) error {
-				if info.IsDir() {
+				if er!= nil {
+					return nil
+				}
+				if info != nil && info.IsDir() {
 					app.watcher.Watch(p)
 				}
 				return nil
@@ -415,6 +422,7 @@ func (app *server) watchFile() {
 							}
 						} else if strings.HasSuffix(lowerStrFile, ".html") {
 							ns.compileViews(ns.viewFolder())
+							app.logWriter().Println("compile view files in dir", ns.viewFolder())
 						}
 						break
 					}
@@ -428,6 +436,7 @@ func (app *server) watchFile() {
 						}
 					} else if strings.HasSuffix(lowerStrFile, ".html") {
 						app.compileViews(app.viewFolder())
+						app.logWriter().Println("compile view files in dir", app.viewFolder())
 					}
 				}
 			}
@@ -547,6 +556,7 @@ func (app *server) execRoute(ctx *context) *context {
 			cName = strings.Split(cName, ".")[1]
 			cName = strings.Replace(cName, "controller", "", -1)
 			ctx.ctrlName = cName
+			ctx.app = *app
 			return ctx
 		}
 	}
@@ -561,6 +571,7 @@ func (app *server) handleDynamic(ctx *context) ActionResult {
 	onInitMethod := ctrl.MethodByName("OnInit")
 	if onInitMethod.IsValid() {
 		onInitMethod.Call([]reflect.Value{
+			reflect.ValueOf(ctx.app),
 			reflect.ValueOf(ctx.req),
 			reflect.ValueOf(ctx.w),
 			reflect.ValueOf(ctx.ns),
@@ -631,14 +642,20 @@ func (app *server) handleDynamic(ctx *context) ActionResult {
 func (app *server) error404(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(404)
-	res.Write(renderError(404, "Not Found", "The resource you are looking for has been removed, had its name changed, or is temporarily unavailable", ""))
+	res.Write(renderError(404,
+		"The resource you are looking for has been removed, had its name changed, or is temporarily unavailable",
+		"Request URL:     " + req.URL.String() + "\r\n\r\nPhysical Path:   " + app.MapPath(req.URL.Path),
+		""))
 	return res
 }
 
 func (app *server) error403(req *http.Request) ActionResult {
 	res := NewActionResult()
 	res.SetStatusCode(403)
-	res.Write(renderError(403, "Forbidden", `The server understood the request but refuses to authorize it: <b>` + req.URL.Path + `</b>`, ""))
+	res.Write(renderError(403,
+		"The server understood the request but refuses to authorize it",
+		"Request URL:     " + req.URL.String() + "\r\n\r\nPhysical Path:   " + app.MapPath(req.URL.Path),
+		""))
 	return res
 }
 
@@ -674,13 +691,13 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	}
 	// process 500 error
 	res.WriteHeader(500)
+	var debugStack = string(debug.Stack())
+	debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
+	debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
 	if err, ok := rec.(error); ok {
-		var debugStack = string(debug.Stack())
-		debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
-		debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
-		res.Write(renderError(500, "Internal Server Error", err.Error(), debugStack))
+		res.Write(renderError(500, "", err.Error(), debugStack))
 	} else {
-		res.Write(renderError(500, "Internal Server Error", err.Error(), ""))
+		res.Write(renderError(500, "", "Unkown Internal Server Error", debugStack))
 	}
 }
 

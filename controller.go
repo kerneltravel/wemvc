@@ -16,13 +16,14 @@ type Controller struct {
 	Action     string
 	ViewData   map[string]interface{}
 	Items      map[string]interface{}
-
-	ns      string
-	session SessionStore
+    app        server
+	ns         string
+	session    SessionStore
 }
 
 // OnInit this method is called at first while executing the controller
-func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, ns, controller, actionName string, routeData RouteData, ctxItems map[string]interface{}) {
+func (ctrl *Controller) OnInit(app server, req *http.Request, w http.ResponseWriter, ns, controller, actionName string, routeData RouteData, ctxItems map[string]interface{}) {
+	ctrl.app = app
 	ctrl.Request = req
 	ctrl.Response = w
 	ctrl.RouteData = routeData
@@ -40,7 +41,7 @@ func (ctrl *Controller) OnInit(req *http.Request, w http.ResponseWriter, ns, con
 // Session start the session
 func (ctrl *Controller) Session() SessionStore {
 	if ctrl.session == nil {
-		session, err := app.globalSession.SessionStart(ctrl.Response, ctrl.Request)
+		session, err := ctrl.app.globalSession.SessionStart(ctrl.Response, ctrl.Request)
 		if err != nil {
 			panic(err)
 		}
@@ -58,7 +59,7 @@ func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
 	var res template.HTML
 	var code int
 	if len(ctrl.ns) > 0 {
-		ns := app.namespaces[ctrl.ns]
+		ns := ctrl.app.namespaces[ctrl.ns]
 		if ns != nil {
 			ctrl.initViewData()
 			res, code = ns.renderView(viewPath, ctrl.ViewData)
@@ -67,7 +68,7 @@ func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
 		}
 	} else {
 		ctrl.initViewData()
-		res, code = app.renderView(viewPath, ctrl.ViewData)
+		res, code = ctrl.app.renderView(viewPath, ctrl.ViewData)
 	}
 	var resp = NewActionResult()
 	resp.Write([]byte(res))
@@ -86,7 +87,7 @@ func (ctrl *Controller) Namespace() NamespaceSection {
 	if len(ctrl.ns) < 1 {
 		return nil
 	}
-	return app.namespaces[ctrl.ns]
+	return ctrl.app.namespaces[ctrl.ns]
 }
 
 // View execute the default view file and return the HTML
@@ -171,7 +172,7 @@ func (ctrl *Controller) RedirectPermanent(url string) ActionResult {
 
 // NotFound return a 404 page as action result
 func (ctrl *Controller) NotFound() ActionResult {
-	return app.handleError(ctrl.Request, 404)
+	return ctrl.app.handleError(ctrl.Request, 404)
 }
 
 func (ctrl *Controller) EndRequest() {

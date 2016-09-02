@@ -22,7 +22,6 @@ func (vc *viewContainer) addViewFunc(name string, f interface{}) {
 	if vc.funcMaps == nil {
 		vc.funcMaps = make(template.FuncMap)
 	}
-	app.logWriter().Println("add view func:", name)
 	vc.funcMaps[name] = f
 }
 
@@ -48,7 +47,6 @@ func (vc *viewContainer) compileViews(dir string) error {
 		}
 		return openDirError
 	}
-	app.logWriter().Println("compile view files in dir", dir)
 	vf := &viewFile{
 		root:  dir,
 		files: make(map[string][]string),

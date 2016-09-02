@@ -34,6 +34,8 @@ type context struct {
 	routeData    RouteData
 	items        map[string]interface{}
 	end          bool
+	app          server
+
 }
 
 func (ctx *context) CtrlType() reflect.Type {
@@ -41,7 +43,7 @@ func (ctx *context) CtrlType() reflect.Type {
 }
 
 func (ctx *context) Namespace() NamespaceSection {
-	return app.namespaces[ctx.ns]
+	return ctx.app.namespaces[ctx.ns]
 }
 
 func (ctx *context) ActionMethod() string {

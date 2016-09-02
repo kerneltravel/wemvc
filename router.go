@@ -131,6 +131,9 @@ func (r *router) handle(path string, cInfo *controllerInfo) {
 // values. Otherwise the third return value indicates whether a redirection to
 // the same path with an extra / without the trailing slash should be performed.
 func (r *router) lookup(method, path string) (*controllerInfo, RouteData, bool) {
+	if r == nil {
+		return nil, nil, false
+	}
 	if root := r.tree; root != nil {
 		return root.getValue(path)
 	}

@@ -11,6 +11,7 @@ type controllerInfo struct {
 	controllerType reflect.Type
 	actions        map[string]string
 	defaultAction  string
+	server         *server
 }
 
 func (cInfo *controllerInfo) containsAction(action string) bool {
@@ -21,7 +22,7 @@ func (cInfo *controllerInfo) containsAction(action string) bool {
 	return ok && len(name) > 0
 }
 
-func newControllerInfo(namespace string, t reflect.Type, defaultAction string) *controllerInfo {
+func newControllerInfo(app *server, namespace string, t reflect.Type, defaultAction string) *controllerInfo {
 	typeName := t.String()
 	if strings.HasPrefix(typeName, "*") {
 		panic(invalidCtrlTypeError(typeName))
@@ -58,5 +59,6 @@ func newControllerInfo(namespace string, t reflect.Type, defaultAction string) *
 		controllerType: t,
 		actions:        actions,
 		defaultAction:  defaultAction,
+		server:         app,
 	}
 }

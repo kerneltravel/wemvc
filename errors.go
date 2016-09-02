@@ -1,12 +1,13 @@
 package wemvc
 
 import (
+	"bytes"
 	"errors"
 	"html/template"
-	"bytes"
+	"runtime"
 )
 
-type endRequestError struct {}
+type endRequestError struct{}
 
 var emptyViewPathError = errors.New("The view path is empty.")
 
@@ -18,7 +19,7 @@ var invalidRootError = errors.New("The root directory is invalid.")
 
 var pathPrefixEmptyError = errors.New("The path prefix cannot be empty.")
 
-var invalidPathError = errors.New("The path of the static file cannot be end with '/'");
+var invalidPathError = errors.New("The path of the static file cannot be end with '/'")
 
 var invalidNsError = errors.New("The namespace is invalid.")
 
@@ -50,55 +51,79 @@ var ctrlNoActionError = func(typeName string) error {
 	return errors.New("Thhe controller \"" + typeName + "\" has no action method")
 }
 
-var errorTpl,_ = template.New("error").Parse(`<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
+var errorTpl, _ = template.New("error").Parse(`<!DOCTYPE html>
+<html>
 <head>
-    <title>WEMVC {{.Version}} Error Detail - {{.StatusCode}} - {{.Status}}</title>
-    <style type="text/css">
-        body {margin: 0;font-size: .7em;font-family: Verdana, Arial, Helvetica, sans-serif;}
-        code {margin: 0;color: #006600;font-size: 1.1em;font-weight: bold;}
-        h1 {font-size: 2.4em;margin: 0;color: #FFF;}
-        h2 {font-size: 1.7em;margin: 0;color: #CC0000;}
-        h3 {font-size: 1.4em;margin: 10px 0 0 0;color: #CC0000;}
-        h4 {font-size: 1.2em;margin: 10px 0 5px 0;}
-        pre {margin: 0;font-size: 1.4em;word-wrap: break-word;}
-        fieldset{padding:0 15px 10px 15px;word-break:break-all;}
-        #content {margin: 0 0 0 2%;position: relative;}
-        .summary-container,.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}
-        .content-container p {margin: 0 0 10px 0;}
+    <title>Error {{.StatusCode}} : {{.Status}}</title>
+    <meta name="viewport" content="width=device-width" />
+    <style>
+        body {font-family:"Verdana";font-weight:normal;font-size: .7em;color:black;} 
+        p {font-family:"Verdana";font-weight:normal;color:black;margin-top: -5px}
+        b {font-family:"Verdana";font-weight:bold;color:black;margin-top: -5px}
+        h1 { font-family:"Verdana";font-weight:normal;font-size:18pt;color:red }
+        h2 { font-family:"Verdana";font-weight:normal;font-size:14pt;color:maroon }
+        pre {font-family:"Consolas","Lucida Console",Monospace;font-size:11pt;margin:0;padding:0.5em;line-height:14pt}
+        .marker {font-weight: bold; color: black;text-decoration: none;}
+        .version {color: gray;}
+        .error {margin-bottom: 10px;}
+        .expandable { text-decoration:underline; font-weight:bold; color:navy; cursor:hand; }
+        @media screen and (max-width: 639px) {
+            pre { width: 440px; overflow: auto; white-space: pre-wrap; word-wrap: break-word; }
+        }
+        @media screen and (max-width: 479px) {
+            pre { width: 280px; }
+        }
     </style>
 </head>
-<body>
-    <div id="content">
-        <div class="content-container">
-            <h3>HTTP Error {{.StatusCode}} - {{.Status}}</h3>
-            <hr width="100%" size="1" color="silver">
-            <h4>{{.Detail}}</h4>
-        </div>
-        {{if .DebugStack}}
-        <div class="content-container">
-            <fieldset>
-                <h4>Debug Stack:</h4>
-                <code>
-                  <pre>{{.DebugStack}}</pre>
-                </code>
-            </fieldset>
-        </div>
-        {{end}}
-        <div class="content-container">
-        	<i>wemvc server version {{.Version}}</i>
-        </div>
-    </div>
+<body bgcolor="white">
+    <span>
+        <h1>HTTP Error {{.StatusCode}} : {{.Status}}</h1>
+        <hr width=100% size=1 color=silver>
+{{if .ErrorTitle}}
+		<h2><i>{{.ErrorTitle}}</i></h2>
+{{end}}
+    </span>
+    <font face="Arial, Helvetica, Geneva, SunSans-Regular, sans-serif ">
+{{if .ErrorDetail}}
+    <b>Error Detail:</b><br><br>
+    <table width="100%" bgcolor="#ffffcc">
+       <tr>
+          <td>
+              <code><pre>
+{{.ErrorDetail}}</pre></code>
+          </td>
+       </tr>
+    </table>
+    <br>
+{{end}}
+{{if .DebugStack}}
+    <b>Debug Stack Trace:</b><br><br>
+    <table width="100%" bgcolor="#ffffcc">
+       <tr>
+          <td>
+              <code><pre>
+{{.DebugStack}}</pre></code>
+          </td>
+       </tr>
+    </table>
+    <br>
+{{end}}
+    <hr width=100% size=1 color=silver>
+    <b>Version:</b>&nbsp;wemvc framework {{.Version}} with {{.GoVersion}}
+    </font>
 </body>
 </html>`)
 
-func renderError(statusCode int, status, errDetail, stack string) []byte {
-	var data = make(map[string]interface{})
-	data["StatusCode"] = statusCode
-	data["Version"] = Version
-	data["Status"] = status
-	data["Detail"] = errDetail
-	if len(stack) > 0{
+func renderError(statusCode int, errorTitle, errDetail, stack string) []byte {
+	var data = map[string]interface{}{
+		"StatusCode":  statusCode,
+		"Status":      statusCodeMapping[statusCode],
+		"ErrorTitle":  errorTitle,
+		"ErrorDetail": errDetail,
+    	"Version":     Version,
+		"GoVersion":   runtime.Version(),
+	}
+	if len(stack) > 0 {
 		data["DebugStack"] = stack
 	}
 	var buf = &bytes.Buffer{}
