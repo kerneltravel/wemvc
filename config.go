@@ -2,8 +2,6 @@ package wemvc
 
 import (
 	"strings"
-
-	"github.com/Simbory/wemvc/utils"
 )
 
 // Configuration the global config interface
@@ -44,8 +42,8 @@ func (conf *config) loadFile(file string) bool {
 	res := false
 	conf.settingMap = make(map[string]string)
 	conf.connMap = make(map[string]*connSetting)
-	if utils.IsFile(file) {
-		err := utils.File2Xml(file, conf)
+	if IsFile(file) {
+		err := file2Xml(file, conf)
 		if err != nil {
 			goto defaultSetting
 		}

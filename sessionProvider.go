@@ -18,22 +18,22 @@ type SessionProvider interface {
 	SessionGC()
 }
 
-var provides = make(map[string]SessionProvider)
-
 // Register makes a session provide available by the provided name.
 // If Register is called twice with the same name or if driver is nil,
 // it panics.
-func RegSessionProvider(name string, provide SessionProvider) {
+func (app *server) RegSessionProvider(name string, provide SessionProvider) Server {
+	if app.routeLocked {
+		return app
+	}
 	if provide == nil {
 		panic(sessionProvNilError)
 	}
-	if _, dup := provides[name]; dup {
+	if _, dup := app.sessionProvides[name]; dup {
 		panic(sessionRegTwiceError(name))
 	}
-	provides[name] = provide
+	app.sessionProvides[name] = provide
+	return app
 }
-
-var memoryProvider = &MemSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)}
 
 // MemProvider Implement the provider interface
 type MemSessionProvider struct {
@@ -45,112 +45,108 @@ type MemSessionProvider struct {
 }
 
 // SessionInit init memory session
-func (pder *MemSessionProvider) SessionInit(maxlifetime int64, savePath string) error {
-	pder.maxLifetime = maxlifetime
-	pder.savePath = savePath
+func (prov *MemSessionProvider) SessionInit(maxLifeTime int64, savePath string) error {
+	prov.maxLifetime = maxLifeTime
+	prov.savePath = savePath
 	return nil
 }
 
 // SessionRead get memory session store by sid
-func (pder *MemSessionProvider) SessionRead(sid string) (SessionStore, error) {
-	pder.lock.RLock()
-	if element, ok := pder.sessions[sid]; ok {
-		go pder.SessionUpdate(sid)
-		pder.lock.RUnlock()
+func (prov *MemSessionProvider) SessionRead(sid string) (SessionStore, error) {
+	prov.lock.RLock()
+	if element, ok := prov.sessions[sid]; ok {
+		go prov.SessionUpdate(sid)
+		prov.lock.RUnlock()
 		return element.Value.(*MemSessionStore), nil
 	}
-	pder.lock.RUnlock()
-	pder.lock.Lock()
-	newsess := &MemSessionStore{sid: sid, timeAccessed: time.Now(), value: make(map[interface{}]interface{})}
-	element := pder.list.PushFront(newsess)
-	pder.sessions[sid] = element
-	pder.lock.Unlock()
-	return newsess, nil
+	prov.lock.RUnlock()
+	prov.lock.Lock()
+	newStore := &MemSessionStore{sid: sid, timeAccessed: time.Now(), value: make(map[interface{}]interface{})}
+	element := prov.list.PushFront(newStore)
+	prov.sessions[sid] = element
+	prov.lock.Unlock()
+	return newStore, nil
 }
 
 // SessionExist check session store exist in memory session by sid
-func (pder *MemSessionProvider) SessionExist(sid string) bool {
-	pder.lock.RLock()
-	defer pder.lock.RUnlock()
-	if _, ok := pder.sessions[sid]; ok {
+func (prov *MemSessionProvider) SessionExist(sid string) bool {
+	prov.lock.RLock()
+	defer prov.lock.RUnlock()
+	if _, ok := prov.sessions[sid]; ok {
 		return true
 	}
 	return false
 }
 
 // SessionRegenerate generate new sid for session store in memory session
-func (pder *MemSessionProvider) SessionRegenerate(oldsid, sid string) (SessionStore, error) {
-	pder.lock.RLock()
-	if element, ok := pder.sessions[oldsid]; ok {
-		go pder.SessionUpdate(oldsid)
-		pder.lock.RUnlock()
-		pder.lock.Lock()
+func (prov *MemSessionProvider) SessionRegenerate(oldsid, sid string) (SessionStore, error) {
+	prov.lock.RLock()
+	if element, ok := prov.sessions[oldsid]; ok {
+		go prov.SessionUpdate(oldsid)
+		prov.lock.RUnlock()
+		prov.lock.Lock()
 		element.Value.(*MemSessionStore).sid = sid
-		pder.sessions[sid] = element
-		delete(pder.sessions, oldsid)
-		pder.lock.Unlock()
+		prov.sessions[sid] = element
+		delete(prov.sessions, oldsid)
+		prov.lock.Unlock()
 		return element.Value.(*MemSessionStore), nil
 	}
-	pder.lock.RUnlock()
-	pder.lock.Lock()
-	newsess := &MemSessionStore{sid: sid, timeAccessed: time.Now(), value: make(map[interface{}]interface{})}
-	element := pder.list.PushFront(newsess)
-	pder.sessions[sid] = element
-	pder.lock.Unlock()
-	return newsess, nil
+	prov.lock.RUnlock()
+	prov.lock.Lock()
+	newStore := &MemSessionStore{sid: sid, timeAccessed: time.Now(), value: make(map[interface{}]interface{})}
+	element := prov.list.PushFront(newStore)
+	prov.sessions[sid] = element
+	prov.lock.Unlock()
+	return newStore, nil
 }
 
 // SessionDestroy delete session store in memory session by id
-func (pder *MemSessionProvider) SessionDestroy(sid string) error {
-	pder.lock.Lock()
-	defer pder.lock.Unlock()
-	if element, ok := pder.sessions[sid]; ok {
-		delete(pder.sessions, sid)
-		pder.list.Remove(element)
+func (prov *MemSessionProvider) SessionDestroy(sid string) error {
+	prov.lock.Lock()
+	defer prov.lock.Unlock()
+	if element, ok := prov.sessions[sid]; ok {
+		delete(prov.sessions, sid)
+		prov.list.Remove(element)
 		return nil
 	}
 	return nil
 }
 
 // SessionGC clean expired session stores in memory session
-func (pder *MemSessionProvider) SessionGC() {
-	pder.lock.RLock()
+func (prov *MemSessionProvider) SessionGC() {
+	prov.lock.RLock()
 	for {
-		element := pder.list.Back()
+		element := prov.list.Back()
 		if element == nil {
 			break
 		}
-		if (element.Value.(*MemSessionStore).timeAccessed.Unix() + pder.maxLifetime) < time.Now().Unix() {
-			pder.lock.RUnlock()
-			pder.lock.Lock()
-			pder.list.Remove(element)
-			delete(pder.sessions, element.Value.(*MemSessionStore).sid)
-			pder.lock.Unlock()
-			pder.lock.RLock()
+		if (element.Value.(*MemSessionStore).timeAccessed.Unix() + prov.maxLifetime) < time.Now().Unix() {
+			prov.lock.RUnlock()
+			prov.lock.Lock()
+			prov.list.Remove(element)
+			delete(prov.sessions, element.Value.(*MemSessionStore).sid)
+			prov.lock.Unlock()
+			prov.lock.RLock()
 		} else {
 			break
 		}
 	}
-	pder.lock.RUnlock()
+	prov.lock.RUnlock()
 }
 
 // SessionAll get count number of memory session
-func (pder *MemSessionProvider) SessionAll() int {
-	return pder.list.Len()
+func (prov *MemSessionProvider) SessionAll() int {
+	return prov.list.Len()
 }
 
 // SessionUpdate expand time of session store by id in memory session
-func (pder *MemSessionProvider) SessionUpdate(sid string) error {
-	pder.lock.Lock()
-	defer pder.lock.Unlock()
-	if element, ok := pder.sessions[sid]; ok {
+func (prov *MemSessionProvider) SessionUpdate(sid string) error {
+	prov.lock.Lock()
+	defer prov.lock.Unlock()
+	if element, ok := prov.sessions[sid]; ok {
 		element.Value.(*MemSessionStore).timeAccessed = time.Now()
-		pder.list.MoveToFront(element)
+		prov.list.MoveToFront(element)
 		return nil
 	}
 	return nil
-}
-
-func init() {
-	RegSessionProvider("memory", memoryProvider)
 }

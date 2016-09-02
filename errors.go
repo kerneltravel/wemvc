@@ -120,7 +120,7 @@ func renderError(statusCode int, errorTitle, errDetail, stack string) []byte {
 		"Status":      statusCodeMapping[statusCode],
 		"ErrorTitle":  errorTitle,
 		"ErrorDetail": errDetail,
-    	"Version":     Version,
+		"Version":     Version,
 		"GoVersion":   runtime.Version(),
 	}
 	if len(stack) > 0 {

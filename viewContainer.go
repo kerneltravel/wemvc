@@ -48,8 +48,8 @@ func (vc *viewContainer) compileViews(dir string) error {
 		return openDirError
 	}
 	vf := &viewFile{
-		root:  dir,
-		files: make(map[string][]string),
+		root:    dir,
+		files:   make(map[string][]string),
 		viewExt: vc.viewExt,
 	}
 	err := filepath.Walk(dir, func(path string, f os.FileInfo, err error) error {

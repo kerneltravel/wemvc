@@ -35,7 +35,6 @@ type context struct {
 	items        map[string]interface{}
 	end          bool
 	app          server
-
 }
 
 func (ctx *context) CtrlType() reflect.Type {

@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"fmt"
+	"sync"
 )
 
 // CtxHandler the error handler define
@@ -12,7 +12,6 @@ type CtxHandler func(*http.Request) ActionResult
 
 // FilterFunc request filter func
 type FilterFunc func(ctx Context)
-
 
 // RootDir get the root file path of the web server
 func RootDir() string {
@@ -88,8 +87,8 @@ func SetLogFile(name string) Server {
 }
 
 // Run run the web application
-func Run(port int) error {
-	return DefaultServer.Run(port)
+func Run(port int) {
+	DefaultServer.Run(port)
 }
 
 func NewServer(webRoot string) Server {
@@ -97,21 +96,16 @@ func NewServer(webRoot string) Server {
 }
 
 func WaitForExit() {
-	var q string
-	for {
-		fmt.Scan(&q)
-		if q == "exit" || q == "quit"{
-			break
-		}
-	}
+	serverWaiting.Wait()
 }
 
 // App the application singleton
 var (
-	DefaultServer = newServer(getWorkPath())
+	DefaultServer = newServer(WorkingDir())
+	serverWaiting = sync.WaitGroup{}
 )
 
-func getWorkPath() string {
+func WorkingDir() string {
 	p, err := os.Getwd()
 	if err != nil {
 		panic(err)

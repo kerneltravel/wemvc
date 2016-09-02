@@ -1,35 +1,36 @@
-package utils
+package wemvc
 
 import (
 	"encoding/xml"
 	"io/ioutil"
-	"encoding/json"
+	//"encoding/json"
 )
 
-func Data2Json(data interface{}) string {
+/*
+func data2Json(data interface{}) []byte {
 	if data == nil {
-		return ""
+		return nil
 	}
 	bytes, err := json.Marshal(data)
 	if err == nil {
-		return ""
+		return nil
 	}
-	return string(bytes)
+	return bytes
 }
 
-func Data2Xml(data interface{}) string {
+func data2Xml(data interface{}) []byte {
 	if data == nil {
-		return ""
+		return nil
 	}
 	bytes, err := xml.Marshal(data)
 	if err != nil {
-		return ""
+		return nil
 	}
-	return string(bytes)
+	return bytes
 }
-
-func File2Xml(fpath string, v interface{}) error {
-	bytes, err := ioutil.ReadFile(fpath)
+*/
+func file2Xml(path string, v interface{}) error {
+	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return err
 	}

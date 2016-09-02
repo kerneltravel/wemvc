@@ -4,7 +4,7 @@
 
 // +build freebsd openbsd netbsd darwin linux
 
-package fsnotify
+package wemvc
 
 import (
 	"os"

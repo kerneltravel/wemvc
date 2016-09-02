@@ -15,10 +15,8 @@ import (
 	"log"
 	"runtime/debug"
 
+	"container/list"
 	"errors"
-
-	"github.com/Simbory/wemvc/fsnotify"
-	"github.com/Simbory/wemvc/utils"
 	"runtime"
 )
 
@@ -38,22 +36,26 @@ type Server interface {
 	SetLogFile(name string) Server
 	SetViewExt(ext string) Server
 	AddViewFunc(name string, f interface{}) Server
-	Run(port int) error
+	RegSessionProvider(name string, provide SessionProvider) Server
+	NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error)
+	Run(port int)
+	RunAndWait(port int)
 }
 
 type server struct {
-	errorHandlers map[int]CtxHandler
-	port          int
-	webRoot       string
-	config        *config
-	router        *router
-	watcher       *fsnotify.Watcher
-	routeLocked   bool
-	staticPaths   []string
-	staticFiles   []string
-	globalSession *SessionManager
-	logger        *log.Logger
-	namespaces    map[string]*namespace
+	errorHandlers   map[int]CtxHandler
+	port            int
+	webRoot         string
+	config          *config
+	router          *router
+	watcher         *fsWatcher
+	routeLocked     bool
+	staticPaths     []string
+	staticFiles     []string
+	globalSession   *SessionManager
+	logger          *log.Logger
+	namespaces      map[string]*namespace
+	sessionProvides map[string]SessionProvider
 	viewContainer
 	filterContainer
 }
@@ -73,7 +75,7 @@ func (app *server) SetRootDir(rootDir string) Server {
 	if app.routeLocked {
 		panic(setRootError)
 	}
-	if !utils.IsDir(rootDir) {
+	if !IsDir(rootDir) {
 		panic(invalidRootError)
 	}
 	app.webRoot = rootDir
@@ -256,12 +258,12 @@ func (app *server) Namespace(nsName string) NamespaceSection {
 	return ns
 }
 
-func (app *server) Run(port int) error {
+func (app *server) Run(port int) {
 	app.logWriter().Println("use root dir '" + app.webRoot + "'")
 	err := app.init()
 	if err != nil {
-		println(err.Error())
-		os.Exit(-1)
+		app.logWriter().Println(err.Error())
+		return
 	}
 	app.routeLocked = true
 	app.port = port
@@ -271,7 +273,18 @@ func (app *server) Run(port int) error {
 	}
 	app.logWriter().Println(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
 	portStr := fmt.Sprintf(":%d", app.port)
-	return http.ListenAndServe(portStr, app)
+	err = http.ListenAndServe(portStr, app)
+	if err != nil {
+		app.logWriter().Println(err.Error())
+	}
+}
+
+func (app *server) RunAndWait(port int) {
+	serverWaiting.Add(1)
+	go func() {
+		app.Run(port)
+		serverWaiting.Done()
+	}()
 }
 
 func (app *server) route(namespace string, routePath string, c interface{}, action string) {
@@ -317,7 +330,7 @@ func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req 
 // mapPath Returns the physical file path that corresponds to the specified virtual path.
 func (app *server) MapPath(virtualPath string) string {
 	var res = path.Join(app.RootDir(), virtualPath)
-	return utils.FixPath(res)
+	return fixPath(res)
 }
 
 // init used to initialize the server
@@ -329,7 +342,7 @@ func (app *server) init() error {
 	app.errorHandlers[404] = app.error404
 	app.errorHandlers[403] = app.error403
 	// init fsnotify watcher
-	w, err := fsnotify.NewWatcher()
+	w, err := newWatcher()
 	if err != nil {
 		return err
 	}
@@ -346,7 +359,7 @@ func (app *server) init() error {
 	app.config = config
 	// build the view template and watch the changes
 	var viewDir = app.viewFolder()
-	if utils.IsDir(viewDir) {
+	if IsDir(viewDir) {
 		app.compileViews(viewDir)
 		app.logWriter().Println("compile view files in dir", viewDir)
 		app.watcher.Watch(viewDir)
@@ -369,7 +382,7 @@ func (app *server) init() error {
 			app.logWriter().Println("compile view files in dir", nsViewDir)
 			app.watcher.Watch(nsViewDir)
 			filepath.Walk(nsViewDir, func(p string, info os.FileInfo, er error) error {
-				if er!= nil {
+				if er != nil {
 					return nil
 				}
 				if info != nil && info.IsDir() {
@@ -382,7 +395,7 @@ func (app *server) init() error {
 	// start to watch the files and dirs
 	go app.watchFile()
 	// init sessionManager
-	mgr, err := NewSessionManager(app.config.SessionConfig.ManagerName, app.config.SessionConfig)
+	mgr, err := app.NewSessionManager(app.config.SessionConfig.ManagerName, app.config.SessionConfig)
 	if err != nil {
 		panic(err)
 	}
@@ -414,7 +427,7 @@ func (app *server) watchFile() {
 				app.logWriter().Println("view file", strFile, "has been changed")
 				for _, ns := range app.namespaces {
 					if ns.isInViewFolder(strFile) {
-						if utils.IsDir(strFile) {
+						if IsDir(strFile) {
 							if ev.IsDelete() {
 								app.watcher.RemoveWatch(strFile)
 							} else if ev.IsCreate() {
@@ -428,7 +441,7 @@ func (app *server) watchFile() {
 					}
 				}
 				if app.isInViewFolder(strFile) {
-					if utils.IsDir(strFile) {
+					if IsDir(strFile) {
 						if ev.IsDelete() {
 							app.watcher.RemoveWatch(strFile)
 						} else if ev.IsCreate() {
@@ -496,12 +509,12 @@ func (app *server) serveStaticFile(ctx *context) {
 			absolutePath = absolutePath + "/"
 		}
 		physicalPath := app.MapPath(absolutePath)
-		if utils.IsDir(physicalPath) {
+		if IsDir(physicalPath) {
 			var defaultUrls = app.config.getDefaultUrls()
 			if len(defaultUrls) > 0 {
 				for _, f := range defaultUrls {
 					var file = app.MapPath(absolutePath + f)
-					if utils.IsFile(file) {
+					if IsFile(file) {
 						physicalFile = file
 						break
 					}
@@ -644,7 +657,7 @@ func (app *server) error404(req *http.Request) ActionResult {
 	res.SetStatusCode(404)
 	res.Write(renderError(404,
 		"The resource you are looking for has been removed, had its name changed, or is temporarily unavailable",
-		"Request URL:     " + req.URL.String() + "\r\n\r\nPhysical Path:   " + app.MapPath(req.URL.Path),
+		"Request URL:     "+req.URL.String()+"\r\n\r\nPhysical Path:   "+app.MapPath(req.URL.Path),
 		""))
 	return res
 }
@@ -654,7 +667,7 @@ func (app *server) error403(req *http.Request) ActionResult {
 	res.SetStatusCode(403)
 	res.Write(renderError(403,
 		"The server understood the request but refuses to authorize it",
-		"Request URL:     " + req.URL.String() + "\r\n\r\nPhysical Path:   " + app.MapPath(req.URL.Path),
+		"Request URL:     "+req.URL.String()+"\r\n\r\nPhysical Path:   "+app.MapPath(req.URL.Path),
 		""))
 	return res
 }
@@ -685,7 +698,7 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// detect end request
-	_,ok := rec.(*endRequestError)
+	_, ok := rec.(*endRequestError)
 	if ok {
 		return
 	}
@@ -710,5 +723,7 @@ func newServer(webRoot string) *server {
 	app.views = make(map[string]*view)
 	app.filters = make(map[string][]FilterFunc)
 	app.viewExt = ".html"
+	app.sessionProvides = make(map[string]SessionProvider)
+	app.RegSessionProvider("memory", &MemSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
 	return app
 }

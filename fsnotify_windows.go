@@ -4,7 +4,7 @@
 
 // +build windows
 
-package fsnotify
+package wemvc
 
 import (
 	"errors"
@@ -48,32 +48,32 @@ const (
 
 // Event is the type of the notification messages
 // received on the watcher's Event channel.
-type FileEvent struct {
+type fileEvent struct {
 	mask   uint32 // Mask of events
 	cookie uint32 // Unique cookie associating related events (for rename)
 	Name   string // File name (optional)
 }
 
 // IsCreate reports whether the FileEvent was triggered by a creation
-func (e *FileEvent) IsCreate() bool { return (e.mask & sys_FS_CREATE) == sys_FS_CREATE }
+func (e *fileEvent) IsCreate() bool { return (e.mask & sys_FS_CREATE) == sys_FS_CREATE }
 
 // IsDelete reports whether the FileEvent was triggered by a delete
-func (e *FileEvent) IsDelete() bool {
+func (e *fileEvent) IsDelete() bool {
 	return ((e.mask&sys_FS_DELETE) == sys_FS_DELETE || (e.mask&sys_FS_DELETE_SELF) == sys_FS_DELETE_SELF)
 }
 
 // IsModify reports whether the FileEvent was triggered by a file modification or attribute change
-func (e *FileEvent) IsModify() bool {
+func (e *fileEvent) IsModify() bool {
 	return ((e.mask&sys_FS_MODIFY) == sys_FS_MODIFY || (e.mask&sys_FS_ATTRIB) == sys_FS_ATTRIB)
 }
 
 // IsRename reports whether the FileEvent was triggered by a change name
-func (e *FileEvent) IsRename() bool {
+func (e *fileEvent) IsRename() bool {
 	return ((e.mask&sys_FS_MOVE) == sys_FS_MOVE || (e.mask&sys_FS_MOVE_SELF) == sys_FS_MOVE_SELF || (e.mask&sys_FS_MOVED_FROM) == sys_FS_MOVED_FROM || (e.mask&sys_FS_MOVED_TO) == sys_FS_MOVED_TO)
 }
 
 // IsAttrib reports whether the FileEvent was triggered by a change in the file metadata.
-func (e *FileEvent) IsAttrib() bool {
+func (e *fileEvent) IsAttrib() bool {
 	return (e.mask & sys_FS_ATTRIB) == sys_FS_ATTRIB
 }
 
@@ -114,34 +114,34 @@ type watchMap map[uint32]indexMap
 
 // A Watcher waits for and receives event notifications
 // for a specific set of files and directories.
-type Watcher struct {
+type fsWatcher struct {
 	mu            sync.Mutex        // Map access
 	port          syscall.Handle    // Handle to completion port
 	watches       watchMap          // Map of watches (key: i-number)
 	fsnFlags      map[string]uint32 // Map of watched files to flags used for filter
 	fsnmut        sync.Mutex        // Protects access to fsnFlags.
 	input         chan *input       // Inputs to the reader are sent on this channel
-	internalEvent chan *FileEvent   // Events are queued on this channel
-	Event         chan *FileEvent   // Events are returned on this channel
+	internalEvent chan *fileEvent   // Events are queued on this channel
+	Event         chan *fileEvent   // Events are returned on this channel
 	Error         chan error        // Errors are sent on this channel
 	isClosed      bool              // Set to true when Close() is first called
 	quit          chan chan<- error
 	cookie        uint32
 }
 
-// NewWatcher creates and returns a Watcher.
-func NewWatcher() (*Watcher, error) {
+// NewFsnotifyWatcher creates and returns a Watcher.
+func newWatcher() (*fsWatcher, error) {
 	port, e := syscall.CreateIoCompletionPort(syscall.InvalidHandle, 0, 0, 0)
 	if e != nil {
 		return nil, os.NewSyscallError("CreateIoCompletionPort", e)
 	}
-	w := &Watcher{
+	w := &fsWatcher{
 		port:          port,
 		watches:       make(watchMap),
 		fsnFlags:      make(map[string]uint32),
 		input:         make(chan *input, 1),
-		Event:         make(chan *FileEvent, 50),
-		internalEvent: make(chan *FileEvent),
+		Event:         make(chan *fileEvent, 50),
+		internalEvent: make(chan *fileEvent),
 		Error:         make(chan error),
 		quit:          make(chan chan<- error, 1),
 	}
@@ -153,7 +153,7 @@ func NewWatcher() (*Watcher, error) {
 // Close closes a Watcher.
 // It sends a message to the reader goroutine to quit and removes all watches
 // associated with the watcher.
-func (w *Watcher) Close() error {
+func (w *fsWatcher) Close() error {
 	if w.isClosed {
 		return nil
 	}
@@ -169,7 +169,7 @@ func (w *Watcher) Close() error {
 }
 
 // AddWatch adds path to the watched file set.
-func (w *Watcher) AddWatch(path string, flags uint32) error {
+func (w *fsWatcher) AddWatch(path string, flags uint32) error {
 	if w.isClosed {
 		return errors.New("watcher already closed")
 	}
@@ -187,12 +187,12 @@ func (w *Watcher) AddWatch(path string, flags uint32) error {
 }
 
 // Watch adds path to the watched file set, watching all events.
-func (w *Watcher) watch(path string) error {
+func (w *fsWatcher) watch(path string) error {
 	return w.AddWatch(path, sys_FS_ALL_EVENTS)
 }
 
 // RemoveWatch removes path from the watched file set.
-func (w *Watcher) removeWatch(path string) error {
+func (w *fsWatcher) removeWatch(path string) error {
 	in := &input{
 		op:    opRemoveWatch,
 		path:  filepath.Clean(path),
@@ -205,7 +205,7 @@ func (w *Watcher) removeWatch(path string) error {
 	return <-in.reply
 }
 
-func (w *Watcher) wakeupReader() error {
+func (w *fsWatcher) wakeupReader() error {
 	e := syscall.PostQueuedCompletionStatus(w.port, 0, 0, nil)
 	if e != nil {
 		return os.NewSyscallError("PostQueuedCompletionStatus", e)
@@ -268,7 +268,7 @@ func (m watchMap) set(ino *inode, watch *watch) {
 }
 
 // Must run within the I/O thread.
-func (w *Watcher) addWatch(pathname string, flags uint64) error {
+func (w *fsWatcher) addWatch(pathname string, flags uint64) error {
 	dir, err := getDir(pathname)
 	if err != nil {
 		return err
@@ -317,7 +317,7 @@ func (w *Watcher) addWatch(pathname string, flags uint64) error {
 }
 
 // Must run within the I/O thread.
-func (w *Watcher) remWatch(pathname string) error {
+func (w *fsWatcher) remWatch(pathname string) error {
 	dir, err := getDir(pathname)
 	if err != nil {
 		return err
@@ -344,7 +344,7 @@ func (w *Watcher) remWatch(pathname string) error {
 }
 
 // Must run within the I/O thread.
-func (w *Watcher) deleteWatch(watch *watch) {
+func (w *fsWatcher) deleteWatch(watch *watch) {
 	for name, mask := range watch.names {
 		if mask&provisional == 0 {
 			w.sendEvent(watch.path+"\\"+name, mask&sys_FS_IGNORED)
@@ -360,7 +360,7 @@ func (w *Watcher) deleteWatch(watch *watch) {
 }
 
 // Must run within the I/O thread.
-func (w *Watcher) startRead(watch *watch) error {
+func (w *fsWatcher) startRead(watch *watch) error {
 	if e := syscall.CancelIo(watch.ino.handle); e != nil {
 		w.Error <- os.NewSyscallError("CancelIo", e)
 		w.deleteWatch(watch)
@@ -401,7 +401,7 @@ func (w *Watcher) startRead(watch *watch) error {
 // readEvents reads from the I/O completion port, converts the
 // received events into Event objects and sends them via the Event channel.
 // Entry point to the I/O thread.
-func (w *Watcher) readEvents() {
+func (w *fsWatcher) readEvents() {
 	var (
 		n, key uint32
 		ov     *syscall.Overlapped
@@ -475,7 +475,7 @@ func (w *Watcher) readEvents() {
 		var offset uint32
 		for {
 			if n == 0 {
-				w.internalEvent <- &FileEvent{mask: sys_FS_Q_OVERFLOW}
+				w.internalEvent <- &fileEvent{mask: sys_FS_Q_OVERFLOW}
 				w.Error <- errors.New("short read in readEvents()")
 				break
 			}
@@ -545,11 +545,11 @@ func (w *Watcher) readEvents() {
 	}
 }
 
-func (w *Watcher) sendEvent(name string, mask uint64) bool {
+func (w *fsWatcher) sendEvent(name string, mask uint64) bool {
 	if mask == 0 {
 		return false
 	}
-	event := &FileEvent{mask: uint32(mask), Name: name}
+	event := &fileEvent{mask: uint32(mask), Name: name}
 	if mask&sys_FS_MOVE != 0 {
 		if mask&sys_FS_MOVED_FROM != 0 {
 			w.cookie++

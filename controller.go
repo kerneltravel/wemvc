@@ -16,7 +16,7 @@ type Controller struct {
 	Action     string
 	ViewData   map[string]interface{}
 	Items      map[string]interface{}
-    app        server
+	app        server
 	ns         string
 	session    SessionStore
 }

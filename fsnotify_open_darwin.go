@@ -2,10 +2,10 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build freebsd openbsd netbsd
+// +build darwin
 
-package fsnotify
+package wemvc
 
 import "syscall"
 
-const open_FLAGS = syscall.O_NONBLOCK | syscall.O_RDONLY
+const open_FLAGS = syscall.O_EVTONLY

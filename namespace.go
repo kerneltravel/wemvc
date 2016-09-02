@@ -2,8 +2,6 @@ package wemvc
 
 import (
 	"strings"
-
-	"github.com/Simbory/wemvc/utils"
 )
 
 // NamespaceSection the namespace section interface
@@ -102,7 +100,7 @@ func (ns *namespace) StaticFile(file string) NamespaceSection {
 	return ns
 }
 
-func (ns *namespace)AddViewFunc(name string, f interface{}) NamespaceSection {
+func (ns *namespace) AddViewFunc(name string, f interface{}) NamespaceSection {
 	ns.addViewFunc(name, f)
 	ns.server.logWriter().Println("add view func:", name)
 	return ns
@@ -123,10 +121,10 @@ func (ns *namespace) isInViewFolder(f string) bool {
 
 func (ns *namespace) loadConfig() {
 	var path = ns.nsSettingFile()
-	if utils.IsFile(path) {
+	if IsFile(path) {
 		var settings = &nsSettingGroup{}
 		ns.server.logWriter().Println("load config file '" + path + "' for namespace '" + ns.GetName() + "'")
-		err := utils.File2Xml(path, settings)
+		err := file2Xml(path, settings)
 		if err != nil {
 			return
 		}

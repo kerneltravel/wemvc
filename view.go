@@ -1,7 +1,6 @@
 package wemvc
 
 import (
-	"github.com/Simbory/wemvc/utils"
 	"html/template"
 	"io/ioutil"
 	"os"
@@ -72,7 +71,7 @@ func getTplDeep(root, file, viewExt, parent string, t *template.Template) (*temp
 	} else {
 		fileAbsPath = filepath.Join(root, file)
 	}
-	if e := utils.IsFile(fileAbsPath); !e {
+	if e := IsFile(fileAbsPath); !e {
 		return nil, [][]string{}, notFoundTplError(file)
 	}
 	data, err := ioutil.ReadFile(fileAbsPath)

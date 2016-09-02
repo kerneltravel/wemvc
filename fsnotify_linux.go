@@ -4,7 +4,7 @@
 
 // +build linux
 
-package fsnotify
+package wemvc
 
 import (
 	"errors"
@@ -92,7 +92,7 @@ type watch struct {
 	flags uint32 // inotify flags of this watch (see inotify(7) for the list of valid flags)
 }
 
-type Watcher struct {
+type fsWatcher struct {
 	mu            sync.Mutex        // Map access
 	fd            int               // File descriptor (as returned by the inotify_init() syscall)
 	watches       map[string]*watch // Map of inotify watches (key: path)
@@ -106,13 +106,13 @@ type Watcher struct {
 	isClosed      bool              // Set to true when Close() is first called
 }
 
-// NewWatcher creates and returns a new inotify instance using inotify_init(2)
-func NewWatcher() (*Watcher, error) {
+// NewFsnotifyWatcher creates and returns a new inotify instance using inotify_init(2)
+func newWatcher() (*fsWatcher, error) {
 	fd, errno := syscall.InotifyInit()
 	if fd == -1 {
 		return nil, os.NewSyscallError("inotify_init", errno)
 	}
-	w := &Watcher{
+	w := &fsWatcher{
 		fd:            fd,
 		watches:       make(map[string]*watch),
 		fsnFlags:      make(map[string]uint32),
@@ -131,7 +131,7 @@ func NewWatcher() (*Watcher, error) {
 // Close closes an inotify watcher instance
 // It sends a message to the reader goroutine to quit and removes all watches
 // associated with the inotify instance
-func (w *Watcher) Close() error {
+func (w *fsWatcher) Close() error {
 	if w.isClosed {
 		return nil
 	}
@@ -150,7 +150,7 @@ func (w *Watcher) Close() error {
 
 // AddWatch adds path to the watched file set.
 // The flags are interpreted as described in inotify_add_watch(2).
-func (w *Watcher) addWatch(path string, flags uint32) error {
+func (w *fsWatcher) addWatch(path string, flags uint32) error {
 	if w.isClosed {
 		return errors.New("inotify instance already closed")
 	}
@@ -176,12 +176,12 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 }
 
 // Watch adds path to the watched file set, watching all events.
-func (w *Watcher) watch(path string) error {
+func (w *fsWatcher) watch(path string) error {
 	return w.addWatch(path, sys_AGNOSTIC_EVENTS)
 }
 
 // RemoveWatch removes path from the watched file set.
-func (w *Watcher) removeWatch(path string) error {
+func (w *fsWatcher) removeWatch(path string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	watch, ok := w.watches[path]
@@ -198,7 +198,7 @@ func (w *Watcher) removeWatch(path string) error {
 
 // readEvents reads from the inotify file descriptor, converts the
 // received events into Event objects and sends them via the Event channel
-func (w *Watcher) readEvents() {
+func (w *fsWatcher) readEvents() {
 	var (
 		buf   [syscall.SizeofInotifyEvent * 4096]byte // Buffer for a maximum of 4096 raw events
 		n     int                                     // Number of bytes read with read()
@@ -268,7 +268,7 @@ func (w *Watcher) readEvents() {
 					if fsnFlags, watchFound := w.fsnFlags[watchedName]; watchFound {
 						w.fsnFlags[event.Name] = fsnFlags
 					} else {
-						w.fsnFlags[event.Name] = FSN_ALL
+						w.fsnFlags[event.Name] = fsn_ALL
 					}
 				}
 				w.fsnmut.Unlock()

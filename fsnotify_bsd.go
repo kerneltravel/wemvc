@@ -4,7 +4,7 @@
 
 // +build freebsd openbsd netbsd darwin
 
-package fsnotify
+package wemvc
 
 import (
 	"errors"
@@ -58,7 +58,7 @@ func (e *FileEvent) IsAttrib() bool {
 	return (e.mask & sys_NOTE_ATTRIB) == sys_NOTE_ATTRIB
 }
 
-type Watcher struct {
+type fsWatcher struct {
 	mu              sync.Mutex          // Mutex for the Watcher itself.
 	kq              int                 // File descriptor (as returned by the kqueue() syscall)
 	watches         map[string]int      // Map of watched file descriptors (key: path)
@@ -83,13 +83,13 @@ type Watcher struct {
 	bufmut          sync.Mutex          // Protects access to kbuf.
 }
 
-// NewWatcher creates and returns a new kevent instance using kqueue(2)
-func NewWatcher() (*Watcher, error) {
+// NewFsnotifyWatcher creates and returns a new kevent instance using kqueue(2)
+func newWatcher() (*fsWatcher, error) {
 	fd, errno := syscall.Kqueue()
 	if fd == -1 {
 		return nil, os.NewSyscallError("kqueue", errno)
 	}
-	w := &Watcher{
+	w := &fsWatcher{
 		kq:              fd,
 		watches:         make(map[string]int),
 		fsnFlags:        make(map[string]uint32),
@@ -112,7 +112,7 @@ func NewWatcher() (*Watcher, error) {
 // Close closes a kevent watcher instance
 // It sends a message to the reader goroutine to quit and removes all watches
 // associated with the kevent instance
-func (w *Watcher) Close() error {
+func (w *fsWatcher) Close() error {
 	w.mu.Lock()
 	if w.isClosed {
 		w.mu.Unlock()
@@ -135,7 +135,7 @@ func (w *Watcher) Close() error {
 
 // AddWatch adds path to the watched file set.
 // The flags are interpreted as described in kevent(2).
-func (w *Watcher) addWatch(path string, flags uint32) error {
+func (w *fsWatcher) addWatch(path string, flags uint32) error {
 	w.mu.Lock()
 	if w.isClosed {
 		w.mu.Unlock()
@@ -231,7 +231,7 @@ func (w *Watcher) addWatch(path string, flags uint32) error {
 }
 
 // Watch adds path to the watched file set, watching all events.
-func (w *Watcher) watch(path string) error {
+func (w *fsWatcher) watch(path string) error {
 	w.ewmut.Lock()
 	w.externalWatches[path] = true
 	w.ewmut.Unlock()
@@ -239,7 +239,7 @@ func (w *Watcher) watch(path string) error {
 }
 
 // RemoveWatch removes path from the watched file set.
-func (w *Watcher) removeWatch(path string) error {
+func (w *fsWatcher) removeWatch(path string) error {
 	w.wmut.Lock()
 	watchfd, ok := w.watches[path]
 	w.wmut.Unlock()
@@ -297,7 +297,7 @@ func (w *Watcher) removeWatch(path string) error {
 
 // readEvents reads from the kqueue file descriptor, converts the
 // received events into Event objects and sends them via the Event channel
-func (w *Watcher) readEvents() {
+func (w *fsWatcher) readEvents() {
 	var (
 		eventbuf [10]syscall.Kevent_t // Event buffer
 		events   []syscall.Kevent_t   // Received events
@@ -408,7 +408,7 @@ func (w *Watcher) readEvents() {
 	}
 }
 
-func (w *Watcher) watchDirectoryFiles(dirPath string) error {
+func (w *fsWatcher) watchDirectoryFiles(dirPath string) error {
 	// Get all files
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
@@ -424,7 +424,7 @@ func (w *Watcher) watchDirectoryFiles(dirPath string) error {
 		if flags, found := w.fsnFlags[dirPath]; found {
 			w.fsnFlags[filePath] = flags
 		} else {
-			w.fsnFlags[filePath] = FSN_ALL
+			w.fsnFlags[filePath] = fsn_ALL
 		}
 		w.fsnmut.Unlock()
 
@@ -463,7 +463,7 @@ func (w *Watcher) watchDirectoryFiles(dirPath string) error {
 // and sends them over the event channel. This functionality is to have
 // the BSD version of fsnotify match linux fsnotify which provides a
 // create event for files created in a watched directory.
-func (w *Watcher) sendDirectoryChangeEvents(dirPath string) {
+func (w *fsWatcher) sendDirectoryChangeEvents(dirPath string) {
 	// Get all files
 	files, err := ioutil.ReadDir(dirPath)
 	if err != nil {
@@ -482,7 +482,7 @@ func (w *Watcher) sendDirectoryChangeEvents(dirPath string) {
 			if flags, found := w.fsnFlags[dirPath]; found {
 				w.fsnFlags[filePath] = flags
 			} else {
-				w.fsnFlags[filePath] = FSN_ALL
+				w.fsnFlags[filePath] = fsn_ALL
 			}
 			w.fsnmut.Unlock()
 

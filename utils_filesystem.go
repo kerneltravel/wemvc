@@ -1,12 +1,12 @@
-package utils
+package wemvc
 
 import (
 	"os"
-	"strings"
 	"runtime"
+	"strings"
 )
 
-func FixPath(src string) string {
+func fixPath(src string) string {
 	var res string
 	if runtime.GOOS == `windows` {
 		res = strings.Replace(src, "/", "\\", -1)
@@ -17,8 +17,8 @@ func FixPath(src string) string {
 }
 
 // IsDir check if the path is directory
-func IsDir(fpath string) bool {
-	state, err := os.Stat(fpath)
+func IsDir(path string) bool {
+	state, err := os.Stat(path)
 	if err != nil {
 		return false
 	}
@@ -26,8 +26,8 @@ func IsDir(fpath string) bool {
 }
 
 // IsFile check if the path is file
-func IsFile(fpath string) bool {
-	state, err := os.Stat(fpath)
+func IsFile(path string) bool {
+	state, err := os.Stat(path)
 	if err != nil {
 		return false
 	}

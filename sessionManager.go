@@ -27,8 +27,8 @@ type SessionManager struct {
 // 2. hashfunc  default sha1
 // 3. hashkey default beegosessionkey
 // 4. maxage default is none
-func NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error) {
-	provider, ok := provides[provideName]
+func (app *server) NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error) {
+	provider, ok := app.sessionProvides[provideName]
 	if !ok {
 		return nil, fmt.Errorf("session: unknown provide %q (forgotten import?)", provideName)
 	}
