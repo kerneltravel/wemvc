@@ -55,7 +55,7 @@ func (ctrl *Controller) OnLoad() {
 }
 
 // ViewFile execute a view file and return the HTML
-func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
+func (ctrl *Controller) ViewFile(viewPath string) Result {
 	var res template.HTML
 	var code int
 	if len(ctrl.ns) > 0 {
@@ -70,7 +70,7 @@ func (ctrl *Controller) ViewFile(viewPath string) ActionResult {
 		ctrl.initViewData()
 		res, code = ctrl.app.renderView(viewPath, ctrl.ViewData)
 	}
-	var resp = NewActionResult()
+	var resp = NewResult()
 	resp.Write([]byte(res))
 	if code != 200 {
 		resp.SetStatusCode(code)
@@ -91,13 +91,13 @@ func (ctrl *Controller) Namespace() NamespaceSection {
 }
 
 // View execute the default view file and return the HTML
-func (ctrl *Controller) View() ActionResult {
+func (ctrl *Controller) View() Result {
 	return ctrl.ViewFile(ctrl.Controller + "/" + ctrl.Action)
 }
 
 // Content return the content as text
-func (ctrl *Controller) Content(str string, cntType string) ActionResult {
-	var resp = NewActionResult()
+func (ctrl *Controller) Content(str string, cntType string) Result {
+	var resp = NewResult()
 	if len(cntType) < 1 {
 		resp.SetContentType("text/plain")
 	} else {
@@ -110,22 +110,22 @@ func (ctrl *Controller) Content(str string, cntType string) ActionResult {
 }
 
 // PlainText return the text as plain text
-func (ctrl *Controller) PlainText(content string) ActionResult {
+func (ctrl *Controller) PlainText(content string) Result {
 	return ctrl.Content(content, "text/plain")
 }
 
 // Javascript return the text as Javascript code
-func (ctrl *Controller) Javascript(code string) ActionResult {
+func (ctrl *Controller) Javascript(code string) Result {
 	return ctrl.Content(code, "application/x-javascript")
 }
 
 // CSS return the text as css code
-func (ctrl *Controller) CSS(code string) ActionResult {
+func (ctrl *Controller) CSS(code string) Result {
 	return ctrl.Content(code, "text/css")
 }
 
 // JSON return the Json string as action result
-func (ctrl *Controller) JSON(data interface{}) ActionResult {
+func (ctrl *Controller) JSON(data interface{}) Result {
 	bytes, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
@@ -134,7 +134,7 @@ func (ctrl *Controller) JSON(data interface{}) ActionResult {
 }
 
 // XML return the Xml string as action result
-func (ctrl *Controller) XML(data interface{}) ActionResult {
+func (ctrl *Controller) XML(data interface{}) Result {
 	bytes, err := xml.Marshal(data)
 	if err != nil {
 		panic(err)
@@ -143,8 +143,8 @@ func (ctrl *Controller) XML(data interface{}) ActionResult {
 }
 
 // File serve the file as action result
-func (ctrl *Controller) File(path string, cntType string) ActionResult {
-	var resp = &actionResult{
+func (ctrl *Controller) File(path string, cntType string) Result {
+	var resp = &result{
 		statusCode:  200,
 		resFile:     path,
 		contentType: cntType,
@@ -152,8 +152,8 @@ func (ctrl *Controller) File(path string, cntType string) ActionResult {
 	return resp
 }
 
-func (ctrl *Controller) redirect(url string, statusCode int) ActionResult {
-	var resp = &actionResult{
+func (ctrl *Controller) redirect(url string, statusCode int) Result {
+	var resp = &result{
 		statusCode: statusCode,
 		redURL:     url,
 	}
@@ -161,17 +161,17 @@ func (ctrl *Controller) redirect(url string, statusCode int) ActionResult {
 }
 
 // Redirect Redirects a request to a new URL and specifies the new URL.
-func (ctrl *Controller) Redirect(url string) ActionResult {
+func (ctrl *Controller) Redirect(url string) Result {
 	return ctrl.redirect(url, 302)
 }
 
 // RedirectPermanent Performs a permanent redirection from the requested URL to the specified URL.
-func (ctrl *Controller) RedirectPermanent(url string) ActionResult {
+func (ctrl *Controller) RedirectPermanent(url string) Result {
 	return ctrl.redirect(url, 301)
 }
 
 // NotFound return a 404 page as action result
-func (ctrl *Controller) NotFound() ActionResult {
+func (ctrl *Controller) NotFound() Result {
 	return ctrl.app.handleError(ctrl.Request, 404)
 }
 

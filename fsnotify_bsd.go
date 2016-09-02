@@ -33,28 +33,28 @@ const (
 	keventWaitTime = 100e6
 )
 
-type FileEvent struct {
+type fileEvent struct {
 	mask   uint32 // Mask of events
 	Name   string // File name (optional)
 	create bool   // set by fsnotify package if found new file
 }
 
 // IsCreate reports whether the FileEvent was triggered by a creation
-func (e *FileEvent) IsCreate() bool { return e.create }
+func (e *fileEvent) IsCreate() bool { return e.create }
 
 // IsDelete reports whether the FileEvent was triggered by a delete
-func (e *FileEvent) IsDelete() bool { return (e.mask & sys_NOTE_DELETE) == sys_NOTE_DELETE }
+func (e *fileEvent) IsDelete() bool { return (e.mask & sys_NOTE_DELETE) == sys_NOTE_DELETE }
 
 // IsModify reports whether the FileEvent was triggered by a file modification
-func (e *FileEvent) IsModify() bool {
+func (e *fileEvent) IsModify() bool {
 	return ((e.mask&sys_NOTE_WRITE) == sys_NOTE_WRITE || (e.mask&sys_NOTE_ATTRIB) == sys_NOTE_ATTRIB)
 }
 
 // IsRename reports whether the FileEvent was triggered by a change name
-func (e *FileEvent) IsRename() bool { return (e.mask & sys_NOTE_RENAME) == sys_NOTE_RENAME }
+func (e *fileEvent) IsRename() bool { return (e.mask & sys_NOTE_RENAME) == sys_NOTE_RENAME }
 
 // IsAttrib reports whether the FileEvent was triggered by a change in the file metadata.
-func (e *FileEvent) IsAttrib() bool {
+func (e *fileEvent) IsAttrib() bool {
 	return (e.mask & sys_NOTE_ATTRIB) == sys_NOTE_ATTRIB
 }
 
@@ -75,8 +75,8 @@ type fsWatcher struct {
 	externalWatches map[string]bool     // Map of watches added by user of the library.
 	ewmut           sync.Mutex          // Protects access to externalWatches.
 	Error           chan error          // Errors are sent on this channel
-	internalEvent   chan *FileEvent     // Events are queued on this channel
-	Event           chan *FileEvent     // Events are returned on this channel
+	internalEvent   chan *fileEvent     // Events are queued on this channel
+	Event           chan *fileEvent     // Events are returned on this channel
 	done            chan bool           // Channel for sending a "quit message" to the reader goroutine
 	isClosed        bool                // Set to true when Close() is first called
 	kbuf            [1]syscall.Kevent_t // An event buffer for Add/Remove watch
@@ -98,8 +98,8 @@ func newWatcher() (*fsWatcher, error) {
 		finfo:           make(map[int]os.FileInfo),
 		fileExists:      make(map[string]bool),
 		externalWatches: make(map[string]bool),
-		internalEvent:   make(chan *FileEvent),
-		Event:           make(chan *FileEvent),
+		internalEvent:   make(chan *fileEvent),
+		Event:           make(chan *fileEvent),
 		Error:           make(chan error),
 		done:            make(chan bool, 1),
 	}
@@ -347,7 +347,7 @@ func (w *fsWatcher) readEvents() {
 
 		// Flush the events we received to the events channel
 		for len(events) > 0 {
-			fileEvent := new(FileEvent)
+			fileEvent := new(fileEvent)
 			watchEvent := &events[0]
 			fileEvent.mask = uint32(watchEvent.Fflags)
 			w.pmut.Lock()
@@ -487,7 +487,7 @@ func (w *fsWatcher) sendDirectoryChangeEvents(dirPath string) {
 			w.fsnmut.Unlock()
 
 			// Send create event
-			fileEvent := new(FileEvent)
+			fileEvent := new(fileEvent)
 			fileEvent.Name = filePath
 			fileEvent.create = true
 			w.internalEvent <- fileEvent
