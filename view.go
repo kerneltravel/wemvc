@@ -52,11 +52,11 @@ func getTemplate(root, file, viewExt string, funcMap template.FuncMap, others ..
 		t.Funcs(funcMap)
 	}
 	var subMods [][]string
-	t, subMods, err = getTplDeep(root, file, viewExt, "", t)
+	t, subMods, err = getTemplateDeep(root, file, viewExt, "", t)
 	if err != nil {
 		return nil, err
 	}
-	t, err = getTplLoop(t, root, viewExt, subMods, others...)
+	t, err = getTemplateLoop(t, root, viewExt, subMods, others...)
 
 	if err != nil {
 		return nil, err
@@ -64,7 +64,7 @@ func getTemplate(root, file, viewExt string, funcMap template.FuncMap, others ..
 	return
 }
 
-func getTplDeep(root, file, viewExt, parent string, t *template.Template) (*template.Template, [][]string, error) {
+func getTemplateDeep(root, file, viewExt, parent string, t *template.Template) (*template.Template, [][]string, error) {
 	var fileAbsPath string
 	if filepath.HasPrefix(file, "../") {
 		fileAbsPath = filepath.Join(root, filepath.Dir(parent), file)
@@ -93,7 +93,7 @@ func getTplDeep(root, file, viewExt, parent string, t *template.Template) (*temp
 			if !strings.HasSuffix(strings.ToLower(m[1]), viewExt) {
 				continue
 			}
-			t, _, err = getTplDeep(root, m[1], viewExt, file, t)
+			t, _, err = getTemplateDeep(root, m[1], viewExt, file, t)
 			if err != nil {
 				return nil, [][]string{}, err
 			}
@@ -102,7 +102,7 @@ func getTplDeep(root, file, viewExt, parent string, t *template.Template) (*temp
 	return t, allSub, nil
 }
 
-func getTplLoop(t0 *template.Template, root, viewExt string, subMods [][]string, others ...string) (t *template.Template, err error) {
+func getTemplateLoop(t0 *template.Template, root, viewExt string, subMods [][]string, others ...string) (t *template.Template, err error) {
 	t = t0
 	for _, m := range subMods {
 		if len(m) == 2 {
@@ -114,11 +114,11 @@ func getTplLoop(t0 *template.Template, root, viewExt string, subMods [][]string,
 			for _, otherFile := range others {
 				if otherFile == m[1] {
 					var subMods1 [][]string
-					t, subMods1, err = getTplDeep(root, otherFile, viewExt, "", t)
+					t, subMods1, err = getTemplateDeep(root, otherFile, viewExt, "", t)
 					if err != nil {
 						return nil, err
 					} else if subMods1 != nil && len(subMods1) > 0 {
-						t, err = getTplLoop(t, root, viewExt, subMods1, others...)
+						t, err = getTemplateLoop(t, root, viewExt, subMods1, others...)
 					}
 					break
 				}
@@ -135,11 +135,11 @@ func getTplLoop(t0 *template.Template, root, viewExt string, subMods [][]string,
 				for _, sub := range allSub {
 					if len(sub) == 2 && sub[1] == m[1] {
 						var subMods1 [][]string
-						t, subMods1, err = getTplDeep(root, otherFile, viewExt, "", t)
+						t, subMods1, err = getTemplateDeep(root, otherFile, viewExt, "", t)
 						if err != nil {
 							return nil, err
 						} else if subMods1 != nil && len(subMods1) > 0 {
-							t, err = getTplLoop(t, root, viewExt, subMods1, others...)
+							t, err = getTemplateLoop(t, root, viewExt, subMods1, others...)
 						}
 						break
 					}
