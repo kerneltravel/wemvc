@@ -6,7 +6,7 @@ import (
 )
 
 // ActionResult action result interface
-type ActionResult interface {
+type Result interface {
 	SetStatusCode(int)
 	GetStatusCode() int
 
@@ -28,7 +28,7 @@ type ActionResult interface {
 	Clear()
 }
 
-type actionResult struct {
+type result struct {
 	resFile     string
 	redURL      string
 	statusCode  int
@@ -38,72 +38,72 @@ type actionResult struct {
 	writer      bytes.Buffer
 }
 
-func (ares *actionResult) SetStatusCode(code int) {
+func (ares *result) SetStatusCode(code int) {
 	ares.statusCode = code
 }
 
-func (ares *actionResult) GetStatusCode() int {
+func (ares *result) GetStatusCode() int {
 	return ares.statusCode
 }
 
-func (ares *actionResult) SetContentType(c string) {
+func (ares *result) SetContentType(c string) {
 	ares.contentType = c
 }
 
-func (ares *actionResult) GetContentType() string {
+func (ares *result) GetContentType() string {
 	return ares.contentType
 }
 
-func (ares *actionResult) SetEncoding(e string) {
+func (ares *result) SetEncoding(e string) {
 	ares.encoding = e
 }
 
-func (ares *actionResult) GetEncoding() string {
+func (ares *result) GetEncoding() string {
 	return ares.encoding
 }
 
-func (ares *actionResult) SetHeader(key, value string) {
+func (ares *result) SetHeader(key, value string) {
 	if ares.headers == nil {
 		ares.headers = make(map[string]string)
 	}
 	ares.headers[key] = value
 }
 
-func (ares *actionResult) GetHeaders() map[string]string {
+func (ares *result) GetHeaders() map[string]string {
 	if ares.headers == nil {
 		ares.headers = make(map[string]string)
 	}
 	return ares.headers
 }
 
-func (ares *actionResult) Write(data []byte) {
+func (ares *result) Write(data []byte) {
 	ares.writer.Write(data)
 }
 
-func (ares *actionResult) GetOutput() []byte {
+func (ares *result) GetOutput() []byte {
 	return ares.writer.Bytes()
 }
 
-func (ares *actionResult) ClearHeader() {
-	ares.headers = make(map[string]string)
+func (ares *result) ClearHeader() {
+	ares.headers = nil
 }
 
-func (ares *actionResult) ClearOutput() {
+func (ares *result) ClearOutput() {
 	ares.writer = bytes.Buffer{}
 }
 
-func (ares *actionResult) Clear() {
+func (ares *result) Clear() {
 	ares.ClearHeader()
 	ares.ClearOutput()
 }
 
-func (ares *actionResult) GetWriter() io.Writer {
+func (ares *result) GetWriter() io.Writer {
 	return &ares.writer
 }
 
 // NewActionResult create a blank action result
-func NewActionResult() ActionResult {
-	return &actionResult{
+func NewResult() Result {
+	return &result{
 		statusCode:  200,
 		contentType: "text/html",
 		encoding:    "utf-8",

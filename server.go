@@ -39,7 +39,7 @@ type Server interface {
 	RegSessionProvider(name string, provide SessionProvider) Server
 	NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error)
 	Run(port int)
-	RunAndWait(port int)
+	RunForWait(port int)
 }
 
 type server struct {
@@ -115,7 +115,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		end: false,
 		app: *app,
 	}
-	var result ActionResult
+	var result Result
 	// serve the static file
 	if app.isStaticRequest(req.URL.Path) {
 		app.serveStaticFile(ctx)
@@ -279,7 +279,7 @@ func (app *server) Run(port int) {
 	}
 }
 
-func (app *server) RunAndWait(port int) {
+func (app *server) RunForWait(port int) {
 	serverWaiting.Add(1)
 	go func() {
 		app.Run(port)
@@ -300,8 +300,8 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	app.router.handle(routePath, cInfo)
 }
 
-func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req *http.Request) {
-	res, ok := result.(*actionResult)
+func (app *server) flushRequest(r Result, w http.ResponseWriter, req *http.Request) {
+	res, ok := r.(*result)
 	if ok {
 		if len(res.resFile) > 0 {
 			http.ServeFile(w, req, res.resFile)
@@ -313,17 +313,17 @@ func (app *server) flushRequest(result ActionResult, w http.ResponseWriter, req 
 		}
 	}
 	// write the result to browser
-	for k, v := range result.GetHeaders() {
+	for k, v := range res.GetHeaders() {
 		w.Header().Add(k, v)
 	}
-	var contentType = fmt.Sprintf("%s;charset=%s", result.GetContentType(), result.GetEncoding())
+	var contentType = fmt.Sprintf("%s;charset=%s", res.GetContentType(), res.GetEncoding())
 	w.Header().Add("Content-Type", contentType)
-	if result.GetStatusCode() != 200 {
-		w.WriteHeader(result.GetStatusCode())
+	if res.GetStatusCode() != 200 {
+		w.WriteHeader(res.GetStatusCode())
 	}
-	var output = result.GetOutput()
+	var output = res.GetOutput()
 	if len(output) > 0 {
-		w.Write(result.GetOutput())
+		w.Write(res.GetOutput())
 	}
 }
 
@@ -576,7 +576,7 @@ func (app *server) execRoute(ctx *context) *context {
 	return nil
 }
 
-func (app *server) handleDynamic(ctx *context) ActionResult {
+func (app *server) handleDynamic(ctx *context) Result {
 	var ctrl = reflect.New(ctx.ctrlType)
 	cAction := ctx.actionName
 
@@ -627,9 +627,9 @@ func (app *server) handleDynamic(ctx *context) ActionResult {
 	values := m.Call(nil)
 	if len(values) == 1 {
 		var result = values[0].Interface()
-		value, valid := result.(ActionResult)
+		value, valid := result.(Result)
 		if !valid {
-			value = NewActionResult()
+			value = NewResult()
 			var cType = ctx.req.Header.Get("Content-Type")
 			if cType == "text/xml" {
 				xmlBytes, err := xml.Marshal(result)
@@ -652,8 +652,8 @@ func (app *server) handleDynamic(ctx *context) ActionResult {
 	return nil
 }
 
-func (app *server) error404(req *http.Request) ActionResult {
-	res := NewActionResult()
+func (app *server) error404(req *http.Request) Result {
+	res := NewResult()
 	res.SetStatusCode(404)
 	res.Write(renderError(404,
 		"The resource you are looking for has been removed, had its name changed, or is temporarily unavailable",
@@ -662,8 +662,8 @@ func (app *server) error404(req *http.Request) ActionResult {
 	return res
 }
 
-func (app *server) error403(req *http.Request) ActionResult {
-	res := NewActionResult()
+func (app *server) error403(req *http.Request) Result {
+	res := NewResult()
 	res.SetStatusCode(403)
 	res.Write(renderError(403,
 		"The server understood the request but refuses to authorize it",
@@ -672,7 +672,7 @@ func (app *server) error403(req *http.Request) ActionResult {
 	return res
 }
 
-func (app *server) handleError(req *http.Request, code int) ActionResult {
+func (app *server) handleError(req *http.Request, code int) Result {
 	var handler = app.errorHandlers[code]
 	if handler != nil {
 		return handler(req)

@@ -38,7 +38,7 @@ func newControllerInfo(app *server, namespace string, t reflect.Type, defaultAct
 		methodName := t.Method(i).Name
 		method := obj.MethodByName(methodName)
 		methodType := method.Type().String()
-		if !strings.HasSuffix(methodType, "wemvc.ActionResult") && !strings.HasSuffix(methodType, "interface {}") {
+		if !strings.HasSuffix(methodType, "wemvc.Result") && !strings.HasSuffix(methodType, "interface {}") {
 			app.logWriter().Println("    Ignore method", methodName)
 			continue
 		} else {
