@@ -4,15 +4,15 @@ import (
 	"encoding/xml"
 	"io/ioutil"
 	//"encoding/json"
+	"encoding/json"
 )
 
-/*
 func data2Json(data interface{}) []byte {
 	if data == nil {
 		return nil
 	}
 	bytes, err := json.Marshal(data)
-	if err == nil {
+	if err != nil {
 		return nil
 	}
 	return bytes
@@ -28,7 +28,7 @@ func data2Xml(data interface{}) []byte {
 	}
 	return bytes
 }
-*/
+
 func file2Xml(path string, v interface{}) error {
 	bytes, err := ioutil.ReadFile(path)
 	if err != nil {
@@ -39,4 +39,12 @@ func file2Xml(path string, v interface{}) error {
 		return err
 	}
 	return nil
+}
+
+func RouteDataTree(app Server) []byte {
+	ap,ok := app.(*server)
+	if !ok {
+		return []byte("{}")
+	}
+	return data2Json(ap.router)
 }

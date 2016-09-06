@@ -6,19 +6,19 @@ import (
 )
 
 type controllerInfo struct {
-	namespace      string
-	controllerName string
-	controllerType reflect.Type
-	actions        map[string]string
-	defaultAction  string
-	server         *server
+	NsName        string
+	CtrlName      string
+	CtrlType      reflect.Type
+	Actions       map[string]string
+	DefaultAction string
+	server        *server
 }
 
 func (cInfo *controllerInfo) containsAction(action string) bool {
-	if cInfo == nil || cInfo.actions == nil {
+	if cInfo == nil || cInfo.Actions == nil {
 		return false
 	}
-	name, ok := cInfo.actions[action]
+	name, ok := cInfo.Actions[action]
 	return ok && len(name) > 0
 }
 
@@ -54,11 +54,11 @@ func newControllerInfo(app *server, namespace string, t reflect.Type, defaultAct
 		actions[strings.ToLower(m)] = m
 	}
 	return &controllerInfo{
-		namespace:      namespace,
-		controllerName: typeName,
-		controllerType: t,
-		actions:        actions,
-		defaultAction:  defaultAction,
+		NsName:      	namespace,
+		CtrlName: 		typeName,
+		CtrlType: 		t,
+		Actions:        actions,
+		DefaultAction:  defaultAction,
 		server:         app,
 	}
 }

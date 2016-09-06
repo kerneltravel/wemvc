@@ -296,7 +296,7 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	if app.router == nil {
 		app.router = newRouter()
 	}
-	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.controllerType.Name(), "       default action:", cInfo.defaultAction+"\r\n")
+	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.CtrlType.Name(), "       default action:", cInfo.DefaultAction +"\r\n")
 	app.router.handle(routePath, cInfo)
 }
 
@@ -540,10 +540,10 @@ func (app *server) execRoute(ctx *context) *context {
 	cInfo, routeData, match := app.router.lookup(ctx.req.Method, urlPath)
 	if !match && cInfo != nil {
 		var action = routeData.ByName("action")
-		var ns = cInfo.namespace
+		var ns = cInfo.NsName
 		var method = strings.ToTitle(ctx.req.Method)
 		if len(action) < 1 {
-			action = cInfo.defaultAction
+			action = cInfo.DefaultAction
 		} else {
 			action = strings.Replace(action, "-", "_", -1)
 		}
@@ -557,10 +557,10 @@ func (app *server) execRoute(ctx *context) *context {
 			actionMethod = strings.ToLower(action)
 		}
 		if len(actionMethod) > 0 {
-			actionMethod = cInfo.actions[actionMethod]
+			actionMethod = cInfo.Actions[actionMethod]
 			ctx.routeData = routeData
 			ctx.actionName = action
-			ctx.ctrlType = cInfo.controllerType
+			ctx.ctrlType = cInfo.CtrlType
 			ctx.ns = ns
 			ctx.actionMethod = actionMethod
 			ctx.actionName = action

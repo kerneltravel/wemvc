@@ -68,14 +68,14 @@ func (ps RouteData) ByName(name string) string {
 // Router is a http.Handler which can be used to dispatch requests to different
 // handler functions via configurable routes
 type router struct {
-	tree *node
+	Tree                   *node
 
 	// Enables automatic redirection if the current route can't be matched but a
 	// handler for the path with (without) the trailing slash exists.
 	// For example if /foo/ is requested but a route only exists for /foo, the
 	// client is redirected to /foo with http status code 301 for GET requests
 	// and 307 for all other request methods.
-	RedirectTrailingSlash bool
+	RedirectTrailingSlash  bool
 
 	// If enabled, the router tries to fix the current request path, if no
 	// handle is registered for it.
@@ -86,7 +86,7 @@ type router struct {
 	// all other request methods.
 	// For example /FOO and /..//Foo could be redirected to /foo.
 	// RedirectTrailingSlash is independent of this option.
-	RedirectFixedPath bool
+	RedirectFixedPath      bool
 
 	// If enabled, the router checks if another method is allowed for the
 	// current route, if the current request can not be routed.
@@ -119,10 +119,10 @@ func (r *router) handle(path string, cInfo *controllerInfo) {
 	if path[0] != '/' {
 		path = "/" + path
 	}
-	if r.tree == nil {
-		r.tree = new(node)
+	if r.Tree == nil {
+		r.Tree = new(node)
 	}
-	r.tree.addRoute(path, cInfo)
+	r.Tree.addRoute(path, cInfo)
 }
 
 // Lookup allows the manual lookup of a method + path combo.
@@ -134,7 +134,7 @@ func (r *router) lookup(method, path string) (*controllerInfo, RouteData, bool) 
 	if r == nil {
 		return nil, nil, false
 	}
-	if root := r.tree; root != nil {
+	if root := r.Tree; root != nil {
 		return root.getValue(path)
 	}
 	return nil, nil, false
