@@ -7,8 +7,6 @@ package wemvc
 import (
 	"strings"
 	"unicode"
-	"errors"
-	"fmt"
 )
 
 func min(a, b int) int {
