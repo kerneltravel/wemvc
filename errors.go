@@ -29,6 +29,10 @@ var reqEmptyError = errors.New("The http request cannot be empty")
 
 var filterPathError = errors.New("The filter path prefix must starts with '/'")
 
+var invalidRouteStarError = errors.New("Invalid route parameter. If you want to use route character '*', the route must be end with \"/*pathInfo\". For example: \"/tree-path/*pathInfo\"")
+
+var tooManyParamError = errors.New("Too many route params. The maximum number of the route param is 255")
+
 var notFoundTplError = func(file string) error {
 	return errors.New("can't find template file \"" + file + "\"")
 }
@@ -46,7 +50,6 @@ var viewPathNotFoundError = func(viewPath string) error {
 var invalidCtrlTypeError = func(typeName string) error {
 	return errors.New("Invalid controller type: \"" + typeName + "\"")
 }
-
 var ctrlNoActionError = func(typeName string) error {
 	return errors.New("Thhe controller \"" + typeName + "\" has no action method")
 }

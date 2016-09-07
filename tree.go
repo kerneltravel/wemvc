@@ -1,12 +1,10 @@
-// Copyright 2013 Julien Schmidt. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be found
-// in the LICENSE file.
-
 package wemvc
 
 import (
 	"strings"
 	"unicode"
+	"errors"
+	"fmt"
 )
 
 func min(a, b int) int {
@@ -16,20 +14,6 @@ func min(a, b int) int {
 	return b
 }
 
-func countParams(path string) uint8 {
-	var n uint
-	for i := 0; i < len(path); i++ {
-		if path[i] != ':' && path[i] != '*' {
-			continue
-		}
-		n++
-	}
-	if n >= 255 {
-		return 255
-	}
-	return uint8(n)
-}
-/*
 func checkPathChar(c byte, withNumber bool) bool {
 	if withNumber {
 		return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_'
@@ -38,59 +22,70 @@ func checkPathChar(c byte, withNumber bool) bool {
 	}
 }
 
-func countParams2(path string) ([]string, error) {
+func countParams(path string) (uint8, error) {
+	if len(path) < 1 {
+		return 0, errors.New("The route path cannot be empty")
+	}
 	var routeParams []string
 
 	var paramChars []byte
 	var inParamChar = false
+	var inPathInfoChar = false
+
+	var flushParam = func(i int) error {
+		// check and ensure current route param is not empty
+		if len(paramChars) == 0 {
+			return errors.New(fmt.Sprintf("the route param cannot be empty: %d", i))
+		}
+		var curParam = string(paramChars)
+		for _, tmp := range routeParams {
+			if tmp == curParam {
+				return errors.New(fmt.Sprintf("Duplicate route param \"%s\": %d", curParam, i))
+			}
+		}
+		if inPathInfoChar && (curParam != "pathInfo" || i != len(path) - 1 ) {
+			return invalidRouteStarError
+		}
+		routeParams = append(routeParams, curParam)
+		return nil
+	}
 
 	for i := 0; i < len(path); i++ {
-		if path[i] == '{' {
+		if path[i] == ':' || path[i] == '*' {
 			if len(paramChars) == 0 {
 				inParamChar = true
+				inPathInfoChar = path[i] == '*'
 				continue
 			} else {
-				return nil, errors.New(fmt.Sprintf("the route param has no closing character '}': %d", i))
+				return 0, errors.New(fmt.Sprintf("There is no seperator character between two route param: %d", i))
 			}
-		}
-		if path[i] == '}' {
-			// check and ensure current route param is not empty
-			if len(paramChars) == 0 {
-				return nil, errors.New(fmt.Sprintf("the route param cannot be empty like \"{}\": %d", i))
-			}
-			var curParam = string(paramChars)
-			for _, tmp := range routeParams {
-				if tmp == curParam {
-					return nil, errors.New(fmt.Sprintf("Duplicate route param \"%s\": %d", curParam, i))
-				}
-			}
-			routeParams = append(routeParams, curParam)
-			paramChars = make([]byte,0)
-			inParamChar = false
-			continue
 		}
 		if inParamChar {
-			if len(paramChars) == 0 {
-				if checkPathChar(path[i], false) {
-					paramChars = append(paramChars, path[i])
-				} else {
-					return nil, errors.New(fmt.Sprintf("Invalid character '%c' at the beginin of the route param: %d", path[i], i))
-				}
+			if checkPathChar(path[i], len(paramChars) != 0) {
+				paramChars = append(paramChars, path[i])
 			} else {
-				if checkPathChar(path[i], true) {
-					paramChars = append(paramChars, path[i])
+				if err := flushParam(i); err != nil {
+					return 0, err
 				} else {
-					return nil, errors.New(fmt.Sprintf("Invalid character '%c' at the beginin of the route param: %d", path[i], i))
+					paramChars = make([]byte,0)
+					inParamChar = false
+					inPathInfoChar = false
 				}
+				continue
 			}
+		}
+	}
+	if inParamChar {
+		if err := flushParam(len(path) - 1); err != nil {
+			return 0, err
 		}
 	}
 	if len(routeParams) > 255 {
-		return nil, errors.New("Too many route params: the maximum number of the route param is 255")
+		return 0, tooManyParamError
 	}
-	return routeParams, nil
+	return uint8(len(routeParams)), nil
 }
-*/
+
 type nodeType uint8
 
 const (
@@ -137,13 +132,15 @@ func (n *node) incrementChildPrio(pos int) int {
 	return newPos
 }
 
-// addRoute adds a node with the given handle to the path.
+// addRoute adds a node with the given controller info to the path.
 // Not concurrency-safe!
 func (n *node) addRoute(path string, cInfo *controllerInfo) {
 	fullPath := path
 	n.Priority++
-	numParams := countParams(path)
-
+	numParams,err := countParams(path)
+	if err != nil {
+		panic(err)
+	}
 	// non-empty tree
 	if len(n.Path) > 0 || len(n.Children) > 0 {
 	walk:
