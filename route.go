@@ -2,18 +2,19 @@ package wemvc
 
 import (
 	"errors"
-	"strings"
 	"fmt"
+	"strings"
 )
 
 type routeNode struct {
 	NodeType nodeType
-	Depth    uint8
+	CurDepth uint16
+	MaxDepth uint16
 	Path     string
-	Children []*routeNode
 	CtrlInfo *controllerInfo
+	Children []*routeNode
 
-	parent   *routeNode
+	parent *routeNode
 }
 
 func (node *routeNode) isLeaf() bool {
@@ -30,8 +31,19 @@ func (node *routeNode) isLeaf() bool {
 	return false
 }
 
-func (node *routeNode) checkChild(path string) *routeNode {
-	if len(node.Children) == 0 {
+func max(a,b uint16) uint16 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func (node *routeNode) hasChildren() bool {
+	return len(node.Children) > 0
+}
+
+func (node *routeNode) findChild(path string) *routeNode {
+	if !node.hasChildren() {
 		return nil
 	}
 	for _, child := range node.Children {
@@ -46,20 +58,16 @@ func (node *routeNode) addChild(childNode *routeNode) error {
 	if childNode == nil {
 		return errors.New("'childNode' parameter cannot be nil")
 	}
-	if len(node.Children) == 0 {
-		childNode.parent = node
-		node.Children = []*routeNode{childNode}
-		return nil
-	}
-	var existChild = node.checkChild(childNode.Path)
+	var existChild = node.findChild(childNode.Path)
 	if existChild == nil {
 		childNode.parent = node
 		node.Children = append(node.Children, childNode)
 		return nil
 	}
+	existChild.MaxDepth = max(existChild.MaxDepth, childNode.MaxDepth)
 	if childNode.isLeaf() {
 		if existChild.CtrlInfo != nil {
-			return errors.New(fmt.Sprintf("Duplicate controller info in route tree. Path: %s, Depth: %d", existChild.Path, existChild.Depth))
+			return errors.New(fmt.Sprintf("Duplicate controller info in route tree. Path: %s, Depth: %d", existChild.Path, existChild.CurDepth))
 		}
 		existChild.CtrlInfo = childNode.CtrlInfo
 	} else {
@@ -77,19 +85,71 @@ type rootNode struct {
 	routeNode
 }
 
-func (root *rootNode) lookup(urlPath string, routeData *map[string]string) (*controllerInfo, error) {
-	if urlPath == "/" {
-		return root.CtrlInfo
+func (root *rootNode) lookupDepth(indexNode *routeNode, pathLength uint16, urlParts []string, endWithSlash bool) (bool, *controllerInfo, map[string]string) {
+	if indexNode.MaxDepth + indexNode.CurDepth <= pathLength {
+		return false, nil, nil
 	}
-	urlParts,err := splitUrlPath(urlPath)
-	if err != nil {
-		return nil, err
+	// TODO: deal with *pathInfo
+	if indexNode.Path == "*pathInfo" {
+		var path string
+		for _, part := range urlParts[indexNode.CurDepth - 1:] {
+			path = path + "/" + part
+		}
+		if endWithSlash {
+			path = path + "/"
+		}
+		return true, indexNode.CtrlInfo, map[string]string {
+			"pathInfo": path,
+		}
 	}
-	if len(urlParts) == 0 {
-		return nil,nil
+	// TODO: check path code and fill the route data
+	var routeData = make(map[string]string)
+	var curPath = urlParts[indexNode.CurDepth - 1]
+	if indexNode.Path != curPath {
+		return false, nil, nil
 	}
+	if indexNode.CurDepth == pathLength {
+		return true, indexNode.CtrlInfo, routeData
+	}
+	// check the last url parts
+	if !indexNode.hasChildren() {
+		return false, nil, nil
+	} else {
+		for _, child := range indexNode.Children {
+			ok, result, rd := root.lookupDepth(child, pathLength, urlParts, endWithSlash)
+			if ok {
+				if rd != nil && len(rd) > 0 {
+					for key, value := range rd {
+						routeData[key] = value
+					}
+				}
+				return true, result, routeData
+			}
+		}
+	}
+	return false, nil, nil
+}
 
-	return nil, nil
+func (root *rootNode) lookup(urlPath string) (*controllerInfo, map[string]string, error) {
+	if urlPath == "/" {
+		return root.CtrlInfo, nil, nil
+	}
+	urlParts, err := splitUrlPath(urlPath)
+	if err != nil {
+		return nil, nil, err
+	}
+	var pathLength = uint16(len(urlParts))
+	if pathLength == 0 || len(root.Children) == 0 {
+		return nil, nil, nil
+	}
+	var endWithSlash = strings.HasSuffix(urlPath, "/")
+	for _, child := range root.Children {
+		ok,result,rd := root.lookupDepth(child, pathLength, urlParts, endWithSlash)
+		if ok {
+			return result, rd, nil
+		}
+	}
+	return nil, nil, nil
 }
 
 func (root *rootNode) addRoute(routePath string, ctrlInfo *controllerInfo) error {
@@ -107,7 +167,7 @@ func (root *rootNode) addRoute(routePath string, ctrlInfo *controllerInfo) error
 		}
 		return nil
 	}
-	branch,err := newRouteBranch(routePath, ctrlInfo)
+	branch, err := newRouteBranch(routePath, ctrlInfo)
 	if err != nil {
 		return err
 	}
@@ -120,7 +180,8 @@ func (root *rootNode) addRoute(routePath string, ctrlInfo *controllerInfo) error
 func newRootNode() *rootNode {
 	var node = &rootNode{}
 	node.NodeType = root
-	node.Depth = 0
+	node.CurDepth = 0
+	node.MaxDepth = 0
 	node.Path = "/"
 	node.CtrlInfo = nil
 	return node
@@ -138,7 +199,7 @@ func splitUrlPath(urlPath string) ([]string, error) {
 			continue
 		}
 		if s == ".." {
-			return nil, errors.New("Invalid URL path. the URL path cannot contains '..'")
+			return nil, errors.New("Invalid URL path. The URL path cannot contains '..'")
 		}
 		result = append(result, s)
 	}
@@ -159,41 +220,53 @@ func detectNodeType(p string) nodeType {
 }
 
 func newRouteBranch(routePath string, ctrlInfo *controllerInfo) (*routeNode, error) {
-	splitPaths,err := splitUrlPath(routePath)
+	splitPaths, err := splitUrlPath(routePath)
 	if err != nil {
 		return nil, err
 	}
-	if len(splitPaths) == 0 {
+	var length = uint16(len(splitPaths))
+	if length == 0 {
 		return nil, nil
+	}
+	if detectNodeType(splitPaths[length - 1]) == catchAll {
+		length = 255
 	}
 	var result *routeNode
 	var current *routeNode
 	for i, p := range splitPaths {
+		var child = &routeNode{
+			NodeType: detectNodeType(p),
+			CurDepth: uint16(i + 1),
+			MaxDepth: uint16(length - uint16(i)),
+			Path:     p,
+		}
 		if result == nil {
-			result = &routeNode{
-				NodeType: detectNodeType(p),
-				Depth: uint8(i+1),
-				Path: p,
-			}
+			result = child
 			current = result
 		} else {
-			var child = &routeNode{
-				NodeType: detectNodeType(p),
-				Depth: uint8(i+1),
-				Path: p,
-			}
-			current.Children = append(current.Children, child)
+			child.parent = current
+			current.Children = []*routeNode{child}
 			current = current.Children[0]
 		}
 	}
 	current.CtrlInfo = ctrlInfo
 	current = result
-	for{
-		if strings.Contains(current.Path, "*") && current.Path != "*pathInfo" {
-			return nil, errors.New("Invalid URL param '" + current.Path + "'")
+	for {
+		if current == nil {
+			break
+		}
+		if strings.Contains(current.Path, "*") && current.NodeType != catchAll {
+			return nil, errors.New("Invalid URL route parameter '" + current.Path + "'")
 		}
 		if current.NodeType == catchAll && len(current.Children) > 0 {
-			return nil, errors.New("*pathInfo")
+			return nil, errors.New("Invalid route'" + routePath + ". " +
+				"The '*pathInfo' parameter should be at the end of the route. " +
+				"For example: '/shell/*pathInfo'.")
+		}
+		if len(current.Children) > 0 {
+			current = current.Children[0]
+		} else {
+			current = nil
 		}
 	}
 	return result, nil

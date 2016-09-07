@@ -46,5 +46,5 @@ func RouteDataTree(app Server) []byte {
 	if !ok {
 		return []byte("{}")
 	}
-	return data2Json(ap.router)
+	return data2Json(ap.routing)
 }

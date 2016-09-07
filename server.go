@@ -47,7 +47,8 @@ type server struct {
 	port            int
 	webRoot         string
 	config          *config
-	router          *router
+	//router          *router
+	routing         *rootNode
 	watcher         *fsWatcher
 	routeLocked     bool
 	staticPaths     []string
@@ -293,11 +294,11 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	}
 	var t = reflect.TypeOf(c)
 	cInfo := newControllerInfo(app, namespace, t, action)
-	if app.router == nil {
-		app.router = newRouter()
+	if app.routing == nil {
+		app.routing = newRootNode()
 	}
 	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.CtrlType.Name(), "       default action:", cInfo.DefaultAction +"\r\n")
-	app.router.handle(routePath, cInfo)
+	app.routing.addRoute(routePath, cInfo)
 }
 
 func (app *server) flushRequest(r Result, w http.ResponseWriter, req *http.Request) {
@@ -537,9 +538,13 @@ func (app *server) execRoute(ctx *context) *context {
 		urlPath = strings.TrimRight(urlPath, "/")
 	}
 	//var resp ActionResult
-	cInfo, routeData, match := app.router.lookup(ctx.req.Method, urlPath)
-	if !match && cInfo != nil {
-		var action = routeData.ByName("action")
+	cInfo, routeData, err := app.routing.lookup(ctx.req.URL.Path)
+	//cInfo, routeData, match := app.router.lookup(ctx.req.Method, urlPath)
+	if err == nil && cInfo != nil {
+		if routeData == nil {
+			routeData = make(map[string]string)
+		}
+		var action = routeData["action"]
 		var ns = cInfo.NsName
 		var method = strings.ToTitle(ctx.req.Method)
 		if len(action) < 1 {
@@ -564,7 +569,6 @@ func (app *server) execRoute(ctx *context) *context {
 			ctx.ns = ns
 			ctx.actionMethod = actionMethod
 			ctx.actionName = action
-			ctx.routeData = routeData
 			cName := strings.ToLower(ctx.ctrlType.String())
 			cName = strings.Split(cName, ".")[1]
 			cName = strings.Replace(cName, "controller", "", -1)

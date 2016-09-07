@@ -11,7 +11,7 @@ import (
 type Controller struct {
 	Request    *http.Request
 	Response   http.ResponseWriter
-	RouteData  RouteData
+	RouteData  map[string]string
 	Controller string
 	Action     string
 	ViewData   map[string]interface{}
@@ -22,7 +22,7 @@ type Controller struct {
 }
 
 // OnInit this method is called at first while executing the controller
-func (ctrl *Controller) OnInit(app server, req *http.Request, w http.ResponseWriter, ns, controller, actionName string, routeData RouteData, ctxItems map[string]interface{}) {
+func (ctrl *Controller) OnInit(app server, req *http.Request, w http.ResponseWriter, ns, controller, actionName string, routeData map[string]string, ctxItems map[string]interface{}) {
 	ctrl.Server = app
 	ctrl.Request = req
 	ctrl.Response = w

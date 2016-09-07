@@ -55,15 +55,28 @@ func newCtrlInfo() *controllerInfo {
 
 func Test_newRouteDepth(t *testing.T) {
 	var ctrlInfo = newCtrlInfo()
-	routeDepth,err := newRouteBranch("/test/{action}", ctrlInfo)
+	b1,err := newRouteBranch("/test/{action}", ctrlInfo)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	if routeDepth.Path != "test" {
+	if b1.Path != "test" {
 		t.Error("Depth Error")
 	}
-	if len(routeDepth.Children) != 1 || routeDepth.Children[0].Path != "{action}" {
+	if len(b1.Children) != 1 || b1.Children[0].Path != "{action}" {
 		t.Error("Detect Child Error")
+	}
+	_,err = newRouteBranch("/*pathInfo/test", ctrlInfo)
+	if err == nil {
+		t.Error("Error check failed")
+	} else {
+		println(err.Error())
+	}
+	b2,err := newRouteBranch("/test/*path", ctrlInfo)
+	if err == nil {
+		t.Error("Error check failed")
+		println(string(data2Json(b2)))
+	} else {
+		println(err.Error())
 	}
 }
 
@@ -73,24 +86,47 @@ func Test_newRootNode(t *testing.T) {
 	if err := root.addRoute("/", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
+	if err := root.addRoute("/test", ctrlInfo); err != nil {
+		t.Error(err.Error())
+	}
 	if err := root.addRoute("/test/{action}", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
-	if err := root.addRoute("/test/{fast}/nihao", ctrlInfo); err != nil {
+	if err := root.addRoute("/test/{year}/hello", ctrlInfo); err != nil {
+		t.Error(err.Error())
+	}
+	if err := root.addRoute("/{fast}/*pathInfo", ctrlInfo); err != nil {
+		t.Error(err.Error())
+	}
+	if err := root.addRoute("/edit/{user}", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
 	println(string(data2Json(root)))
 }
 
-func Test_map(t *testing.T) {
-	var mapData map[string]string
-	var fun = func(m *map[string]string) {
-		if *m == nil {
-			*m = make(map[string]string)
-		}
-		(*m)["tets"] = "test1"
-		(*m)["teta"] = "test2"
-	}
-	fun(&mapData)
-	println(string(data2Json(mapData)))
+/*
+package main
+
+import "github.com/Simbory/wemvc"
+
+type homeController struct {
+	wemvc.Controller
 }
+
+func (h homeController) Index() wemvc.Result {
+	h.Response.Write([]byte("hello, world"))
+	h.EndRequest()
+	return nil
+}
+
+func main() {
+	wemvc.Route("/", homeController{})
+	wemvc.Route("/test1", homeController{})
+	wemvc.Route("/test1/test11", homeController{})
+	wemvc.Route("/test2", homeController{})
+	wemvc.Route("/test2/test22/test222", homeController{})
+	wemvc.Route("/test3", homeController{})
+	wemvc.Route("/test3/*pathInfo", homeController{})
+	wemvc.Run(8080)
+}
+*/

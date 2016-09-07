@@ -15,7 +15,7 @@ type Context interface {
 	ActionMethod() string
 	ActionName() string
 	CtrlName() string
-	RouteData() RouteData
+	RouteData() map[string]string
 	IsEnd() bool
 
 	GetItem(key string) interface{}
@@ -31,7 +31,7 @@ type context struct {
 	actionMethod string
 	actionName   string
 	ctrlName     string
-	routeData    RouteData
+	routeData    map[string]string
 	items        map[string]interface{}
 	end          bool
 	app          server
@@ -74,9 +74,9 @@ func (ctx *context) Request() *http.Request {
 }
 
 // RouteData get the route data
-func (ctx *context) RouteData() RouteData {
+func (ctx *context) RouteData() map[string]string {
 	if ctx.routeData == nil {
-		ctx.routeData = RouteData{}
+		ctx.routeData = make(map[string]string)
 	}
 	return ctx.routeData
 }
