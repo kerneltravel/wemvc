@@ -22,7 +22,7 @@ type SessionProvider interface {
 // If Register is called twice with the same name or if driver is nil,
 // it panics.
 func (app *server) RegSessionProvider(name string, provide SessionProvider) Server {
-	if app.routeLocked {
+	if app.locked {
 		return app
 	}
 	if provide == nil {

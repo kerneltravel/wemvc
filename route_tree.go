@@ -12,9 +12,6 @@ type routeTree struct {
 }
 
 func (tree *routeTree) addFunc(name string, fun RouteFunc) error {
-	if tree.funcMap == nil {
-		tree.funcMap = make(map[string]RouteFunc)
-	}
 	if len(name) == 0 {
 		return errors.New("The parameter 'name' cannot be empty")
 	}
@@ -26,13 +23,6 @@ func (tree *routeTree) addFunc(name string, fun RouteFunc) error {
 	}
 	tree.funcMap[name] = fun
 	return nil
-}
-
-func (tree *routeTree) findFunc(name string) RouteFunc {
-	if tree.funcMap == nil {
-		return nil
-	}
-	return tree.funcMap[name]
 }
 
 func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlParts []string, endWithSlash bool) (found bool, ctrl *controllerInfo, routeMap map[string]string) {
@@ -100,7 +90,7 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 				paramNameBytes = nil
 				isParamByte = false
 				opt := indexNode.Params[paramName]
-				checkFunc := tree.findFunc(opt.Validation)
+				checkFunc := tree.funcMap[opt.Validation]
 				if checkFunc == nil {
 					return
 				}

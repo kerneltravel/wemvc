@@ -9,18 +9,38 @@ import (
 type Context interface {
 	Response() http.ResponseWriter
 	Request() *http.Request
-
-	CtrlType() reflect.Type
 	Namespace() NamespaceSection
 	ActionMethod() string
 	ActionName() string
 	CtrlName() string
 	RouteData() map[string]string
-	IsEnd() bool
-
-	GetItem(key string) interface{}
-	SetItem(key string, data interface{})
+	CtxItems() *CtxItems
+	Server() Server
 	EndContext()
+}
+
+type CtxItems struct {
+	items map[string]interface{}
+}
+
+func (ci *CtxItems) Get(key string) interface{} {
+	return ci.items[key]
+}
+
+func (ci *CtxItems) Set(key string, data interface{}) {
+	ci.items[key] = data
+}
+
+func (ci *CtxItems) Clear() {
+	ci.items = nil
+}
+
+func (ci *CtxItems) Delete(key string) interface{} {
+	data,ok := ci.items[key]
+	if ok {
+		delete(ci.items, key)
+	}
+	return data
 }
 
 type context struct {
@@ -32,16 +52,18 @@ type context struct {
 	actionName   string
 	ctrlName     string
 	routeData    map[string]string
-	items        map[string]interface{}
-	end          bool
-	app          server
+	ctxItems     *CtxItems
+	app          *server
 }
 
-func (ctx *context) CtrlType() reflect.Type {
-	return ctx.ctrlType
+func (ctx *context) Server() Server {
+	return ctx.app
 }
 
 func (ctx *context) Namespace() NamespaceSection {
+	if len(ctx.ns) == 0 {
+		return nil
+	}
 	return ctx.app.namespaces[ctx.ns]
 }
 
@@ -82,26 +104,13 @@ func (ctx *context) RouteData() map[string]string {
 }
 
 // GetItem get the context item
-func (ctx *context) GetItem(key string) interface{} {
-	if ctx.items == nil {
-		return nil
+func (ctx *context) CtxItems() *CtxItems {
+	if ctx.ctxItems == nil {
+		ctx.ctxItems = &CtxItems{items:make(map[string]interface{})}
 	}
-	return ctx.items[key]
-}
-
-// SetItem set the context item
-func (ctx *context) SetItem(key string, data interface{}) {
-	if ctx.items == nil {
-		ctx.items = make(map[string]interface{})
-	}
-	ctx.items[key] = data
+	return ctx.ctxItems
 }
 
 func (ctx *context) EndContext() {
-	ctx.end = true
 	panic(&endRequestError{})
-}
-
-func (ctx *context) IsEnd() bool {
-	return ctx.end
 }

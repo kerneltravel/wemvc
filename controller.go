@@ -15,33 +15,31 @@ type Controller struct {
 	Controller string
 	Action     string
 	ViewData   map[string]interface{}
-	Items      map[string]interface{}
-	Server     server
-	ns         string
+	Items      *CtxItems
+	Server     Server
+	Namespace  NamespaceSection
 	session    SessionStore
+	Context    Context
 }
 
 // OnInit this method is called at first while executing the controller
-func (ctrl *Controller) OnInit(app server, req *http.Request, w http.ResponseWriter, ns, controller, actionName string, routeData map[string]string, ctxItems map[string]interface{}) {
-	ctrl.Server = app
-	ctrl.Request = req
-	ctrl.Response = w
-	ctrl.RouteData = routeData
-	ctrl.ns = ns
-	ctrl.Action = actionName
-	ctrl.Controller = controller
+func (ctrl *Controller) OnInit(ctx Context) {
+	ctrl.Server = ctx.Server()
+	ctrl.Request = ctx.Request()
+	ctrl.Response = ctx.Response()
+	ctrl.RouteData = ctx.RouteData()
+	ctrl.Namespace = ctx.Namespace()
+	ctrl.Action = ctx.ActionName()
+	ctrl.Controller = ctx.CtrlName()
 	ctrl.ViewData = make(map[string]interface{})
-	if ctxItems != nil {
-		ctrl.Items = ctxItems
-	} else {
-		ctrl.Items = make(map[string]interface{})
-	}
+	ctrl.Items = ctx.CtxItems()
+	ctrl.Context = ctx
 }
 
 // Session start the session
 func (ctrl *Controller) Session() SessionStore {
 	if ctrl.session == nil {
-		session, err := ctrl.Server.globalSession.SessionStart(ctrl.Response, ctrl.Request)
+		session, err := ctrl.Server.(*server).globalSession.SessionStart(ctrl.Response, ctrl.Request)
 		if err != nil {
 			panic(err)
 		}
@@ -58,17 +56,18 @@ func (ctrl *Controller) OnLoad() {
 func (ctrl *Controller) ViewFile(viewPath string) Result {
 	var res template.HTML
 	var code int
-	if len(ctrl.ns) > 0 {
-		ns := ctrl.Server.namespaces[ctrl.ns]
-		if ns != nil {
-			ctrl.initViewData()
-			res, code = ns.renderView(viewPath, ctrl.ViewData)
-		} else {
-			return ctrl.NotFound()
-		}
+	ctrl.ViewData["Server"] = ctrl.Server
+	ctrl.ViewData["Request"] = ctrl.Request
+	ctrl.ViewData["Response"] = ctrl.Response
+	ctrl.ViewData["RouteData"] = ctrl.RouteData
+	ctrl.ViewData["Namespace"] = ctrl.Namespace
+	ctrl.ViewData["Action"] = ctrl.Action
+	ctrl.ViewData["Controller"] = ctrl.Controller
+	ctrl.ViewData["CtxItems"] = ctrl.Items
+	if ctrl.Namespace != nil {
+		res, code = ctrl.Namespace.(*namespace).renderView(viewPath, ctrl.ViewData)
 	} else {
-		ctrl.initViewData()
-		res, code = ctrl.Server.renderView(viewPath, ctrl.ViewData)
+		res, code = ctrl.Server.(*server).renderView(viewPath, ctrl.ViewData)
 	}
 	var resp = NewResult()
 	resp.Write([]byte(res))
@@ -76,18 +75,6 @@ func (ctrl *Controller) ViewFile(viewPath string) Result {
 		resp.SetStatusCode(code)
 	}
 	return resp
-}
-
-func (ctrl *Controller) initViewData() {
-	ctrl.ViewData["Request"] = ctrl.Request
-}
-
-// Namespace return the namespace using in this controller
-func (ctrl *Controller) Namespace() NamespaceSection {
-	if len(ctrl.ns) < 1 {
-		return nil
-	}
-	return ctrl.Server.namespaces[ctrl.ns]
 }
 
 // View execute the default view file and return the HTML
@@ -172,9 +159,9 @@ func (ctrl *Controller) RedirectPermanent(url string) Result {
 
 // NotFound return a 404 page as action result
 func (ctrl *Controller) NotFound() Result {
-	return ctrl.Server.handleError(ctrl.Request, 404)
+	return ctrl.Server.(*server).handleError(ctrl.Request, 404)
 }
 
 func (ctrl *Controller) EndRequest() {
-	panic(&endRequestError{})
+	ctrl.Context.EndContext()
 }

@@ -16,7 +16,6 @@ import (
 	"runtime/debug"
 
 	"container/list"
-	"errors"
 	"runtime"
 )
 
@@ -51,7 +50,7 @@ type server struct {
 	//router          *router
 	routing         *routeTree
 	watcher         *fsWatcher
-	routeLocked     bool
+	locked          bool
 	staticPaths     []string
 	staticFiles     []string
 	globalSession   *SessionManager
@@ -72,11 +71,15 @@ func (app *server) Config() Configuration {
 	return app.config
 }
 
+// MapPath Returns the physical file path that corresponds to the specified virtual path.
+func (app *server) MapPath(virtualPath string) string {
+	var res = path.Join(app.RootDir(), virtualPath)
+	return fixPath(res)
+}
+
 // SetRootDir set the root directory of the web application
 func (app *server) SetRootDir(rootDir string) Server {
-	if app.routeLocked {
-		panic(setRootError)
-	}
+	app.assertNotLocked()
 	if !IsDir(rootDir) {
 		panic(invalidRootError)
 	}
@@ -86,9 +89,7 @@ func (app *server) SetRootDir(rootDir string) Server {
 
 // SetViewExt set the view file extension
 func (app *server) SetViewExt(ext string) Server {
-	if app.routeLocked {
-		return app
-	}
+	app.assertNotLocked()
 	if len(ext) < 1 || !strings.HasPrefix(ext, ".") {
 		return app
 	}
@@ -114,16 +115,15 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var ctx = &context{
 		req: req,
 		w:   w,
-		end: false,
-		app: *app,
+		app: app,
 	}
 	var result Result
 	// serve the static file
 	if app.isStaticRequest(req.URL.Path) {
-		app.serveStaticFile(ctx)
-		if ctx.end {
-			ctx = nil
+		if app.serveStaticFile(ctx) {
 			return
+		} else {
+			goto error404
 		}
 	} else {
 		// serve the dynamic page
@@ -161,6 +161,7 @@ error404:
 // AddStatic set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
 func (app *server) StaticDir(pathPrefix string) Server {
+	app.assertNotLocked()
 	if len(pathPrefix) < 1 {
 		panic(pathPrefixEmptyError)
 	}
@@ -178,6 +179,7 @@ func (app *server) StaticDir(pathPrefix string) Server {
 }
 
 func (app *server) StaticFile(path string) Server {
+	app.assertNotLocked()
 	if len(path) < 1 {
 		panic(pathPrefixEmptyError)
 	}
@@ -195,17 +197,20 @@ func (app *server) StaticFile(path string) Server {
 }
 
 func (app *server) HandleError(errorCode int, handler CtxHandler) Server {
+	app.assertNotLocked()
 	app.errorHandlers[errorCode] = handler
 	return app
 }
 
 func (app *server) AddViewFunc(name string, f interface{}) Server {
+	app.assertNotLocked()
 	app.addViewFunc(name, f)
 	app.logWriter().Println("add view func:", name)
 	return app
 }
 
 func (app *server) AddRouteFunc(name string, f RouteFunc) Server {
+	app.assertNotLocked()
 	err := app.routing.addFunc(name, f)
 	if err != nil {
 		panic(err)
@@ -214,6 +219,7 @@ func (app *server) AddRouteFunc(name string, f RouteFunc) Server {
 }
 
 func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Server {
+	app.assertNotLocked()
 	var action = "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
 		action = defaultAction[0]
@@ -223,6 +229,7 @@ func (app *server) Route(routePath string, c interface{}, defaultAction ...strin
 }
 
 func (app *server) Filter(pathPrefix string, filter FilterFunc) Server {
+	app.assertNotLocked()
 	app.setFilter(pathPrefix, filter)
 	return app
 }
@@ -232,6 +239,7 @@ func (app *server) Logger() *log.Logger {
 }
 
 func (app *server) SetLogFile(name string) Server {
+	app.assertNotLocked()
 	file, err := os.Create(name)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -275,7 +283,7 @@ func (app *server) Run(port int) {
 		app.logWriter().Println(err.Error())
 		return
 	}
-	app.routeLocked = true
+	app.locked = true
 	app.port = port
 	host, err := os.Hostname()
 	if err != nil {
@@ -297,10 +305,13 @@ func (app *server) RunForWait(port int) {
 	}()
 }
 
-func (app *server) route(namespace string, routePath string, c interface{}, action string) {
-	if app.routeLocked {
-		panic(errors.New("This route cannot be added, because the route table is locked."))
+func (app *server) assertNotLocked() {
+	if app.locked {
+		panic("Invalid operation. You cannot call this function after the server setting is locked")
 	}
+}
+
+func (app *server) route(namespace string, routePath string, c interface{}, action string) {
 	var t = reflect.TypeOf(c)
 	cInfo := newControllerInfo(app, namespace, t, action)
 	if app.routing == nil {
@@ -335,12 +346,6 @@ func (app *server) flushRequest(r Result, w http.ResponseWriter, req *http.Reque
 	if len(output) > 0 {
 		w.Write(res.GetOutput())
 	}
-}
-
-// mapPath Returns the physical file path that corresponds to the specified virtual path.
-func (app *server) MapPath(virtualPath string) string {
-	var res = path.Join(app.RootDir(), virtualPath)
-	return fixPath(res)
 }
 
 // init used to initialize the server
@@ -506,7 +511,8 @@ func (app *server) isStaticRequest(url string) bool {
 	return false
 }
 
-func (app *server) serveStaticFile(ctx *context) {
+func (app *server) serveStaticFile(ctx *context) (ended bool) {
+	ended = false
 	var physicalFile = ""
 	var f = app.MapPath(ctx.req.URL.Path)
 	stat, err := os.Stat(f)
@@ -537,8 +543,9 @@ func (app *server) serveStaticFile(ctx *context) {
 	if len(physicalFile) > 0 {
 		app.logWriter().Println("handle static path '" + ctx.req.URL.Path + "'")
 		http.ServeFile(ctx.w, ctx.req, physicalFile)
-		ctx.end = true
+		ended = true
 	}
+	return
 }
 
 func (app *server) execRoute(ctx *context) *context {
@@ -582,7 +589,7 @@ func (app *server) execRoute(ctx *context) *context {
 			cName = strings.Split(cName, ".")[1]
 			cName = strings.Replace(cName, "controller", "", -1)
 			ctx.ctrlName = cName
-			ctx.app = *app
+			ctx.app = app
 			return ctx
 		}
 	}
@@ -591,20 +598,11 @@ func (app *server) execRoute(ctx *context) *context {
 
 func (app *server) handleDynamic(ctx *context) Result {
 	var ctrl = reflect.New(ctx.ctrlType)
-	cAction := ctx.actionName
-
 	// call OnInit method
 	onInitMethod := ctrl.MethodByName("OnInit")
 	if onInitMethod.IsValid() {
 		onInitMethod.Call([]reflect.Value{
-			reflect.ValueOf(ctx.app),
-			reflect.ValueOf(ctx.req),
-			reflect.ValueOf(ctx.w),
-			reflect.ValueOf(ctx.ns),
-			reflect.ValueOf(ctx.ctrlName),
-			reflect.ValueOf(cAction),
-			reflect.ValueOf(ctx.routeData),
-			reflect.ValueOf(ctx.items),
+			reflect.ValueOf(ctx),
 		})
 	}
 	//parse form
@@ -730,7 +728,7 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 func newServer(webRoot string) *server {
 	var app = &server{
 		webRoot:       webRoot,
-		routeLocked:   false,
+		locked:   false,
 		errorHandlers: make(map[int]CtxHandler),
 	}
 	app.views = make(map[string]*view)

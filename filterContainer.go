@@ -24,9 +24,6 @@ func (fc *filterContainer) execFilters(ctx *context) bool {
 		if strings.HasPrefix(lowerURL+"/", key) {
 			for _, f := range tmpFilters[key] {
 				f(ctx)
-				if ctx.end {
-					return true
-				}
 			}
 		}
 	}
