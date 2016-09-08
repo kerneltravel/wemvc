@@ -40,6 +40,10 @@ func AddViewFunc(name string, f interface{}) Server {
 	return DefaultServer.AddViewFunc(name, f)
 }
 
+func AddRouteFunc(name string, f RouteFunc) Server {
+	return DefaultServer.AddRouteFunc(name, f)
+}
+
 // SetRootDir set the webroot of the web application
 func SetRootDir(rootDir string) Server {
 	return DefaultServer.SetRootDir(rootDir)

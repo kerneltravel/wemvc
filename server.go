@@ -36,6 +36,7 @@ type Server interface {
 	SetLogFile(name string) Server
 	SetViewExt(ext string) Server
 	AddViewFunc(name string, f interface{}) Server
+	AddRouteFunc(name string, fun RouteFunc) Server
 	RegSessionProvider(name string, provide SessionProvider) Server
 	NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error)
 	Run(port int)
@@ -48,7 +49,7 @@ type server struct {
 	webRoot         string
 	config          *config
 	//router          *router
-	routing         *rootNode
+	routing         *routeTree
 	watcher         *fsWatcher
 	routeLocked     bool
 	staticPaths     []string
@@ -204,6 +205,14 @@ func (app *server) AddViewFunc(name string, f interface{}) Server {
 	return app
 }
 
+func (app *server) AddRouteFunc(name string, f RouteFunc) Server {
+	err := app.routing.addFunc(name, f)
+	if err != nil {
+		panic(err)
+	}
+	return app
+}
+
 func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Server {
 	var action = "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
@@ -295,7 +304,7 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	var t = reflect.TypeOf(c)
 	cInfo := newControllerInfo(app, namespace, t, action)
 	if app.routing == nil {
-		app.routing = newRootNode()
+		app.routing = newRouteTree()
 	}
 	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.CtrlType.Name(), "       default action:", cInfo.DefaultAction +"\r\n")
 	app.routing.addRoute(routePath, cInfo)

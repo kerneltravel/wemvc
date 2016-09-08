@@ -1,29 +1,30 @@
 package wemvc
 
 import (
-	"testing"
 	"reflect"
+	"testing"
+	"strings"
 )
 
 func Test_splitUrlPath(t *testing.T) {
-	_,err := splitUrlPath("")
+	_, err := splitUrlPath("")
 	if err == nil {
 		t.Error("test 1 failed")
 	}
-	res2,err := splitUrlPath("/")
+	res2, err := splitUrlPath("/")
 	if err != nil && res2 != nil {
 		t.Error("test 2 failed")
 	}
-	_,err = splitUrlPath("/test/../nil")
+	_, err = splitUrlPath("/test/../nil")
 	if err == nil {
 		t.Error("test 3 failed")
 	}
-	res4,err := splitUrlPath("/test/./nil")
+	res4, err := splitUrlPath("/test/./nil")
 	if err != nil || len(res4) != 2 || res4[0] != "test" || res4[1] != "nil" {
 		t.Error("test 4 failed")
 	}
-	res5,err := splitUrlPath("/test/{name}/nil/")
-	if err != nil || len(res5) != 3 || res5[0] != "test" || res5[1] != "{name}" || res5[2] != "nil" {
+	res5, err := splitUrlPath("/test/<name>/nil/")
+	if err != nil || len(res5) != 3 || res5[0] != "test" || res5[1] != "<name>" || res5[2] != "nil" {
 		t.Error("test 5 failed")
 	}
 }
@@ -35,7 +36,7 @@ func Test_detectNodeType(t *testing.T) {
 	if detectNodeType("test-a") != static {
 		t.Error("test 2 failed")
 	}
-	if detectNodeType("edit-{user}") != param {
+	if detectNodeType("edit-<user>") != param {
 		t.Error("test 3 failed")
 	}
 }
@@ -43,6 +44,7 @@ func Test_detectNodeType(t *testing.T) {
 type testCtrl struct {
 	Controller
 }
+
 func (t testCtrl) Index() Result {
 	return t.PlainText("test")
 }
@@ -55,7 +57,7 @@ func newCtrlInfo() *controllerInfo {
 
 func Test_newRouteDepth(t *testing.T) {
 	var ctrlInfo = newCtrlInfo()
-	b1,err := newRouteBranch("/test/{action}", ctrlInfo)
+	b1, err := newRouteNode("/test/{action}", ctrlInfo)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -65,13 +67,13 @@ func Test_newRouteDepth(t *testing.T) {
 	if len(b1.Children) != 1 || b1.Children[0].Path != "{action}" {
 		t.Error("Detect Child Error")
 	}
-	_,err = newRouteBranch("/*pathInfo/test", ctrlInfo)
+	_, err = newRouteNode("/*pathInfo/test", ctrlInfo)
 	if err == nil {
 		t.Error("Error check failed")
 	} else {
 		println(err.Error())
 	}
-	b2,err := newRouteBranch("/test/*path", ctrlInfo)
+	b2, err := newRouteNode("/test/*path", ctrlInfo)
 	if err == nil {
 		t.Error("Error check failed")
 		println(string(data2Json(b2)))
@@ -82,51 +84,84 @@ func Test_newRouteDepth(t *testing.T) {
 
 func Test_newRootNode(t *testing.T) {
 	var ctrlInfo = newCtrlInfo()
-	var root = newRootNode()
+	var root = newRouteTree()
 	if err := root.addRoute("/", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
 	if err := root.addRoute("/test", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
-	if err := root.addRoute("/test/{action}", ctrlInfo); err != nil {
+	if err := root.addRoute("/test/<action>", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
-	if err := root.addRoute("/test/{year}/hello", ctrlInfo); err != nil {
+	if err := root.addRoute("/test/<year>/hello", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
-	if err := root.addRoute("/{fast}/*pathInfo", ctrlInfo); err != nil {
+	if err := root.addRoute("/<fast>/*pathInfo", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
-	if err := root.addRoute("/edit/{user}", ctrlInfo); err != nil {
+	if err := root.addRoute("/edit/<user:word(4)>", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
 	println(string(data2Json(root)))
 }
 
-/*
-package main
-
-import "github.com/Simbory/wemvc"
-
-type homeController struct {
-	wemvc.Controller
+func Test_splitRouteParam(t *testing.T) {
+	var path = "<word>-fag-<username><email:word(4)>"
+	var splits = splitRouteParam(path)
+	println(string(data2Json(splits)))
+	if len(splits) != 4 || splits[0] != "<word>" || splits[1] != "-fag-" || splits[2] != "<username>" || splits[3] != "<email:word(4)>" {
+		t.Error("test 1 failed")
+	}
+	println(string(data2Json(splitRouteParam("fdsgdfsg>fa<-fag>-"))))
 }
 
-func (h homeController) Index() wemvc.Result {
-	h.Response.Write([]byte("hello, world"))
-	h.EndRequest()
-	return nil
+func Test_checkParamName(t *testing.T) {
+	if checkParamName("usename") == false {
+		t.Error("Test 1 failed")
+	}
+	if checkParamName("usename_") == false {
+		t.Error("Test 2 failed")
+	}
+	if checkParamName("use_name") == false {
+		t.Error("Test 3 failed")
+	}
+	if checkParamName("usename1") == false {
+		t.Error("Test 4 failed")
+	}
+	if checkParamName("usename 1") == true {
+		t.Error("Test 5 failed")
+	}
+	if checkParamName("_usename1") == true {
+		t.Error("Test 6 failed")
+	}
+	if checkParamName("123") == true {
+		t.Error("Test 7 failed")
+	}
+	if checkParamName("_1") == true {
+		t.Error("Test 8 failed")
+	}
+	if checkParamName("usename1+") == true {
+		t.Error("Test 9 failed")
+	}
+	if checkParamName("1usename") == true {
+		t.Error("Test 10 failed")
+	}
 }
 
-func main() {
-	wemvc.Route("/", homeController{})
-	wemvc.Route("/test1", homeController{})
-	wemvc.Route("/test1/test11", homeController{})
-	wemvc.Route("/test2", homeController{})
-	wemvc.Route("/test2/test22/test222", homeController{})
-	wemvc.Route("/test3", homeController{})
-	wemvc.Route("/test3/*pathInfo", homeController{})
-	wemvc.Run(8080)
+func Test_checkParamOption(t *testing.T) {
+	if checkParamOption("a2z(3~4)") == false {
+		t.Error("test 1 failed")
+	}
+	if checkParamOption("value(aa|bb|cc)") == false {
+		t.Error("test 1 failed")
+	}
+	if checkParamOption("word(45)") == false {
+		t.Error("test 1 failed")
+	}
 }
-*/
+
+func Test_str_index(t *testing.T) {
+	str := "abc-<num>-up-<test>"
+	println(str[strings.Index(str, "<"):strings.Index(str, ">") + 1])
+}
