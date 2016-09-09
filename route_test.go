@@ -2,28 +2,28 @@ package wemvc
 
 import (
 	"reflect"
-	"testing"
 	"strings"
+	"testing"
 )
 
 func Test_splitUrlPath(t *testing.T) {
-	_, err := splitUrlPath("")
+	_, err := splitURLPath("")
 	if err == nil {
 		t.Error("test 1 failed")
 	}
-	res2, err := splitUrlPath("/")
+	res2, err := splitURLPath("/")
 	if err != nil && res2 != nil {
 		t.Error("test 2 failed")
 	}
-	_, err = splitUrlPath("/test/../nil")
+	_, err = splitURLPath("/test/../nil")
 	if err == nil {
 		t.Error("test 3 failed")
 	}
-	res4, err := splitUrlPath("/test/./nil")
+	res4, err := splitURLPath("/test/./nil")
 	if err != nil || len(res4) != 2 || res4[0] != "test" || res4[1] != "nil" {
 		t.Error("test 4 failed")
 	}
-	res5, err := splitUrlPath("/test/<name>/nil/")
+	res5, err := splitURLPath("/test/<name>/nil/")
 	if err != nil || len(res5) != 3 || res5[0] != "test" || res5[1] != "<name>" || res5[2] != "nil" {
 		t.Error("test 5 failed")
 	}
@@ -163,5 +163,5 @@ func Test_checkParamOption(t *testing.T) {
 
 func Test_str_index(t *testing.T) {
 	str := "abc-<num>-up-<test>"
-	println(str[strings.Index(str, "<"):strings.Index(str, ">") + 1])
+	println(str[strings.Index(str, "<") : strings.Index(str, ">")+1])
 }

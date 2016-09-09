@@ -3,9 +3,9 @@ package wemvc
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 func isA2Z(c byte) bool {
@@ -20,7 +20,7 @@ func isNumber(c byte) bool {
 	return (c >= '0' && c <= '9')
 }
 
-func splitUrlPath(urlPath string) ([]string, error) {
+func splitURLPath(urlPath string) ([]string, error) {
 	if len(urlPath) == 0 {
 		return nil, errors.New("The URL path is empty")
 	}
@@ -64,23 +64,23 @@ func checkRoutePath(path string) error {
 				inParamChar = true
 				continue
 			} else {
-				return errors.New(fmt.Sprintf("the route param has no closing character '>': %d", i))
+				return fmt.Errorf("the route param has no closing character '>': %d", i)
 			}
 		}
 		// param end
 		if path[i] == paramEnd {
 			// check and ensure current route param is not empty
 			if len(paramChars) == 0 {
-				return errors.New(fmt.Sprintf("Invalid route parameter '<>' or the route parameter has no begining tag '<': %d", i))
+				return fmt.Errorf("Invalid route parameter '<>' or the route parameter has no begining tag '<': %d", i)
 			}
 			var curParam = strings.Split(string(paramChars), ":")[0]
 			for _, tmp := range routeParams {
 				if tmp == curParam {
-					return errors.New(fmt.Sprintf("Duplicate route param '%s': %d", curParam, i))
+					return fmt.Errorf("Duplicate route param '%s': %d", curParam, i)
 				}
 			}
 			routeParams = append(routeParams, curParam)
-			paramChars = make([]byte,0)
+			paramChars = make([]byte, 0)
 			inParamChar = false
 			continue
 		}
@@ -89,7 +89,7 @@ func checkRoutePath(path string) error {
 				if isWord(path[i]) {
 					paramChars = append(paramChars, path[i])
 				} else {
-					return errors.New(fmt.Sprintf("Invalid character '%c' at the beginin of the route param: %d", path[i], i))
+					return fmt.Errorf("Invalid character '%c' at the beginin of the route param: %d", path[i], i)
 				}
 			} else {
 				paramChars = append(paramChars, path[i])
@@ -127,22 +127,22 @@ func splitRouteParam(path string) []string {
 }
 
 func checkParamName(name string) bool {
-	reg,_ := regexp.Compile("^[a-zA-Z][\\w]*$")
+	reg, _ := regexp.Compile("^[a-zA-Z][\\w]*$")
 	return reg.Match([]byte(name))
 }
 
 func checkParamOption(optionStr string) bool {
-	reg,_ := regexp.Compile("^[a-zA-Z][\\w]*\\(.+\\)$")
+	reg, _ := regexp.Compile("^[a-zA-Z][\\w]*\\(.+\\)$")
 	return reg.Match([]byte(optionStr))
 }
 
 func checkNumber(opt string) bool {
-	reg,_ := regexp.Compile("^[0-9]+$")
+	reg, _ := regexp.Compile("^[0-9]+$")
 	return reg.Match([]byte(opt))
 }
 
 func checkNumberRange(optStr string) bool {
-	reg,_ := regexp.Compile("^[0-9]+(~)+[0-9]+$")
+	reg, _ := regexp.Compile("^[0-9]+(~)+[0-9]+$")
 	return reg.Match([]byte(optStr))
 }
 
@@ -194,11 +194,11 @@ func analyzeParamOption(path string) (string, map[string]RouteOption, error) {
 					opt.MinLength = uint8(i)
 				} else if checkNumberRange(setting) {
 					numbers := strings.Split(setting, "~")
-					min,err := strconv.ParseUint(numbers[0], 10, 0)
+					min, err := strconv.ParseUint(numbers[0], 10, 0)
 					if err != nil {
 						return "", nil, err
 					}
-					max,err := strconv.ParseUint(numbers[1], 10, 0)
+					max, err := strconv.ParseUint(numbers[1], 10, 0)
 					if err != nil {
 						return "", nil, err
 					}

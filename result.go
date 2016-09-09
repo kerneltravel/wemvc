@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// ActionResult action result interface
+// Result action result interface
 type Result interface {
 	SetStatusCode(int)
 	GetStatusCode() int
@@ -101,7 +101,7 @@ func (ares *result) GetWriter() io.Writer {
 	return &ares.writer
 }
 
-// NewActionResult create a blank action result
+// NewResult create a blank action result
 func NewResult() Result {
 	return &result{
 		statusCode:  200,

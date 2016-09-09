@@ -43,10 +43,10 @@ type Server interface {
 }
 
 type server struct {
-	errorHandlers   map[int]CtxHandler
-	port            int
-	webRoot         string
-	config          *config
+	errorHandlers map[int]CtxHandler
+	port          int
+	webRoot       string
+	config        *config
 	//router          *router
 	routing         *routeTree
 	watcher         *fsWatcher
@@ -81,7 +81,7 @@ func (app *server) MapPath(virtualPath string) string {
 func (app *server) SetRootDir(rootDir string) Server {
 	app.assertNotLocked()
 	if !IsDir(rootDir) {
-		panic(invalidRootError)
+		panic(errInvalidRoot)
 	}
 	app.webRoot = rootDir
 	return app
@@ -122,9 +122,8 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if app.isStaticRequest(req.URL.Path) {
 		if app.serveStaticFile(ctx) {
 			return
-		} else {
-			goto error404
 		}
+		goto error404
 	} else {
 		// serve the dynamic page
 		ctx = app.execRoute(ctx)
@@ -163,7 +162,7 @@ error404:
 func (app *server) StaticDir(pathPrefix string) Server {
 	app.assertNotLocked()
 	if len(pathPrefix) < 1 {
-		panic(pathPrefixEmptyError)
+		panic(errPathPrefix)
 	}
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = "/" + pathPrefix
@@ -181,13 +180,13 @@ func (app *server) StaticDir(pathPrefix string) Server {
 func (app *server) StaticFile(path string) Server {
 	app.assertNotLocked()
 	if len(path) < 1 {
-		panic(pathPrefixEmptyError)
+		panic(errPathPrefix)
 	}
 	if !strings.HasPrefix(path, "/") {
 		path = "/" + path
 	}
 	if strings.HasSuffix(path, "/") {
-		panic(invalidPathError)
+		panic(errInvalidPath)
 	}
 	if runtime.GOOS == "windows" {
 		path = strings.ToLower(path)
@@ -258,7 +257,7 @@ func (app *server) Namespace(nsName string) NamespaceSection {
 		nsName = strings.TrimRight(nsName, "/")
 	}
 	if len(nsName) < 1 {
-		panic(invalidNsError)
+		panic(errInvalidNamespace)
 	}
 	if app.namespaces == nil {
 		app.namespaces = make(map[string]*namespace)
@@ -317,7 +316,7 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	if app.routing == nil {
 		app.routing = newRouteTree()
 	}
-	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.CtrlType.Name(), "       default action:", cInfo.DefaultAction +"\r\n")
+	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.CtrlType.Name(), "       default action:", cInfo.DefaultAction+"\r\n")
 	app.routing.addRoute(routePath, cInfo)
 }
 
@@ -709,7 +708,7 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 	// detect end request
-	_, ok := rec.(*endRequestError)
+	_, ok := rec.(*errEndRequest)
 	if ok {
 		return
 	}
@@ -728,7 +727,7 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 func newServer(webRoot string) *server {
 	var app = &server{
 		webRoot:       webRoot,
-		locked:   false,
+		locked:        false,
 		errorHandlers: make(map[int]CtxHandler),
 	}
 	app.views = make(map[string]*view)

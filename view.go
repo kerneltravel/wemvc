@@ -72,7 +72,7 @@ func getTemplateDeep(root, file, viewExt, parent string, t *template.Template) (
 		fileAbsPath = filepath.Join(root, file)
 	}
 	if e := IsFile(fileAbsPath); !e {
-		return nil, [][]string{}, notFoundTplError(file)
+		return nil, [][]string{}, errNotFoundTpl(file)
 	}
 	data, err := ioutil.ReadFile(fileAbsPath)
 	if err != nil {

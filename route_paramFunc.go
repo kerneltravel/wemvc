@@ -2,6 +2,7 @@ package wemvc
 
 import "strings"
 
+// RouteFunc define the route check function
 type RouteFunc func(urlPath string, opt RouteOption) string
 
 func stringCheck(urlPath string, opt RouteOption) string {
@@ -48,7 +49,7 @@ func enumCheck(urlPath string, opt RouteOption) string {
 	}
 	var splits = strings.Split(opt.Setting, "|")
 	for _, value := range splits {
-		if strings.HasPrefix(urlPath, value){
+		if strings.HasPrefix(urlPath, value) {
 			return value
 		}
 	}

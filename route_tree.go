@@ -19,7 +19,7 @@ func (tree *routeTree) addFunc(name string, fun RouteFunc) error {
 		return errors.New("The parameter 'fun' cannot be nil")
 	}
 	if _, ok := tree.funcMap[name]; ok {
-		return errors.New(fmt.Sprintf("The '%s' function is already exist.", name))
+		return fmt.Errorf("The '%s' function is already exist.", name)
 	}
 	tree.funcMap[name] = fun
 	return nil
@@ -55,12 +55,14 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 			return
 		}
 	} else if indexNode.NodeType == param {
+		// deal with dynamic path
 		routePath := indexNode.ParamPath
-		pathCheckIndex := 0
-		routeCheckIndex := 0
+		pathCheckIndex := 0  // the target path cursor
+		routeCheckIndex := 0 // the dynamic route path cursor
 		var paramNameBytes []byte
 		isParamByte := false
 		for {
+			// if the target path cursor and the dynamic route cursor both reach the end, it means the target path and the dynamic route path mach
 			if pathCheckIndex >= len(curPath) && routeCheckIndex >= len(routePath) {
 				break
 			}
@@ -116,20 +118,19 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 	// check the last url parts
 	if !indexNode.hasChildren() {
 		return
-	} else {
-		for _, child := range indexNode.Children {
-			ok, result, rd := tree.lookupDepth(child, pathLength, urlParts, endWithSlash)
-			if ok {
-				if rd != nil && len(rd) > 0 {
-					for key, value := range rd {
-						routeData[key] = value
-					}
+	}
+	for _, child := range indexNode.Children {
+		ok, result, rd := tree.lookupDepth(child, pathLength, urlParts, endWithSlash)
+		if ok {
+			if rd != nil && len(rd) > 0 {
+				for key, value := range rd {
+					routeData[key] = value
 				}
-				found = true
-				ctrl = result
-				routeMap = routeData
-				return
 			}
+			found = true
+			ctrl = result
+			routeMap = routeData
+			return
 		}
 	}
 	return
@@ -139,7 +140,7 @@ func (tree *routeTree) lookup(urlPath string) (*controllerInfo, map[string]strin
 	if urlPath == "/" {
 		return tree.CtrlInfo, nil, nil
 	}
-	urlParts, err := splitUrlPath(urlPath)
+	urlParts, err := splitURLPath(urlPath)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -167,9 +168,8 @@ func (tree *routeTree) addRoute(routePath string, ctrlInfo *controllerInfo) erro
 	if routePath == "/" {
 		if tree.CtrlInfo != nil {
 			return errors.New("Duplicate controller info for route '/'")
-		} else {
-			tree.CtrlInfo = ctrlInfo
 		}
+		tree.CtrlInfo = ctrlInfo
 		return nil
 	}
 	branch, err := newRouteNode(routePath, ctrlInfo)

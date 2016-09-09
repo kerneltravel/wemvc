@@ -26,16 +26,16 @@ func (app *server) RegSessionProvider(name string, provide SessionProvider) Serv
 		return app
 	}
 	if provide == nil {
-		panic(sessionProvNilError)
+		panic(errSessionProvNil)
 	}
 	if _, dup := app.sessionProvides[name]; dup {
-		panic(sessionRegTwiceError(name))
+		panic(errSessionRegTwice(name))
 	}
 	app.sessionProvides[name] = provide
 	return app
 }
 
-// MemProvider Implement the provider interface
+// MemSessionProvider Implement the provider interface
 type MemSessionProvider struct {
 	lock        sync.RWMutex             // locker
 	sessions    map[string]*list.Element // map in memory

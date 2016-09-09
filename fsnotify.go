@@ -1,19 +1,14 @@
-// Copyright 2012 The Go Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
-// Package fsnotify implements file system notification.
 package wemvc
 
 import "fmt"
 
 const (
-	fsn_CREATE = 1
-	fsn_MODIFY = 2
-	fsn_DELETE = 4
-	fsn_RENAME = 8
+	fsnCREATE = 1
+	fsnMODIFY = 2
+	fsnDELETE = 4
+	fsnRENAME = 8
 
-	fsn_ALL = fsn_MODIFY | fsn_DELETE | fsn_RENAME | fsn_CREATE
+	fsnALL = fsnMODIFY | fsnDELETE | fsnRENAME | fsnCREATE
 )
 
 // Purge events from interal chan to external chan if passes filter
@@ -24,19 +19,19 @@ func (w *fsWatcher) purgeEvents() {
 		fsnFlags := w.fsnFlags[ev.Name]
 		w.fsnmut.Unlock()
 
-		if (fsnFlags&fsn_CREATE == fsn_CREATE) && ev.IsCreate() {
+		if (fsnFlags&fsnCREATE == fsnCREATE) && ev.IsCreate() {
 			sendEvent = true
 		}
 
-		if (fsnFlags&fsn_MODIFY == fsn_MODIFY) && ev.IsModify() {
+		if (fsnFlags&fsnMODIFY == fsnMODIFY) && ev.IsModify() {
 			sendEvent = true
 		}
 
-		if (fsnFlags&fsn_DELETE == fsn_DELETE) && ev.IsDelete() {
+		if (fsnFlags&fsnDELETE == fsnDELETE) && ev.IsDelete() {
 			sendEvent = true
 		}
 
-		if (fsnFlags&fsn_RENAME == fsn_RENAME) && ev.IsRename() {
+		if (fsnFlags&fsnRENAME == fsnRENAME) && ev.IsRename() {
 			sendEvent = true
 		}
 
@@ -60,7 +55,7 @@ func (w *fsWatcher) purgeEvents() {
 // Watch a given file path
 func (w *fsWatcher) Watch(path string) error {
 	w.fsnmut.Lock()
-	w.fsnFlags[path] = fsn_ALL
+	w.fsnFlags[path] = fsnALL
 	w.fsnmut.Unlock()
 	return w.watch(path)
 }
@@ -84,7 +79,7 @@ func (w *fsWatcher) RemoveWatch(path string) error {
 // String formats the event e in the form
 // "filename: DELETE|MODIFY|..."
 func (e *fileEvent) String() string {
-	var events string = ""
+	events := ""
 
 	if e.IsCreate() {
 		events += "|" + "CREATE"

@@ -14,13 +14,14 @@ const (
 	param
 	catchAll
 
-	paramBegin = '<'
+	paramBegin    = '<'
 	paramBeginStr = "<"
-	paramEnd  = '>'
-	paramEndStr = ">"
-	pathInfo = "*pathInfo"
+	paramEnd      = '>'
+	paramEndStr   = ">"
+	pathInfo      = "*pathInfo"
 )
 
+// RouteOption the route option struct
 type RouteOption struct {
 	Validation string
 	Setting    string
@@ -76,9 +77,9 @@ func (node *routeNode) addChild(childNode *routeNode) error {
 	}
 	if childNode.isLeaf() {
 		if existChild.CtrlInfo != nil {
-			return errors.New(fmt.Sprintf("Duplicate controller info in route tree. Path: %s, Depth: %d",
+			return fmt.Errorf("Duplicate controller info in route tree. Path: %s, Depth: %d",
 				existChild.Path,
-				existChild.CurDepth))
+				existChild.CurDepth)
 		}
 		existChild.CtrlInfo = childNode.CtrlInfo
 	} else {
@@ -97,7 +98,7 @@ func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error
 	if err != nil {
 		return nil, err
 	}
-	splitPaths, err := splitUrlPath(routePath)
+	splitPaths, err := splitURLPath(routePath)
 	if err != nil {
 		return nil, err
 	}
@@ -121,10 +122,9 @@ func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error
 			paramPath, params, err := analyzeParamOption(child.Path)
 			if err != nil {
 				return nil, err
-			} else {
-				child.ParamPath = paramPath
-				child.Params = params
 			}
+			child.ParamPath = paramPath
+			child.Params = params
 		}
 		if result == nil {
 			result = child

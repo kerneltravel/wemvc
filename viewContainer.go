@@ -45,7 +45,7 @@ func (vc *viewContainer) compileViews(dir string) error {
 		if os.IsNotExist(err) {
 			return nil
 		}
-		return openDirError
+		return errOpenDir
 	}
 	vf := &viewFile{
 		root:    dir,
@@ -71,20 +71,20 @@ func (vc *viewContainer) compileViews(dir string) error {
 // renderView render the view template with ViewData and get the result
 func (vc *viewContainer) renderView(viewPath string, viewData interface{}) (template.HTML, int) {
 	if len(viewPath) < 1 {
-		panic(emptyViewPathError)
+		panic(errEmptyViewPath)
 	}
 	if !strings.HasSuffix(viewPath, vc.viewExt) {
 		viewPath = viewPath + vc.viewExt
 	}
 	tpl := vc.getView(viewPath)
 	if tpl == nil {
-		panic(viewPathNotFoundError(viewPath))
+		panic(errViewPathNotFound(viewPath))
 	}
 	if tpl.err != nil {
 		panic(tpl.err)
 	}
 	if tpl.tpl == nil {
-		panic(viewPathNotFoundError(viewPath))
+		panic(errViewPathNotFound(viewPath))
 	}
 	var buf = &bytes.Buffer{}
 	err := tpl.tpl.Execute(buf, viewData)

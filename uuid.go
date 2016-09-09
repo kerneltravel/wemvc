@@ -10,8 +10,10 @@ import (
 	"strings"
 )
 
+// UUID define the uuid
 type UUID []byte
 
+// String print the uuid as long string like '{xxxxxxxx-xxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}'
 func (uuid UUID) String() string {
 	if len(uuid) != 16 {
 		return ""
@@ -21,6 +23,7 @@ func (uuid UUID) String() string {
 	return strings.ToUpper(s)
 }
 
+// ShortString print the uuid as short string like 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
 func (uuid UUID) ShortString() string {
 	if len(uuid) != 16 {
 		return ""

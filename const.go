@@ -1,6 +1,7 @@
 package wemvc
 
 const (
+	// Version the wemvc Version number
 	Version = "1.0"
 )
 

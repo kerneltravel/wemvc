@@ -40,6 +40,7 @@ func AddViewFunc(name string, f interface{}) Server {
 	return DefaultServer.AddViewFunc(name, f)
 }
 
+// AddRouteFunc add the route analyze helper function to server
 func AddRouteFunc(name string, f RouteFunc) Server {
 	return DefaultServer.AddRouteFunc(name, f)
 }
@@ -54,13 +55,13 @@ func SetViewExt(ext string) Server {
 	return DefaultServer.SetViewExt(ext)
 }
 
-// ServeStaticDir set the path as a static path that the file under this path is served as static file
+// StaticDir set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
 func StaticDir(pathPrefix string) Server {
 	return DefaultServer.StaticDir(pathPrefix)
 }
 
-// ServeStaticFile serve the path as static file
+// StaticFile serve the path as static file
 func StaticFile(path string) Server {
 	return DefaultServer.StaticFile(path)
 }
@@ -75,7 +76,7 @@ func Route(routePath string, c interface{}, defaultAction ...string) Server {
 	return DefaultServer.Route(routePath, c, defaultAction...)
 }
 
-// SetFilter set the route filter
+// Filter set the route filter
 func Filter(pathPrefix string, filter FilterFunc) Server {
 	return DefaultServer.Filter(pathPrefix, filter)
 }
@@ -95,10 +96,12 @@ func Run(port int) {
 	DefaultServer.Run(port)
 }
 
+// NewServer create a new server based on the server root dir
 func NewServer(webRoot string) Server {
 	return newServer(webRoot)
 }
 
+// WaitForExit in if there is two or more server runing in single process, the WaitForExit function should be used to prevent the main function return immediately
 func WaitForExit() {
 	serverWaiting.Wait()
 }
@@ -109,6 +112,7 @@ var (
 	serverWaiting = sync.WaitGroup{}
 )
 
+// WorkingDir get the current working directory
 func WorkingDir() string {
 	p, err := os.Getwd()
 	if err != nil {

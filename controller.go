@@ -162,6 +162,7 @@ func (ctrl *Controller) NotFound() Result {
 	return ctrl.Server.(*server).handleError(ctrl.Request, 404)
 }
 
+// EndRequest end the current request immediately
 func (ctrl *Controller) EndRequest() {
 	ctrl.Context.EndContext()
 }

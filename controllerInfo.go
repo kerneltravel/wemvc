@@ -25,11 +25,11 @@ func (cInfo *controllerInfo) containsAction(action string) bool {
 func newControllerInfo(app *server, namespace string, t reflect.Type, defaultAction string) *controllerInfo {
 	typeName := t.String()
 	if strings.HasPrefix(typeName, "*") {
-		panic(invalidCtrlTypeError(typeName))
+		panic(errInvalidCtrlType(typeName))
 	}
 	numMethod := t.NumMethod()
 	if numMethod < 1 {
-		panic(ctrlNoActionError(typeName))
+		panic(errCtrlNoAction(typeName))
 	}
 	obj := reflect.New(t)
 	var methods []string
@@ -47,18 +47,18 @@ func newControllerInfo(app *server, namespace string, t reflect.Type, defaultAct
 		methods = append(methods, methodName)
 	}
 	if len(methods) < 1 {
-		panic(ctrlNoActionError(typeName))
+		panic(errCtrlNoAction(typeName))
 	}
 	actions := make(map[string]string)
 	for _, m := range methods {
 		actions[strings.ToLower(m)] = m
 	}
 	return &controllerInfo{
-		NsName:      	namespace,
-		CtrlName: 		typeName,
-		CtrlType: 		t,
-		Actions:        actions,
-		DefaultAction:  defaultAction,
-		server:         app,
+		NsName:        namespace,
+		CtrlName:      typeName,
+		CtrlType:      t,
+		Actions:       actions,
+		DefaultAction: defaultAction,
+		server:        app,
 	}
 }
