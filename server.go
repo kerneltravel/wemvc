@@ -43,11 +43,10 @@ type Server interface {
 }
 
 type server struct {
-	errorHandlers map[int]CtxHandler
-	port          int
-	webRoot       string
-	config        *config
-	//router          *router
+	errorHandlers   map[int]CtxHandler
+	port            int
+	webRoot         string
+	config          *config
 	routing         *routeTree
 	watcher         *fsWatcher
 	locked          bool
@@ -584,10 +583,7 @@ func (app *server) execRoute(ctx *context) *context {
 			ctx.ns = ns
 			ctx.actionMethod = actionMethod
 			ctx.actionName = action
-			cName := strings.ToLower(ctx.ctrlType.String())
-			cName = strings.Split(cName, ".")[1]
-			cName = strings.Replace(cName, "controller", "", -1)
-			ctx.ctrlName = cName
+			ctx.ctrlName = getContrllerName(ctx.ctrlType)
 			ctx.app = app
 			return ctx
 		}

@@ -23,21 +23,23 @@ const (
 
 // RouteOption the route option struct
 type RouteOption struct {
-	Validation string
-	Setting    string
-	MaxLength  uint8
-	MinLength  uint8
+	Validation      string
+	HasDefaultValue bool
+	DefaultValue    string
+	Setting         string
+	MaxLength       uint8
+	MinLength       uint8
 }
 
 type routeNode struct {
-	NodeType  pathType
-	CurDepth  uint16
-	MaxDepth  uint16
-	Path      string
-	ParamPath string
-	Params    map[string]RouteOption
-	CtrlInfo  *controllerInfo
-	Children  []*routeNode
+	NodeType   pathType
+	CurDepth   uint16
+	MaxDepth   uint16
+	Path       string
+	PathSplits []string
+	Params     map[string]RouteOption
+	CtrlInfo   *controllerInfo
+	Children   []*routeNode
 }
 
 func (node *routeNode) isLeaf() bool {
@@ -93,6 +95,39 @@ func (node *routeNode) addChild(childNode *routeNode) error {
 	return nil
 }
 
+func (node *routeNode) isParamPath(path string) bool {
+	return strings.HasPrefix(path, paramBeginStr) && strings.HasSuffix(path, paramEndStr)
+}
+
+func (node *routeNode) detectDefault() (bool, *controllerInfo, map[string]string) {
+	if !node.hasChildren() {
+		return false, nil, nil
+	}
+	for _, child := range node.Children {
+		if child.NodeType != param || len(child.PathSplits) != 1 || !node.isParamPath(child.PathSplits[0]) {
+			continue
+		}
+		paramName := ""
+		var opt RouteOption
+		for name, o := range child.Params {
+			paramName = name
+			opt = o
+		}
+		if !opt.HasDefaultValue {
+			continue
+		}
+		if child.CtrlInfo != nil {
+			return true, child.CtrlInfo, map[string]string{paramName:opt.DefaultValue}
+		}
+		found, ctrl, routeMap := child.detectDefault()
+		if found {
+			routeMap[paramName] = opt.DefaultValue
+			return true, ctrl, routeMap
+		}
+	}
+	return false, nil, nil
+}
+
 func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error) {
 	err := checkRoutePath(routePath)
 	if err != nil {
@@ -123,7 +158,7 @@ func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error
 			if err != nil {
 				return nil, err
 			}
-			child.ParamPath = paramPath
+			child.PathSplits = paramPath
 			child.Params = params
 		}
 		if result == nil {

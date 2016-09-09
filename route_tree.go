@@ -4,11 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"runtime"
 )
 
 type routeTree struct {
 	routeNode
-	funcMap map[string]RouteFunc
+	funcMap   map[string]RouteFunc
+	MatchCase bool
 }
 
 func (tree *routeTree) addFunc(name string, fun RouteFunc) error {
@@ -50,61 +52,55 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		return
 	} else if indexNode.NodeType == static {
 		// deal with static path
-		var curPath = urlParts[indexNode.CurDepth-1]
-		if indexNode.Path != curPath {
+		str1 := indexNode.Path
+		str2 := curPath
+		if !tree.MatchCase {
+			str1 = strings.ToLower(str1)
+			str2 = strings.ToLower(str2)
+		}
+		if str1 != str2 {
 			return
 		}
 	} else if indexNode.NodeType == param {
 		// deal with dynamic path
-		routePath := indexNode.ParamPath
-		pathCheckIndex := 0  // the target path cursor
-		routeCheckIndex := 0 // the dynamic route path cursor
-		var paramNameBytes []byte
-		isParamByte := false
+		dynPathSplits := indexNode.PathSplits // the dynamic route paths
+		routeCheckIndex := 0
 		for {
 			// if the target path cursor and the dynamic route cursor both reach the end, it means the target path and the dynamic route path mach
-			if pathCheckIndex >= len(curPath) && routeCheckIndex >= len(routePath) {
+			if len(curPath) == 0 && routeCheckIndex == len(dynPathSplits) {
 				break
 			}
-			if (pathCheckIndex >= len(curPath) && routeCheckIndex < len(routePath)) || (pathCheckIndex < len(curPath) && routeCheckIndex >= len(routePath)) {
+			if (len(curPath) == 0 && routeCheckIndex != len(dynPathSplits)) || (len(curPath) != 0 && routeCheckIndex == len(dynPathSplits)) {
 				return
 			}
-			charOfRoute := routePath[routeCheckIndex]
-			if charOfRoute != paramBegin && charOfRoute != paramEnd {
-				if isParamByte {
-					paramNameBytes = append(paramNameBytes, charOfRoute)
-					routeCheckIndex++
-					continue
-				}
-				if charOfRoute == curPath[pathCheckIndex] {
-					pathCheckIndex++
-					routeCheckIndex++
-					continue
-				} else {
-					return
-				}
-			} else if charOfRoute == paramBegin {
-				isParamByte = true
-				routeCheckIndex++
-				continue
-			} else {
-				paramName := string(paramNameBytes)
-				paramNameBytes = nil
-				isParamByte = false
+			dynPath := dynPathSplits[routeCheckIndex]
+			if tree.isParamPath(dynPath) {
+				paramName := dynPath[1:len(dynPath)-1]
 				opt := indexNode.Params[paramName]
 				checkFunc := tree.funcMap[opt.Validation]
 				if checkFunc == nil {
 					return
 				}
-				tempCurPath := curPath[pathCheckIndex:]
-				data := checkFunc(tempCurPath, opt)
+				data := checkFunc(curPath, opt)
 				if len(data) == 0 {
 					return
 				}
 				routeData[paramName] = data
-				routeCheckIndex++
-				pathCheckIndex = pathCheckIndex + len(data)
+				curPath = curPath[len(data):]
+			} else {
+				str1 := curPath
+				str2 := dynPath
+				if !tree.MatchCase {
+					str1 = strings.ToLower(str1)
+					str2 = strings.ToLower(str2)
+				}
+				if strings.HasPrefix(str1, str2) {
+					curPath = curPath[len(dynPath):]
+				} else {
+					return
+				}
 			}
+			routeCheckIndex++
 		}
 	} else {
 		return
@@ -113,6 +109,18 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		found = true
 		ctrl = indexNode.CtrlInfo
 		routeMap = routeData
+		// detect default value
+		if ctrl == nil {
+			found, c, rm := indexNode.detectDefault()
+			if found {
+				ctrl = c
+				if rm != nil {
+					for key, value := range rm {
+						routeMap[key] = value
+					}
+				}
+			}
+		}
 		return
 	}
 	// check the last url parts
@@ -196,5 +204,6 @@ func newRouteTree() *routeTree {
 	node.MaxDepth = 0
 	node.Path = "/"
 	node.CtrlInfo = nil
+	node.MatchCase = runtime.GOOS != "windows"
 	return node
 }

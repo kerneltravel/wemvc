@@ -2,7 +2,6 @@ package wemvc
 
 import (
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -100,7 +99,7 @@ func Test_newRootNode(t *testing.T) {
 	if err := root.addRoute("/<fast>/*pathInfo", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
-	if err := root.addRoute("/edit/<user:word(4)>", ctrlInfo); err != nil {
+	if err := root.addRoute("/edit/<user:word(4)>/<action=edit-user>", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
 	println(string(data2Json(root)))
@@ -159,9 +158,4 @@ func Test_checkParamOption(t *testing.T) {
 	if checkParamOption("word(45)") == false {
 		t.Error("test 1 failed")
 	}
-}
-
-func Test_str_index(t *testing.T) {
-	str := "abc-<num>-up-<test>"
-	println(str[strings.Index(str, "<") : strings.Index(str, ">")+1])
 }
