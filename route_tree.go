@@ -106,20 +106,26 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		return
 	}
 	if indexNode.CurDepth == pathLength {
-		found = true
 		ctrl = indexNode.CtrlInfo
 		routeMap = routeData
 		// detect default value
 		if ctrl == nil {
-			found, c, rm := indexNode.detectDefault()
-			if found {
+			f, c, rm := indexNode.detectDefault()
+			if f {
+				found = true
 				ctrl = c
 				if rm != nil {
 					for key, value := range rm {
 						routeMap[key] = value
 					}
 				}
+			} else {
+				found = false
+				routeMap = nil
+				ctrl = nil
 			}
+		} else {
+			found = true
 		}
 		return
 	}
