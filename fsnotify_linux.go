@@ -268,7 +268,7 @@ func (w *fsWatcher) readEvents() {
 					if fsnFlags, watchFound := w.fsnFlags[watchedName]; watchFound {
 						w.fsnFlags[event.Name] = fsnFlags
 					} else {
-						w.fsnFlags[event.Name] = fsn_ALL
+						w.fsnFlags[event.Name] = fsnALL
 					}
 				}
 				w.fsnmut.Unlock()

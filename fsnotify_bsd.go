@@ -424,7 +424,7 @@ func (w *fsWatcher) watchDirectoryFiles(dirPath string) error {
 		if flags, found := w.fsnFlags[dirPath]; found {
 			w.fsnFlags[filePath] = flags
 		} else {
-			w.fsnFlags[filePath] = fsn_ALL
+			w.fsnFlags[filePath] = fsnALL
 		}
 		w.fsnmut.Unlock()
 
@@ -482,7 +482,7 @@ func (w *fsWatcher) sendDirectoryChangeEvents(dirPath string) {
 			if flags, found := w.fsnFlags[dirPath]; found {
 				w.fsnFlags[filePath] = flags
 			} else {
-				w.fsnFlags[filePath] = fsn_ALL
+				w.fsnFlags[filePath] = fsnALL
 			}
 			w.fsnmut.Unlock()
 
