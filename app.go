@@ -8,7 +8,7 @@ import (
 )
 
 // CtxHandler the error handler define
-type CtxHandler func(*http.Request) Result
+type CtxHandler func(*http.Request) *Result
 
 // FilterFunc request filter func
 type FilterFunc func(ctx Context)

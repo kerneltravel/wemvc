@@ -116,7 +116,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w:   w,
 		app: app,
 	}
-	var result Result
+	var result *Result
 	// serve the static file
 	if app.isStaticRequest(req.URL.Path) {
 		if app.serveStaticFile(ctx) {
@@ -319,30 +319,27 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	app.routing.addRoute(routePath, cInfo)
 }
 
-func (app *server) flushRequest(r Result, w http.ResponseWriter, req *http.Request) {
-	res, ok := r.(*result)
-	if ok {
-		if len(res.resFile) > 0 {
-			http.ServeFile(w, req, res.resFile)
-			return
-		}
-		if len(res.redURL) > 0 {
-			http.Redirect(w, req, res.redURL, res.statusCode)
-			return
-		}
+func (app *server) flushRequest(r *Result, w http.ResponseWriter, req *http.Request) {
+	if len(r.respFile) > 0 {
+		http.ServeFile(w, req, r.respFile)
+		return
+	}
+	if len(r.redURL) > 0 {
+		http.Redirect(w, req, r.redURL, r.StatusCode)
+		return
 	}
 	// write the result to browser
-	for k, v := range res.GetHeaders() {
+	for k, v := range r.Headers {
 		w.Header().Add(k, v)
 	}
-	var contentType = fmt.Sprintf("%s;charset=%s", res.GetContentType(), res.GetEncoding())
+	var contentType = fmt.Sprintf("%s;charset=%s", r.ContentType, r.Encoding)
 	w.Header().Add("Content-Type", contentType)
-	if res.GetStatusCode() != 200 {
-		w.WriteHeader(res.GetStatusCode())
+	if r.StatusCode != 200 {
+		w.WriteHeader(r.StatusCode)
 	}
-	var output = res.GetOutput()
+	var output = r.GetOutput()
 	if len(output) > 0 {
-		w.Write(res.GetOutput())
+		w.Write(r.GetOutput())
 	}
 }
 
@@ -582,7 +579,7 @@ func (app *server) execRoute(ctx *context) *context {
 	return nil
 }
 
-func (app *server) handleDynamic(ctx *context) Result {
+func (app *server) handleDynamic(ctx *context) *Result {
 	var ctrl = reflect.New(ctx.ctrlType)
 	// call OnInit method
 	onInitMethod := ctrl.MethodByName("OnInit")
@@ -624,7 +621,7 @@ func (app *server) handleDynamic(ctx *context) Result {
 	values := m.Call(nil)
 	if len(values) == 1 {
 		var result = values[0].Interface()
-		value, valid := result.(Result)
+		value, valid := result.(*Result)
 		if !valid {
 			value = NewResult()
 			var cType = ctx.req.Header.Get("Content-Type")
@@ -633,14 +630,14 @@ func (app *server) handleDynamic(ctx *context) Result {
 				if err != nil {
 					panic(err)
 				}
-				value.SetContentType("text/xml")
+				value.ContentType = "text/xml"
 				value.Write(xmlBytes)
 			} else {
 				jsonBytes, err := json.Marshal(result)
 				if err != nil {
 					panic(err)
 				}
-				value.SetContentType("application/json")
+				value.ContentType = "application/json"
 				value.Write(jsonBytes)
 			}
 		}
@@ -649,9 +646,9 @@ func (app *server) handleDynamic(ctx *context) Result {
 	return nil
 }
 
-func (app *server) error404(req *http.Request) Result {
+func (app *server) error404(req *http.Request) *Result {
 	res := NewResult()
-	res.SetStatusCode(404)
+	res.StatusCode = 404
 	res.Write(renderError(404,
 		"The resource you are looking for has been removed, had its name changed, or is temporarily unavailable",
 		"Request URL:     "+req.URL.String()+"\r\n\r\nPhysical Path:   "+app.MapPath(req.URL.Path),
@@ -659,9 +656,9 @@ func (app *server) error404(req *http.Request) Result {
 	return res
 }
 
-func (app *server) error403(req *http.Request) Result {
+func (app *server) error403(req *http.Request) *Result {
 	res := NewResult()
-	res.SetStatusCode(403)
+	res.StatusCode = 403
 	res.Write(renderError(403,
 		"The server understood the request but refuses to authorize it",
 		"Request URL:     "+req.URL.String()+"\r\n\r\nPhysical Path:   "+app.MapPath(req.URL.Path),
@@ -669,7 +666,7 @@ func (app *server) error403(req *http.Request) Result {
 	return res
 }
 
-func (app *server) handleError(req *http.Request, code int) Result {
+func (app *server) handleError(req *http.Request, code int) *Result {
 	var handler = app.errorHandlers[code]
 	if handler != nil {
 		return handler(req)
