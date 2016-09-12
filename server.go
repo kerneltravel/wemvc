@@ -560,23 +560,14 @@ func (app *server) execRoute(ctx *context) *context {
 		}
 		var action = routeData["action"]
 		var ns = cInfo.NsName
-		var method = strings.ToTitle(ctx.req.Method)
 		if len(action) < 1 {
 			action = cInfo.DefaultAction
 		} else {
 			action = strings.Replace(action, "-", "_", -1)
 		}
+		var method = strings.ToLower(ctx.req.Method)
 		// find the action method in controller
-		var actionMethod string
-		if cInfo.containsAction(strings.ToLower(method + "_" + action)) {
-			actionMethod = strings.ToLower(method + "_" + action)
-		} else if cInfo.containsAction(strings.ToLower(method + action)) {
-			actionMethod = strings.ToLower(method + action)
-		} else if cInfo.containsAction(strings.ToLower(action)) {
-			actionMethod = strings.ToLower(action)
-		}
-		if len(actionMethod) > 0 {
-			actionMethod = cInfo.Actions[actionMethod]
+		if ok,actionMethod := cInfo.containsAction(action, method); ok {
 			ctx.routeData = routeData
 			ctx.actionName = action
 			ctx.ctrlType = cInfo.CtrlType

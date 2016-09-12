@@ -14,6 +14,9 @@ func (fc *filterContainer) execFilters(ctx *context) bool {
 		return false
 	}
 	var lowerURL = strings.ToLower(ctx.req.URL.Path)
+	if !strings.HasSuffix(lowerURL, "/") {
+		lowerURL = lowerURL + "/"
+	}
 	var tmpFilters = fc.filters
 	var keys []string
 	for key := range tmpFilters {

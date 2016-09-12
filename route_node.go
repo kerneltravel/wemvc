@@ -112,43 +112,31 @@ func (node *routeNode) detectDefault(method string) (bool, *controllerInfo, map[
 		for name, o := range child.Params {
 			paramName = name
 			opt = o
+			break
 		}
 		if !opt.HasDefaultValue {
 			continue
 		}
 		if child.CtrlInfo != nil {
-			if paramName == "action" && !node.validateAction(opt.DefaultValue, method, child.CtrlInfo) {
-				return false, nil, nil
+			if paramName == "action" {
+				if ok,_ := child.CtrlInfo.containsAction(opt.DefaultValue, method); !ok {
+					return false, nil, nil
+				}
 			}
 			return true, child.CtrlInfo, map[string]string{paramName:opt.DefaultValue}
 		}
 		found, ctrl, routeMap := child.detectDefault(method)
 		if found {
-			if paramName == "action" && !node.validateAction(opt.DefaultValue, method, ctrl) {
-				return false, nil, nil
+			if paramName == "action" {
+				if ok,_ := ctrl.containsAction(opt.DefaultValue, method); !ok {
+					return false, nil, nil
+				}
 			}
 			routeMap[paramName] = opt.DefaultValue
 			return true, ctrl, routeMap
 		}
 	}
 	return false, nil, nil
-}
-
-func (node *routeNode) validateAction(actionName, method string, ctrlInfo *controllerInfo) bool {
-	if ctrlInfo == nil || len(ctrlInfo.Actions) == 0 || len(actionName) == 0 {
-		return false
-	}
-	actionName = strings.Replace(strings.ToLower(actionName), "-", "_", -1)
-	_,ok := ctrlInfo.Actions[method + actionName]
-	if ok {
-		return true
-	}
-	_,ok = ctrlInfo.Actions[method + "_" + actionName]
-	if ok {
-		return true
-	}
-	_,ok = ctrlInfo.Actions[actionName]
-	return ok
 }
 
 func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error) {

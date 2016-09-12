@@ -14,12 +14,24 @@ type controllerInfo struct {
 	server        *server
 }
 
-func (cInfo *controllerInfo) containsAction(action string) bool {
-	if cInfo == nil || cInfo.Actions == nil {
-		return false
+func (ctrlInfo *controllerInfo) containsAction(actionName, method string) (bool, string) {
+	if len(ctrlInfo.Actions) == 0 || len(actionName) == 0 || len(method) == 0 {
+		return false, ""
 	}
-	name, ok := cInfo.Actions[action]
-	return ok && len(name) > 0
+	actionName = strings.Replace(strings.ToLower(actionName), "-", "_", -1)
+	methodName,ok := ctrlInfo.Actions[method + actionName]
+	if ok {
+		return true, methodName
+	}
+	methodName,ok = ctrlInfo.Actions[method + "_" + actionName]
+	if ok {
+		return true, methodName
+	}
+	methodName,ok = ctrlInfo.Actions[actionName]
+	if ok {
+		return true, methodName
+	}
+	return false, ""
 }
 
 func newControllerInfo(app *server, namespace string, t reflect.Type, defaultAction string) *controllerInfo {

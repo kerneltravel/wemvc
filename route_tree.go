@@ -129,8 +129,10 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		}
 		if found {
 			a,ok := routeMap["action"]
-			if ok && ! tree.validateAction(a, method, ctrl) {
-				return false, nil, nil
+			if ok {
+				if ok,_ = ctrl.containsAction(a, method); !ok {
+					return false, nil, nil
+				}
 			}
 		}
 		return
@@ -145,7 +147,7 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 			if rd != nil && len(rd) > 0 {
 				if _,ok = rd["pathInfo"];ok {
 					if a,ok := rd["action"];ok {
-						if !tree.validateAction(a, method, result) {
+						if ok,_ = result.containsAction(a, method); !ok {
 							return false, nil, nil
 						}
 					}
