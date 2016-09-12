@@ -552,7 +552,7 @@ func (app *server) execRoute(ctx *context) *context {
 		urlPath = strings.TrimRight(urlPath, "/")
 	}
 	//var resp ActionResult
-	cInfo, routeData, err := app.routing.lookup(ctx.req.URL.Path)
+	cInfo, routeData, err := app.routing.lookup(ctx.req.URL.Path, strings.ToLower(ctx.req.Method))
 	//cInfo, routeData, match := app.router.lookup(ctx.req.Method, urlPath)
 	if err == nil && cInfo != nil {
 		if routeData == nil {

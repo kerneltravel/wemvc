@@ -27,7 +27,7 @@ func (tree *routeTree) addFunc(name string, fun RouteFunc) error {
 	return nil
 }
 
-func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlParts []string, endWithSlash bool) (found bool, ctrl *controllerInfo, routeMap map[string]string) {
+func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlParts []string, method string, endWithSlash bool) (found bool, ctrl *controllerInfo, routeMap map[string]string) {
 	found = false
 	ctrl = nil
 	routeMap = nil
@@ -110,7 +110,7 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		routeMap = routeData
 		// detect default value
 		if ctrl == nil {
-			f, c, rm := indexNode.detectDefault()
+			f, c, rm := indexNode.detectDefault(method)
 			if f {
 				found = true
 				ctrl = c
@@ -127,6 +127,12 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		} else {
 			found = true
 		}
+		if found {
+			a,ok := routeMap["action"]
+			if ok && ! tree.validateAction(a, method, ctrl) {
+				return false, nil, nil
+			}
+		}
 		return
 	}
 	// check the last url parts
@@ -134,9 +140,16 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		return
 	}
 	for _, child := range indexNode.Children {
-		ok, result, rd := tree.lookupDepth(child, pathLength, urlParts, endWithSlash)
+		ok, result, rd := tree.lookupDepth(child, pathLength, urlParts, method, endWithSlash)
 		if ok {
 			if rd != nil && len(rd) > 0 {
+				if _,ok = rd["pathInfo"];ok {
+					if a,ok := rd["action"];ok {
+						if !tree.validateAction(a, method, result) {
+							return false, nil, nil
+						}
+					}
+				}
 				for key, value := range rd {
 					routeData[key] = value
 				}
@@ -150,8 +163,17 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 	return
 }
 
-func (tree *routeTree) lookup(urlPath string) (*controllerInfo, map[string]string, error) {
+func (tree *routeTree) lookup(urlPath, method string) (*controllerInfo, map[string]string, error) {
 	if urlPath == "/" {
+		ctrl := tree.CtrlInfo
+		if ctrl == nil {
+			f,c,r := tree.detectDefault(method)
+			if f {
+				return c, r, nil
+			}
+		} else {
+			return nil, nil, nil
+		}
 		return tree.CtrlInfo, nil, nil
 	}
 	urlParts, err := splitURLPath(urlPath)
@@ -164,7 +186,7 @@ func (tree *routeTree) lookup(urlPath string) (*controllerInfo, map[string]strin
 	}
 	var endWithSlash = strings.HasSuffix(urlPath, "/")
 	for _, child := range tree.Children {
-		ok, result, rd := tree.lookupDepth(child, pathLength, urlParts, endWithSlash)
+		ok, result, rd := tree.lookupDepth(child, pathLength, urlParts, method, endWithSlash)
 		if ok {
 			return result, rd, nil
 		}
