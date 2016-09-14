@@ -1,12 +1,13 @@
 package wemvc
 
 import (
-	"crypto/rand"
-	"encoding/hex"
+	//"crypto/rand"
+	//"encoding/hex"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
+	//"errors"
 )
 
 // SessionManager the session manager struct
@@ -82,12 +83,16 @@ func (manager *SessionManager) isSecure(req *http.Request) bool {
 }
 
 func (manager *SessionManager) sessionID() (string, error) {
+	uuid := NewUUID()
+	return uuid.ShortString(), nil
+	/*
 	b := make([]byte, manager.config.SessionIDLength)
 	n, err := rand.Read(b)
 	if n != len(b) || err != nil {
-		return "", fmt.Errorf("Could not successfully read from the system CSPRNG.")
+		return "", errors.New("Could not successfully read from the system CSPRNG.")
 	}
 	return hex.EncodeToString(b), nil
+	*/
 }
 
 // SessionStart generate or read the session id from http request.
@@ -113,7 +118,7 @@ func (manager *SessionManager) SessionStart(w http.ResponseWriter, r *http.Reque
 		Name:     manager.config.CookieName,
 		Value:    url.QueryEscape(sessionID),
 		Path:     "/",
-		HttpOnly: true,
+		HttpOnly: manager.config.HttpOnly,
 		Secure:   manager.isSecure(r),
 	}
 
@@ -143,12 +148,13 @@ func (manager *SessionManager) SessionDestroy(w http.ResponseWriter, r *http.Req
 	manager.provider.SessionDestroy(sid)
 	if manager.config.EnableSetCookie {
 		expiration := time.Now()
-		cookie = &http.Cookie{Name: manager.config.CookieName,
+		cookie = &http.Cookie{
+			Name: manager.config.CookieName,
 			Path:     "/",
 			HttpOnly: true,
 			Expires:  expiration,
-			MaxAge:   -1}
-
+			MaxAge:   -1,
+		}
 		http.SetCookie(w, cookie)
 	}
 }
@@ -179,7 +185,7 @@ func (manager *SessionManager) SessionRegenerateID(w http.ResponseWriter, r *htt
 		cookie = &http.Cookie{Name: manager.config.CookieName,
 			Value:    url.QueryEscape(sid),
 			Path:     "/",
-			HttpOnly: true,
+			HttpOnly: manager.config.HttpOnly,
 			Secure:   manager.isSecure(r),
 			Domain:   manager.config.Domain,
 		}

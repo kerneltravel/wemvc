@@ -38,7 +38,7 @@ type config struct {
 }
 
 func (conf *config) loadFile(file string) bool {
-	conf.svr.logWriter().Printf("load config file '%s'\r\n", file)
+	//conf.svr.logWriter().Printf("load config file '%s'\r\n", file)
 	res := false
 	conf.settingMap = make(map[string]string)
 	conf.connMap = make(map[string]*connSetting)
@@ -53,9 +53,9 @@ func (conf *config) loadFile(file string) bool {
 				if len(s.Key) < 1 {
 					continue
 				}
-				if _, ok := conf.settingMap[s.Key]; ok {
-					conf.svr.logWriter().Fatalf("Duplicate definition of setting key '%s', and the previous one will be ignored", s.Key)
-				}
+				//if _, ok := conf.settingMap[s.Key]; ok {
+				//    conf.svr.logWriter().Fatalf("Duplicate definition of setting key '%s', and the previous one will be ignored", s.Key)
+				//}
 				conf.settingMap[s.Key] = s.Value
 			}
 		}
@@ -64,9 +64,9 @@ func (conf *config) loadFile(file string) bool {
 				if len(conn.Name) < 1 {
 					continue
 				}
-				if _, ok := conf.connMap[conn.Name]; ok {
-					conf.svr.logWriter().Fatalf("Duplicate definition of connection string '%s', and the previouse one will be ignored", conn.Name)
-				}
+				//if _, ok := conf.connMap[conn.Name]; ok {
+				//	conf.svr.logWriter().Fatalf("Duplicate definition of connection string '%s', and the previouse one will be ignored", conn.Name)
+				//}
 				conf.connMap[conn.Name] = &connSetting{typeName: conn.Type, connString: conn.ConnString}
 			}
 		}
@@ -95,9 +95,6 @@ defaultSetting:
 	}
 	if conf.SessionConfig.MaxLifetime == 0 {
 		conf.SessionConfig.MaxLifetime = 3600
-	}
-	if conf.SessionConfig.CookieLifeTime == 0 {
-		conf.SessionConfig.CookieLifeTime = 3600
 	}
 	return res
 }

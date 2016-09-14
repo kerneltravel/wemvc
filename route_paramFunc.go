@@ -31,6 +31,7 @@ func intCheck(urlPath string, opt RouteOption) string {
 	return ""
 }
 
+//noinspection GoUnusedParameter
 func wordCheck(urlPath string, opt RouteOption) string {
 	var bytes []byte
 	for i := 0; i < len(urlPath); i++ {

@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"log"
+	//"log"
 	"runtime/debug"
 
 	"container/list"
@@ -24,7 +24,7 @@ type Server interface {
 	RootDir() string
 	Config() Configuration
 	MapPath(virtualPath string) string
-	Logger() *log.Logger
+	//Logger() *log.Logger
 	Namespace(ns string) NamespaceSection
 	SetRootDir(rootDir string) Server
 	StaticDir(pathPrefix string) Server
@@ -32,7 +32,7 @@ type Server interface {
 	HandleError(errorCode int, handler CtxHandler) Server
 	Route(routePath string, c interface{}, defaultAction ...string) Server
 	Filter(pathPrefix string, filter FilterFunc) Server
-	SetLogFile(name string) Server
+	//SetLogFile(name string) Server
 	SetViewExt(ext string) Server
 	AddViewFunc(name string, f interface{}) Server
 	AddRouteFunc(name string, fun RouteFunc) Server
@@ -53,7 +53,7 @@ type server struct {
 	staticPaths     []string
 	staticFiles     []string
 	globalSession   *SessionManager
-	logger          *log.Logger
+	//logger          *log.Logger
 	namespaces      map[string]*namespace
 	sessionProvides map[string]SessionProvider
 	viewContainer
@@ -203,7 +203,7 @@ func (app *server) HandleError(errorCode int, handler CtxHandler) Server {
 func (app *server) AddViewFunc(name string, f interface{}) Server {
 	app.assertNotLocked()
 	app.addViewFunc(name, f)
-	app.logWriter().Println("add view func:", name)
+	//app.logWriter().Println("add view func:", name)
 	return app
 }
 
@@ -232,10 +232,13 @@ func (app *server) Filter(pathPrefix string, filter FilterFunc) Server {
 	return app
 }
 
+/*
 func (app *server) Logger() *log.Logger {
 	return app.logWriter()
 }
+*/
 
+/*
 func (app *server) SetLogFile(name string) Server {
 	app.assertNotLocked()
 	file, err := os.Create(name)
@@ -247,6 +250,7 @@ func (app *server) SetLogFile(name string) Server {
 	app.logger = logger
 	return app
 }
+*/
 
 func (app *server) Namespace(nsName string) NamespaceSection {
 	if len(nsName) > 0 {
@@ -275,23 +279,24 @@ func (app *server) Namespace(nsName string) NamespaceSection {
 }
 
 func (app *server) Run(port int) {
-	app.logWriter().Println("use root dir '" + app.webRoot + "'")
+	//app.logWriter().Println("use root dir '" + app.webRoot + "'")
 	err := app.init()
 	if err != nil {
-		app.logWriter().Println(err.Error())
+		//app.logWriter().Println(err.Error())
 		return
 	}
 	app.locked = true
 	app.port = port
-	host, err := os.Hostname()
-	if err != nil {
-		host = "localhost"
-	}
-	app.logWriter().Println(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
+	//host, err := os.Hostname()
+	//if err != nil {
+	//	host = "localhost"
+	//}
+	//app.logWriter().Println(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
 	portStr := fmt.Sprintf(":%d", app.port)
 	err = http.ListenAndServe(portStr, app)
 	if err != nil {
-		app.logWriter().Println(err.Error())
+		//app.logWriter().Println(err.Error())
+		panic(err)
 	}
 }
 
@@ -315,7 +320,7 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	if app.routing == nil {
 		app.routing = newRouteTree()
 	}
-	app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.CtrlType.Name(), "       default action:", cInfo.DefaultAction+"\r\n")
+	//app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.CtrlType.Name(), "       default action:", cInfo.DefaultAction+"\r\n")
 	app.routing.addRoute(routePath, cInfo)
 }
 
@@ -371,7 +376,7 @@ func (app *server) init() error {
 	var viewDir = app.viewFolder()
 	if IsDir(viewDir) {
 		app.compileViews(viewDir)
-		app.logWriter().Println("compile view files in dir", viewDir)
+		//app.logWriter().Println("compile view files in dir", viewDir)
 		app.watcher.Watch(viewDir)
 		filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
 			if info.IsDir() {
@@ -382,14 +387,15 @@ func (app *server) init() error {
 	}
 	// process namespaces: build the views files and load the config
 	if app.namespaces != nil {
-		for name, ns := range app.namespaces {
-			app.logWriter().Println("process namespace", name)
+		//for name, ns := range app.namespaces {
+		for _, ns := range app.namespaces {
+			//app.logWriter().Println("process namespace", name)
 			settingFile := ns.nsSettingFile()
 			ns.loadConfig()
 			app.watcher.Watch(settingFile)
 			nsViewDir := ns.viewFolder()
 			ns.compileViews(nsViewDir)
-			app.logWriter().Println("compile view files in dir", nsViewDir)
+			//app.logWriter().Println("compile view files in dir", nsViewDir)
 			app.watcher.Watch(nsViewDir)
 			filepath.Walk(nsViewDir, func(p string, info os.FileInfo, er error) error {
 				if er != nil {
@@ -422,7 +428,7 @@ func (app *server) watchFile() {
 			strFile := path.Clean(ev.Name)
 			lowerStrFile := strings.ToLower(strFile)
 			if app.isConfigFile(strFile) {
-				app.logWriter().Println("config file", strFile, "has been changed")
+				//app.logWriter().Println("config file", strFile, "has been changed")
 				var conf = &config{svr: app}
 				if conf.loadFile(strFile) {
 					app.config = conf
@@ -434,7 +440,7 @@ func (app *server) watchFile() {
 					}
 				}
 			} else {
-				app.logWriter().Println("view file", strFile, "has been changed")
+				//app.logWriter().Println("view file", strFile, "has been changed")
 				for _, ns := range app.namespaces {
 					if ns.isInViewFolder(strFile) {
 						if IsDir(strFile) {
@@ -445,7 +451,7 @@ func (app *server) watchFile() {
 							}
 						} else if strings.HasSuffix(lowerStrFile, ".html") {
 							ns.compileViews(ns.viewFolder())
-							app.logWriter().Println("compile view files in dir", ns.viewFolder())
+							//app.logWriter().Println("compile view files in dir", ns.viewFolder())
 						}
 						break
 					}
@@ -459,7 +465,7 @@ func (app *server) watchFile() {
 						}
 					} else if strings.HasSuffix(lowerStrFile, ".html") {
 						app.compileViews(app.viewFolder())
-						app.logWriter().Println("compile view files in dir", app.viewFolder())
+						//app.logWriter().Println("compile view files in dir", app.viewFolder())
 					}
 				}
 			}
@@ -536,7 +542,7 @@ func (app *server) serveStaticFile(ctx *context) (ended bool) {
 		physicalFile = f
 	}
 	if len(physicalFile) > 0 {
-		app.logWriter().Println("handle static path '" + ctx.req.URL.Path + "'")
+		//app.logWriter().Println("handle static path '" + ctx.req.URL.Path + "'")
 		http.ServeFile(ctx.w, ctx.req, physicalFile)
 		ended = true
 	}
@@ -613,11 +619,13 @@ func (app *server) handleDynamic(ctx *context) *Result {
 	if !m.IsValid() {
 		return nil
 	}
+	/*
 	if len(ctx.ns) < 1 {
 		app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\"}")
 	} else {
 		app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\",\"namespace\":\""+ctx.ns+"\"}")
 	}
+	*/
 	values := m.Call(nil)
 	if len(values) == 1 {
 		var result = values[0].Interface()
@@ -671,7 +679,7 @@ func (app *server) handleError(req *http.Request, code int) *Result {
 	if handler != nil {
 		return handler(req)
 	}
-	app.logWriter().Fatalln("unhandled request", req.Method, "'"+req.URL.Path+"'")
+	// app.logWriter().Fatalln("unhandled request", req.Method, "'"+req.URL.Path+"'")
 	return app.error404(req)
 }
 
@@ -679,12 +687,14 @@ func (app *server) viewFolder() string {
 	return app.MapPath("/views")
 }
 
+/*
 func (app *server) logWriter() *log.Logger {
 	if app.logger == nil {
 		app.logger = log.New(os.Stdout, "", log.LstdFlags|log.Llongfile)
 	}
 	return app.logger
 }
+*/
 
 func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	rec := recover()

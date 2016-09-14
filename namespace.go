@@ -102,7 +102,7 @@ func (ns *namespace) StaticFile(file string) NamespaceSection {
 
 func (ns *namespace) AddViewFunc(name string, f interface{}) NamespaceSection {
 	ns.addViewFunc(name, f)
-	ns.server.logWriter().Println("add view func:", name)
+	//ns.server.logWriter().Println("add view func:", name)
 	return ns
 }
 
@@ -123,7 +123,7 @@ func (ns *namespace) loadConfig() {
 	var path = ns.nsSettingFile()
 	if IsFile(path) {
 		var settings = &nsSettingGroup{}
-		ns.server.logWriter().Println("load config file '" + path + "' for namespace '" + ns.GetName() + "'")
+		//ns.server.logWriter().Println("load config file '" + path + "' for namespace '" + ns.GetName() + "'")
 		err := file2Xml(path, settings)
 		if err != nil {
 			return
