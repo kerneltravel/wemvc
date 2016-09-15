@@ -5,15 +5,15 @@ import (
 )
 
 // NamespaceSection the namespace section interface
-type NamespaceSection interface {
+type Namespace interface {
 	GetName() string
 	GetNsDir() string
-	Route(string, interface{}, ...string) NamespaceSection
-	Filter(string, FilterFunc) NamespaceSection
-	StaticDir(string) NamespaceSection
-	StaticFile(string) NamespaceSection
+	Route(string, interface{}, ...string) Namespace
+	Filter(string, FilterFunc) Namespace
+	StaticDir(string) Namespace
+	StaticFile(string) Namespace
 	GetSetting(string) string
-	AddViewFunc(name string, f interface{}) NamespaceSection
+	AddViewFunc(name string, f interface{}) Namespace
 }
 
 type nsSettingGroup struct {
@@ -40,7 +40,7 @@ func (ns *namespace) GetNsDir() string {
 	return ns.server.MapPath(ns.GetName())
 }
 
-func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...string) NamespaceSection {
+func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...string) Namespace {
 	if !strings.HasPrefix(routePath, "/") {
 		routePath = "/" + routePath
 	}
@@ -54,7 +54,7 @@ func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...str
 	return ns
 }
 
-func (ns *namespace) Filter(pathPrefix string, filter FilterFunc) NamespaceSection {
+func (ns *namespace) Filter(pathPrefix string, filter FilterFunc) Namespace {
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = "/" + pathPrefix
 	}
@@ -73,7 +73,7 @@ func (ns *namespace) GetSetting(key string) string {
 	return ""
 }
 
-func (ns *namespace) StaticDir(pathPrefix string) NamespaceSection {
+func (ns *namespace) StaticDir(pathPrefix string) Namespace {
 	if len(pathPrefix) < 1 {
 		panic(errPathPrefix)
 	}
@@ -86,7 +86,7 @@ func (ns *namespace) StaticDir(pathPrefix string) NamespaceSection {
 	ns.server.StaticDir(ns.GetName() + pathPrefix)
 	return ns
 }
-func (ns *namespace) StaticFile(file string) NamespaceSection {
+func (ns *namespace) StaticFile(file string) Namespace {
 	if len(file) < 1 {
 		panic(errPathPrefix)
 	}
@@ -100,7 +100,7 @@ func (ns *namespace) StaticFile(file string) NamespaceSection {
 	return ns
 }
 
-func (ns *namespace) AddViewFunc(name string, f interface{}) NamespaceSection {
+func (ns *namespace) AddViewFunc(name string, f interface{}) Namespace {
 	ns.addViewFunc(name, f)
 	//ns.server.logWriter().Println("add view func:", name)
 	return ns

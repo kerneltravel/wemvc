@@ -172,9 +172,9 @@ func (tree *routeTree) lookup(urlPath, method string) (*controllerInfo, map[stri
 			f,c,r := tree.detectDefault(method)
 			if f {
 				return c, r, nil
+			} else {
+				return nil, nil, nil
 			}
-		} else {
-			return nil, nil, nil
 		}
 		return tree.CtrlInfo, nil, nil
 	}

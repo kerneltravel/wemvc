@@ -17,7 +17,7 @@ type Controller struct {
 	ViewData   map[string]interface{}
 	Items      *CtxItems
 	Server     Server
-	Namespace  NamespaceSection
+	Namespace  Namespace
 	session    SessionStore
 	Context    Context
 }
