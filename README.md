@@ -9,20 +9,19 @@ type HomeController struct {
 	wemvc.Controller
 }
 
-func (this HomeController) Index() wemvc.ActionResult {
+func (this HomeController) Index() *wemvc.Result {
 	return this.Content("hello world!<br/><a href=\"/about\">About</a>", "text/html")
 }
 
-func (this HomeController) GetAbout() wemvc.ActionResult {
+func (this HomeController) GetAbout() *wemvc.Result {
 	obj := make(map[string]interface{})
 	obj["routeData"] = this.RouteData
 	obj["headers"] = this.Request.Header
-	return this.Json(obj)
+	return this.JSON(obj)
 }
 
 func init() {
-	wemvc.Route("/", HomeController{})
-	wemvc.Route("/:action", HomeController{})
+	wemvc.Route("/<action=index>", HomeController{})
 }
 
 func main() {

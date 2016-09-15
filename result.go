@@ -1,14 +1,11 @@
 package wemvc
 
-import (
-	"bytes"
-	"io"
-)
+import "bytes"
 
 // Result define the action result struct
 type Result struct {
-	respFile    string
-	redURL      string
+	respFile string
+	redURL   string
 
 	Writer      *bytes.Buffer
 	StatusCode  int
@@ -24,25 +21,25 @@ func (res *Result) Write(data []byte) {
 	res.Writer.Write(data)
 }
 
+// GetOutput get the output bytes
 func (res *Result) GetOutput() []byte {
 	return res.Writer.Bytes()
 }
 
+// ClearHeader clear the http header
 func (res *Result) ClearHeader() {
 	res.Headers = nil
 }
 
+// ClearOutput clear the output buffer
 func (res *Result) ClearOutput() {
 	res.Writer = nil
 }
 
+// Clear clear the http headers and output buffer
 func (res *Result) Clear() {
 	res.ClearHeader()
 	res.ClearOutput()
-}
-
-func (res *Result) GetWriter() io.Writer {
-	return res.Writer
 }
 
 // NewResult create a blank action result
