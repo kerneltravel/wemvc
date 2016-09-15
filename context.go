@@ -9,7 +9,7 @@ import (
 type Context interface {
 	Response() http.ResponseWriter
 	Request() *http.Request
-	Namespace() Namespace
+	Namespace() NsSection
 	ActionMethod() string
 	ActionName() string
 	CtrlName() string
@@ -65,7 +65,7 @@ func (ctx *context) Server() Server {
 	return ctx.app
 }
 
-func (ctx *context) Namespace() Namespace {
+func (ctx *context) Namespace() NsSection {
 	if len(ctx.ns) == 0 {
 		return nil
 	}

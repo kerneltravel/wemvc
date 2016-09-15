@@ -8,7 +8,7 @@ import (
 )
 
 // CtxHandler the error handler define
-type CtxHandler func(*http.Request) Result
+type CtxHandler func(*http.Request) *Result
 
 // FilterFunc request filter func
 type FilterFunc func(ctx Context)
@@ -31,7 +31,7 @@ func MapPath(virtualPath string) string {
 }
 
 // Namespace return the namespace by name
-func Namespace(ns string) Namespace {
+func Namespace(ns string) NsSection {
 	return defaultServer.Namespace(ns)
 }
 

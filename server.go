@@ -25,7 +25,7 @@ type Server interface {
 	Config() Configuration
 	MapPath(virtualPath string) string
 	//Logger() *log.Logger
-	Namespace(ns string) Namespace
+	Namespace(ns string) NsSection
 	SetRootDir(rootDir string) Server
 	StaticDir(pathPrefix string) Server
 	StaticFile(path string) Server
@@ -252,7 +252,7 @@ func (app *server) SetLogFile(name string) Server {
 }
 */
 
-func (app *server) Namespace(nsName string) Namespace {
+func (app *server) Namespace(nsName string) NsSection {
 	if len(nsName) > 0 {
 		if !strings.HasPrefix(nsName, "/") {
 			nsName = "/" + nsName
