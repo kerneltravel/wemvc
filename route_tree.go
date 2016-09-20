@@ -63,44 +63,60 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		}
 	} else if indexNode.NodeType == param {
 		// deal with dynamic path
-		dynPathSplits := indexNode.PathSplits // the dynamic route paths
-		routeCheckIndex := 0
-		for {
-			// if the target path cursor and the dynamic route cursor both reach the end, it means the target path and the dynamic route path mach
-			if len(curPath) == 0 && routeCheckIndex == len(dynPathSplits) {
-				break
+		var dynPathSplits []string // the dynamic route paths that to be check
+		var str1 string
+		var str2 string
+
+		var checkFunc = func(index int) {
+			if len(dynPathSplits) > 0 {
+				validationStr := curPath[0:index]
+				for _, dynPath := range dynPathSplits {
+					paramName := dynPath[1:len(dynPath)-1]
+					opt := indexNode.Params[paramName]
+					if len(validationStr) == 0 {
+						if !opt.HasDefaultValue {
+							return
+						}
+						routeData[paramName] = opt.DefaultValue
+					} else {
+						validateFunc := tree.funcMap[opt.Validation]
+						if validateFunc == nil {
+							return
+						}
+						data := validateFunc(validationStr, opt)
+						if len(data) == 0 || len(data) > len(validationStr) {
+							return
+						}
+						routeData[paramName] = data
+						validationStr = validationStr[len(data):]
+					}
+				}
 			}
-			if (len(curPath) == 0 && routeCheckIndex != len(dynPathSplits)) || (len(curPath) != 0 && routeCheckIndex == len(dynPathSplits)) {
+			dynPathSplits = nil
+			curPath = curPath[index+len(str1):]
+		}
+
+		for _, p := range indexNode.PathSplits {
+			if tree.isParamPath(p) {
+				dynPathSplits = append(dynPathSplits, p)
+				continue
+			}
+			str1 = p
+			str2 = curPath
+			if !tree.MatchCase {
+				str1 = strings.ToLower(str1)
+				str2 = strings.ToLower(str2)
+			}
+			index := strings.Index(str2, str1)
+			if index == -1 {
 				return
 			}
-			dynPath := dynPathSplits[routeCheckIndex]
-			if tree.isParamPath(dynPath) {
-				paramName := dynPath[1:len(dynPath)-1]
-				opt := indexNode.Params[paramName]
-				checkFunc := tree.funcMap[opt.Validation]
-				if checkFunc == nil {
-					return
-				}
-				data := checkFunc(curPath, opt)
-				if len(data) == 0 {
-					return
-				}
-				routeData[paramName] = data
-				curPath = curPath[len(data):]
-			} else {
-				str1 := curPath
-				str2 := dynPath
-				if !tree.MatchCase {
-					str1 = strings.ToLower(str1)
-					str2 = strings.ToLower(str2)
-				}
-				if strings.HasPrefix(str1, str2) {
-					curPath = curPath[len(dynPath):]
-				} else {
-					return
-				}
-			}
-			routeCheckIndex++
+			checkFunc(index)
+		}
+		str1 = ""
+		checkFunc(len(curPath))
+		if len(curPath) != 0 {
+			return
 		}
 	} else {
 		return
