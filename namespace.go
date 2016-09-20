@@ -61,7 +61,11 @@ func (ns *namespace) Filter(pathPrefix string, filter FilterFunc) NsSection {
 	if !strings.HasSuffix(pathPrefix, "/") {
 		pathPrefix = pathPrefix + "/"
 	}
-	ns.setFilter(ns.name+pathPrefix, filter)
+	prefix := ns.name+pathPrefix
+	if !ns.server.routing.MatchCase {
+		prefix = strings.ToLower(prefix)
+	}
+	ns.setFilter(prefix, filter)
 	return ns
 }
 

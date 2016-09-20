@@ -9,13 +9,12 @@ type filterContainer struct {
 	filters map[string][]FilterFunc
 }
 
-func (fc *filterContainer) execFilters(ctx *context) bool {
+func (fc *filterContainer) execFilters(urlPath string, ctx *context) bool {
 	if len(fc.filters) < 1 {
 		return false
 	}
-	var lowerURL = strings.ToLower(ctx.req.URL.Path)
-	if !strings.HasSuffix(lowerURL, "/") {
-		lowerURL = lowerURL + "/"
+	if !strings.HasSuffix(urlPath, "/") {
+		urlPath = urlPath + "/"
 	}
 	var tmpFilters = fc.filters
 	var keys []string
@@ -24,7 +23,7 @@ func (fc *filterContainer) execFilters(ctx *context) bool {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		if strings.HasPrefix(lowerURL+"/", key) {
+		if strings.HasPrefix(urlPath +"/", key) {
 			for _, f := range tmpFilters[key] {
 				f(ctx)
 			}
@@ -43,5 +42,5 @@ func (fc *filterContainer) setFilter(pathPrefix string, filter FilterFunc) {
 	if fc.filters == nil {
 		fc.filters = make(map[string][]FilterFunc)
 	}
-	fc.filters[strings.ToLower(pathPrefix)] = append(fc.filters[strings.ToLower(pathPrefix)], filter)
+	fc.filters[pathPrefix] = append(fc.filters[pathPrefix], filter)
 }

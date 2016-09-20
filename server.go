@@ -39,7 +39,7 @@ type Server interface {
 	RegSessionProvider(name string, provide SessionProvider) Server
 	NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error)
 	Run(port int)
-	RunForWait(port int)
+	RunTLS(port int, certFile, keyFile string)
 }
 
 type server struct {
@@ -128,14 +128,18 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		ctx = app.execRoute(ctx)
 		if ctx != nil {
 			// execute the global filters
+			urlPath := req.URL.Path
+			if !app.routing.MatchCase {
+				urlPath = strings.ToLower(urlPath)
+			}
 			if len(ctx.ns) < 1 {
-				if app.execFilters(ctx) {
+				if app.execFilters(urlPath, ctx) {
 					return
 				}
 			} else {
 				ns, ok := app.namespaces[ctx.ns]
 				if ok && ns != nil {
-					if ns.execFilters(ctx) {
+					if ns.execFilters(urlPath, ctx) {
 						return
 					}
 				} else {
@@ -228,6 +232,9 @@ func (app *server) Route(routePath string, c interface{}, defaultAction ...strin
 
 func (app *server) Filter(pathPrefix string, filter FilterFunc) Server {
 	app.assertNotLocked()
+	if !app.routing.MatchCase {
+		pathPrefix = strings.ToLower(pathPrefix)
+	}
 	app.setFilter(pathPrefix, filter)
 	return app
 }
@@ -300,12 +307,26 @@ func (app *server) Run(port int) {
 	}
 }
 
-func (app *server) RunForWait(port int) {
-	serverWaiting.Add(1)
-	go func() {
-		app.Run(port)
-		serverWaiting.Done()
-	}()
+func (app *server ) RunTLS(port int, certFile, keyFile string){
+	//app.logWriter().Println("use root dir '" + app.webRoot + "'")
+	err := app.init()
+	if err != nil {
+		//app.logWriter().Println(err.Error())
+		return
+	}
+	app.locked = true
+	app.port = port
+	//host, err := os.Hostname()
+	//if err != nil {
+	//	host = "localhost"
+	//}
+	//app.logWriter().Println(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
+	portStr := fmt.Sprintf(":%d", app.port)
+	err = http.ListenAndServeTLS(portStr, certFile, keyFile, app)
+	if err != nil {
+		//app.logWriter().Println(err.Error())
+		panic(err)
+	}
 }
 
 func (app *server) assertNotLocked() {

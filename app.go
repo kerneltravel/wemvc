@@ -86,6 +86,11 @@ func Run(port int) {
 	defaultServer.Run(port)
 }
 
+// Run run the web application
+func RunTLS(port int, certFile, keyFile string) {
+	defaultServer.RunTLS(port, certFile, keyFile)
+}
+
 // App the application singleton
 var (
 	defaultServer = newServer(WorkingDir())
