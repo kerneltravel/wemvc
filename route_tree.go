@@ -3,17 +3,17 @@ package wemvc
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"runtime"
+	"strings"
 )
 
 type routeTree struct {
 	routeNode
-	funcMap   map[string]RouteFunc
+	funcMap   map[string]RouteValidateFunc
 	MatchCase bool
 }
 
-func (tree *routeTree) addFunc(name string, fun RouteFunc) error {
+func (tree *routeTree) addFunc(name string, fun RouteValidateFunc) error {
 	if len(name) == 0 {
 		return errors.New("The parameter 'name' cannot be empty")
 	}
@@ -71,7 +71,7 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 			if len(dynPathSplits) > 0 {
 				validationStr := curPath[0:index]
 				for _, dynPath := range dynPathSplits {
-					paramName := dynPath[1:len(dynPath)-1]
+					paramName := dynPath[1 : len(dynPath)-1]
 					opt := indexNode.Params[paramName]
 					if len(validationStr) == 0 {
 						if !opt.HasDefaultValue {
@@ -144,9 +144,9 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 			found = true
 		}
 		if found {
-			a,ok := routeMap["action"]
+			a, ok := routeMap["action"]
 			if ok {
-				if ok,_ = ctrl.containsAction(a, method); !ok {
+				if ok, _ = ctrl.containsAction(a, method); !ok {
 					return false, nil, nil
 				}
 			}
@@ -161,9 +161,9 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		ok, result, rd := tree.lookupDepth(child, pathLength, urlParts, method, endWithSlash)
 		if ok {
 			if rd != nil && len(rd) > 0 {
-				if _,ok = rd["pathInfo"];ok {
-					if a,ok := rd["action"];ok {
-						if ok,_ = result.containsAction(a, method); !ok {
+				if _, ok = rd["pathInfo"]; ok {
+					if a, ok := rd["action"]; ok {
+						if ok, _ = result.containsAction(a, method); !ok {
 							return false, nil, nil
 						}
 					}
@@ -185,7 +185,7 @@ func (tree *routeTree) lookup(urlPath, method string) (*controllerInfo, map[stri
 	if urlPath == "/" {
 		ctrl := tree.CtrlInfo
 		if ctrl == nil {
-			f,c,r := tree.detectDefault(method)
+			f, c, r := tree.detectDefault(method)
 			if f {
 				return c, r, nil
 			} else {
@@ -238,11 +238,12 @@ func (tree *routeTree) addRoute(routePath string, ctrlInfo *controllerInfo) erro
 
 func newRouteTree() *routeTree {
 	var node = &routeTree{
-		funcMap: map[string]RouteFunc{
-			"int":    intCheck,
-			"string": stringCheck,
-			"word":   wordCheck,
-			"enum":   enumCheck,
+		funcMap: map[string]RouteValidateFunc{
+			"int":    validateInt,
+			"any":    validateAny,
+			"word":   validateWord,
+			"enum":   validateEnum,
+			"action": validateActionName,
 		},
 	}
 	node.NodeType = root

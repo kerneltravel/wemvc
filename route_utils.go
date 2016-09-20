@@ -159,12 +159,20 @@ func analyzeParamOption(path string) ([]string, map[string]RouteOption, error) {
 			// paramOptionStr: the route param option
 			paramOptionStr := ""
 			if len(splits) == 1 {
-				paramOptionStr = "string"
+				if paramName == "action" {
+					paramOptionStr = "action"
+				} else {
+					paramOptionStr = "any"
+				}
 			}
 			if len(splits) == 2 {
 				paramOptionStr = splits[1]
 				if len(paramOptionStr) == 0 {
-					paramOptionStr = "string"
+					if paramName == "action" {
+						paramOptionStr = "action"
+					} else {
+						paramOptionStr = "any"
+					}
 				}
 			} else if len(splits) > 2 {
 				return nil, nil, errors.New("Invalid route parameter setting: " + sp)

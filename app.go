@@ -41,7 +41,7 @@ func AddViewFunc(name string, f interface{}) {
 }
 
 // AddRouteFunc add the route analyze helper function to server
-func AddRouteFunc(name string, f RouteFunc) {
+func AddRouteFunc(name string, f RouteValidateFunc) {
 	defaultServer.AddRouteFunc(name, f)
 }
 

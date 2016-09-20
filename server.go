@@ -35,7 +35,7 @@ type Server interface {
 	//SetLogFile(name string) Server
 	SetViewExt(ext string) Server
 	AddViewFunc(name string, f interface{}) Server
-	AddRouteFunc(name string, fun RouteFunc) Server
+	AddRouteFunc(name string, fun RouteValidateFunc) Server
 	RegSessionProvider(name string, provide SessionProvider) Server
 	NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error)
 	Run(port int)
@@ -207,7 +207,7 @@ func (app *server) AddViewFunc(name string, f interface{}) Server {
 	return app
 }
 
-func (app *server) AddRouteFunc(name string, f RouteFunc) Server {
+func (app *server) AddRouteFunc(name string, f RouteValidateFunc) Server {
 	app.assertNotLocked()
 	err := app.routing.addFunc(name, f)
 	if err != nil {
@@ -629,6 +629,9 @@ func (app *server) handleDynamic(ctx *context) *Result {
 	values := m.Call(nil)
 	if len(values) == 1 {
 		var result = values[0].Interface()
+		if result == nil {
+			return NewResult()
+		}
 		value, valid := result.(*Result)
 		if !valid {
 			value = NewResult()
