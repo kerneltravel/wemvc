@@ -23,7 +23,7 @@ func (fc *filterContainer) execFilters(urlPath string, ctx *context) bool {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		if strings.HasPrefix(urlPath +"/", key) {
+		if strings.HasPrefix(urlPath+"/", key) {
 			for _, f := range tmpFilters[key] {
 				f(ctx)
 			}

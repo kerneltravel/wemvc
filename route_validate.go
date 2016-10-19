@@ -1,8 +1,8 @@
 package wemvc
 
 import (
-	"strings"
 	"regexp"
+	"strings"
 )
 
 // RouteFunc define the route check function
@@ -35,7 +35,7 @@ func validateInt(urlPath string, opt RouteOption) string {
 }
 
 var (
-	wordReg,_ = regexp.Compile("^[\\w]+")
+	wordReg, _ = regexp.Compile("^[\\w]+")
 )
 
 func validateWord(urlPath string, opt RouteOption) string {
@@ -60,7 +60,7 @@ func validateEnum(urlPath string, opt RouteOption) string {
 }
 
 var (
-	acReg,_ = regexp.Compile("^[a-zA-Z0-9_]+(-[a-zA-Z0-9_]+)*")
+	acReg, _ = regexp.Compile("^[a-zA-Z0-9_]+(-[a-zA-Z0-9_]+)*")
 )
 
 func validateActionName(urlPath string, opt RouteOption) string {

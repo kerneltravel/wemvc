@@ -43,16 +43,16 @@ type Server interface {
 }
 
 type server struct {
-	errorHandlers   map[int]CtxHandler
-	port            int
-	webRoot         string
-	config          *config
-	routing         *routeTree
-	watcher         *fsWatcher
-	locked          bool
-	staticPaths     []string
-	staticFiles     []string
-	globalSession   *SessionManager
+	errorHandlers map[int]CtxHandler
+	port          int
+	webRoot       string
+	config        *config
+	routing       *routeTree
+	watcher       *fsWatcher
+	locked        bool
+	staticPaths   []string
+	staticFiles   []string
+	globalSession *SessionManager
 	//logger          *log.Logger
 	namespaces      map[string]*namespace
 	sessionProvides map[string]SessionProvider
@@ -307,7 +307,7 @@ func (app *server) Run(port int) {
 	}
 }
 
-func (app *server ) RunTLS(port int, certFile, keyFile string){
+func (app *server) RunTLS(port int, certFile, keyFile string) {
 	//app.logWriter().Println("use root dir '" + app.webRoot + "'")
 	err := app.init()
 	if err != nil {
@@ -591,7 +591,7 @@ func (app *server) execRoute(ctx *context) *context {
 		}
 		var method = strings.ToLower(ctx.req.Method)
 		// find the action method in controller
-		if ok,actionMethod := cInfo.containsAction(action, method); ok {
+		if ok, actionMethod := cInfo.containsAction(action, method); ok {
 			ctx.routeData = routeData
 			ctx.actionName = action
 			ctx.ctrlType = cInfo.CtrlType
@@ -641,11 +641,11 @@ func (app *server) handleDynamic(ctx *context) *Result {
 		return nil
 	}
 	/*
-	if len(ctx.ns) < 1 {
-		app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\"}")
-	} else {
-		app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\",\"namespace\":\""+ctx.ns+"\"}")
-	}
+		if len(ctx.ns) < 1 {
+			app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\"}")
+		} else {
+			app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\",\"namespace\":\""+ctx.ns+"\"}")
+		}
 	*/
 	values := m.Call(nil)
 	if len(values) == 1 {

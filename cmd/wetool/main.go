@@ -146,14 +146,14 @@ func newNs(name string) {
 }
 
 func newCtrl(ctrlName string) {
-	ctrlValidation,_ := regexp.Compile("^[a-zA-Z]+[a-zA-Z0-9_]*$")
+	ctrlValidation, _ := regexp.Compile("^[a-zA-Z]+[a-zA-Z0-9_]*$")
 	if !ctrlValidation.Match([]byte(ctrlName)) || strings.ToLower(ctrlName) == "controller" {
 		println("wetool: invalid ctroller name: " + ctrlName)
 		return
 	}
 	var fileName string
 	var data = make(map[string]string)
-	ctrlReplaceReg,_  := regexp.Compile("[Cc][Oo][Nn][Tt][Rr][Oo][Ll][Ll][Ee][Rr]$")
+	ctrlReplaceReg, _ := regexp.Compile("[Cc][Oo][Nn][Tt][Rr][Oo][Ll][Ll][Ee][Rr]$")
 	ctrlNameFix := string(ctrlReplaceReg.ReplaceAll([]byte(ctrlName), nil))
 	fileName = ctrlNameFix + "Controller.go"
 	structName := strings.ToUpper(ctrlNameFix[0:1]) + ctrlNameFix[1:]
@@ -165,11 +165,11 @@ func newCtrl(ctrlName string) {
 		println("wetool: controller file is already exist: " + fileName)
 		return
 	}
-	fInfo,err := os.Stat(ctrlDir)
+	fInfo, err := os.Stat(ctrlDir)
 	if err != nil {
 		os.MkdirAll(ctrlDir, 0777)
 	} else if fInfo.IsDir() {
-		ctrlTpl,_ := template.New("Ctrl").Parse(tplCtrlFile)
+		ctrlTpl, _ := template.New("Ctrl").Parse(tplCtrlFile)
 		buf := &bytes.Buffer{}
 		err = ctrlTpl.Execute(buf, data)
 		if err != nil {
@@ -177,7 +177,7 @@ func newCtrl(ctrlName string) {
 			return
 		} else {
 			println("wetool: create new controller \"" + ctrlNameFix + "\"")
-			ioutil.WriteFile(ctrlDir + fileName, buf.Bytes(), 0777)
+			ioutil.WriteFile(ctrlDir+fileName, buf.Bytes(), 0777)
 		}
 	}
 }
@@ -185,7 +185,6 @@ func newCtrl(ctrlName string) {
 var (
 	dir       = wemvc.WorkingDir()
 	goPathSrc string
-	pkgName   string
 	pkgPath   string
 )
 
@@ -206,10 +205,6 @@ func main() {
 	}
 	pkgPath = dir[len(goPathSrc)+1:]
 	pkgPath = strings.Replace(pkgPath, "\\", "/", -1)
-	slashIndex := strings.Index(pkgPath, "/")
-	if slashIndex >= 0 {
-		pkgName = pkgPath[slashIndex+1:]
-	}
 	cmdName, args := getCmdType()
 	if cmdName == cmdEmpty {
 		showHelp()

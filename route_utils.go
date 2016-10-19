@@ -234,7 +234,7 @@ func analyzeParamOption(path string) ([]string, map[string]RouteOption, error) {
 				}
 			}
 			optionMap[paramName] = opt
-			paramPath = append(paramPath, paramBeginStr + paramName + paramEndStr)
+			paramPath = append(paramPath, paramBeginStr+paramName+paramEndStr)
 		} else {
 			paramPath = append(paramPath, sp)
 		}

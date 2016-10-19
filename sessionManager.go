@@ -86,12 +86,12 @@ func (manager *SessionManager) sessionID() (string, error) {
 	uuid := NewUUID()
 	return uuid.ShortString(), nil
 	/*
-	b := make([]byte, manager.config.SessionIDLength)
-	n, err := rand.Read(b)
-	if n != len(b) || err != nil {
-		return "", errors.New("Could not successfully read from the system CSPRNG.")
-	}
-	return hex.EncodeToString(b), nil
+		b := make([]byte, manager.config.SessionIDLength)
+		n, err := rand.Read(b)
+		if n != len(b) || err != nil {
+			return "", errors.New("Could not successfully read from the system CSPRNG.")
+		}
+		return hex.EncodeToString(b), nil
 	*/
 }
 
@@ -149,7 +149,7 @@ func (manager *SessionManager) SessionDestroy(w http.ResponseWriter, r *http.Req
 	if manager.config.EnableSetCookie {
 		expiration := time.Now()
 		cookie = &http.Cookie{
-			Name: manager.config.CookieName,
+			Name:     manager.config.CookieName,
 			Path:     "/",
 			HttpOnly: true,
 			Expires:  expiration,

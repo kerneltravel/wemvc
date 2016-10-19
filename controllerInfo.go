@@ -19,15 +19,15 @@ func (ctrlInfo *controllerInfo) containsAction(actionName, method string) (bool,
 		return false, ""
 	}
 	actionName = strings.Replace(strings.ToLower(actionName), "-", "_", -1)
-	methodName,ok := ctrlInfo.Actions[method + actionName]
+	methodName, ok := ctrlInfo.Actions[method+actionName]
 	if ok {
 		return true, methodName
 	}
-	methodName,ok = ctrlInfo.Actions[method + "_" + actionName]
+	methodName, ok = ctrlInfo.Actions[method+"_"+actionName]
 	if ok {
 		return true, methodName
 	}
-	methodName,ok = ctrlInfo.Actions[actionName]
+	methodName, ok = ctrlInfo.Actions[actionName]
 	if ok {
 		return true, methodName
 	}
@@ -53,8 +53,8 @@ func newControllerInfo(app *server, namespace string, t reflect.Type, defaultAct
 		if !strings.HasSuffix(methodType, "wemvc.Result") && !strings.HasSuffix(methodType, "interface {}") {
 			//app.logWriter().Println("    Ignore method", methodName)
 			continue
-		//} else {
-		//	app.logWriter().Println("    Found action method", methodName)
+			//} else {
+			//	app.logWriter().Println("    Found action method", methodName)
 		}
 		methods = append(methods, methodName)
 	}

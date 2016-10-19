@@ -133,7 +133,7 @@ func (ctrl *Controller) XML(data interface{}) *Result {
 func (ctrl *Controller) File(path string, cntType string) *Result {
 	var resp = &Result{
 		StatusCode:  200,
-		respFile:     path,
+		respFile:    path,
 		ContentType: cntType,
 	}
 	return resp
