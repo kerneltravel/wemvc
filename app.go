@@ -94,7 +94,6 @@ func RunTLS(port int, certFile, keyFile string) {
 // App the application singleton
 var (
 	defaultServer = newServer(WorkingDir())
-	serverWaiting = sync.WaitGroup{}
 )
 
 // WorkingDir get the current working directory
