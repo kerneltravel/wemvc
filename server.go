@@ -12,7 +12,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	//"log"
+	"github.com/howeyc/fsnotify"
 	"runtime/debug"
 
 	"container/list"
@@ -48,7 +48,7 @@ type server struct {
 	webRoot       string
 	config        *config
 	routing       *routeTree
-	watcher       *fsWatcher
+	watcher       *fsnotify.Watcher
 	locked        bool
 	staticPaths   []string
 	staticFiles   []string
@@ -378,7 +378,7 @@ func (app *server) init() error {
 	app.errorHandlers[404] = app.error404
 	app.errorHandlers[403] = app.error403
 	// init fsnotify watcher
-	w, err := newWatcher()
+	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return err
 	}
