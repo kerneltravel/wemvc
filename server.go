@@ -222,7 +222,7 @@ func (app *server) AddRouteFunc(name string, f RouteValidateFunc) Server {
 
 func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Server {
 	app.assertNotLocked()
-	var action = "index"
+	action := "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
 		action = defaultAction[0]
 	}
@@ -336,7 +336,7 @@ func (app *server) assertNotLocked() {
 }
 
 func (app *server) route(namespace string, routePath string, c interface{}, action string) {
-	var t = reflect.TypeOf(c)
+	t := reflect.TypeOf(c)
 	cInfo := newControllerInfo(app, namespace, t, action)
 	if app.routing == nil {
 		app.routing = newRouteTree()
@@ -358,12 +358,12 @@ func (app *server) flushRequest(r *Result, w http.ResponseWriter, req *http.Requ
 	for k, v := range r.Headers {
 		w.Header().Add(k, v)
 	}
-	var contentType = fmt.Sprintf("%s;charset=%s", r.ContentType, r.Encoding)
+	contentType := fmt.Sprintf("%s;charset=%s", r.ContentType, r.Encoding)
 	w.Header().Add("Content-Type", contentType)
 	if r.StatusCode != 200 {
 		w.WriteHeader(r.StatusCode)
 	}
-	var output = r.GetOutput()
+	output := r.GetOutput()
 	if len(output) > 0 {
 		w.Write(r.GetOutput())
 	}
@@ -384,8 +384,8 @@ func (app *server) init() error {
 	}
 	app.watcher = w
 	// load & watch the global config files
-	var globalConfigFile = app.MapPath("/config.xml")
-	var config = &config{svr: app}
+	globalConfigFile := app.MapPath("/config.xml")
+	config := &config{svr: app}
 	if config.loadFile(globalConfigFile) {
 		err = app.watcher.Watch(globalConfigFile)
 		if err != nil {
@@ -394,7 +394,7 @@ func (app *server) init() error {
 	}
 	app.config = config
 	// build the view template and watch the changes
-	var viewDir = app.viewFolder()
+	viewDir := app.viewFolder()
 	if IsDir(viewDir) {
 		app.compileViews(viewDir)
 		//app.logWriter().Println("compile view files in dir", viewDir)
@@ -450,7 +450,7 @@ func (app *server) watchFile() {
 			lowerStrFile := strings.ToLower(strFile)
 			if app.isConfigFile(strFile) {
 				//app.logWriter().Println("config file", strFile, "has been changed")
-				var conf = &config{svr: app}
+				conf := &config{svr: app}
 				if conf.loadFile(strFile) {
 					app.config = conf
 				}
@@ -511,7 +511,7 @@ func (app *server) isNsConfigFile(f string) bool {
 }
 
 func (app *server) isInViewFolder(f string) bool {
-	var viewPath = app.viewFolder()
+	viewPath := app.viewFolder()
 	return strings.HasPrefix(f, viewPath)
 }
 
@@ -535,7 +535,7 @@ func (app *server) isStaticRequest(url string) bool {
 
 func (app *server) serveStaticFile(ctx *context) (ended bool) {
 	ended = false
-	var physicalFile = ""
+	physicalFile := ""
 	var f = app.MapPath(ctx.req.URL.Path)
 	stat, err := os.Stat(f)
 	if err != nil {

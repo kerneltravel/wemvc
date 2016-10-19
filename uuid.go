@@ -19,8 +19,8 @@ func (uuid UUID) String() string {
 		return ""
 	}
 	bytes := []byte(uuid)
-	var s = fmt.Sprintf("{%x-%x-%x-%x-%x}", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
-	return strings.ToUpper(s)
+	str := fmt.Sprintf("{%x-%x-%x-%x-%x}", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
+	return strings.ToUpper(str)
 }
 
 // ShortString print the uuid as short string like 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
@@ -29,8 +29,8 @@ func (uuid UUID) ShortString() string {
 		return ""
 	}
 	bytes := []byte(uuid)
-	var s = fmt.Sprintf("%x%x%x%x%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
-	return strings.ToUpper(s)
+	str := fmt.Sprintf("%x%x%x%x%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
+	return strings.ToUpper(str)
 }
 
 func uuidRandBytes() UUID {
@@ -38,8 +38,7 @@ func uuidRandBytes() UUID {
 	if _, err := io.ReadFull(rand.Reader, b); err != nil {
 		return nil
 	}
-	var uuidBytes = md5Bytes(base64.URLEncoding.EncodeToString(b))
-	return uuidBytes
+	return md5Bytes(base64.URLEncoding.EncodeToString(b))
 }
 
 // NewUUID make a UUID String

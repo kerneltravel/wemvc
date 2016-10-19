@@ -86,7 +86,7 @@ func (vc *viewContainer) renderView(viewPath string, viewData interface{}) (temp
 	if tpl.tpl == nil {
 		panic(errViewPathNotFound(viewPath))
 	}
-	var buf = &bytes.Buffer{}
+	buf := &bytes.Buffer{}
 	err := tpl.tpl.Execute(buf, viewData)
 	if err != nil {
 		panic(err)

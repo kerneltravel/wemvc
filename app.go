@@ -95,12 +95,3 @@ func RunTLS(port int, certFile, keyFile string) {
 var (
 	defaultServer = newServer(WorkingDir())
 )
-
-// WorkingDir get the current working directory
-func WorkingDir() string {
-	p, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-	return p
-}

@@ -73,7 +73,7 @@ func checkRoutePath(path string) error {
 			if len(paramChars) == 0 {
 				return fmt.Errorf("Invalid route parameter '<>' or the route parameter has no begining tag '<': %d", i)
 			}
-			var curParam = strings.Split(string(paramChars), ":")[0]
+			curParam := strings.Split(string(paramChars), ":")[0]
 			for _, tmp := range routeParams {
 				if tmp == curParam {
 					return fmt.Errorf("Duplicate route param '%s': %d", curParam, i)

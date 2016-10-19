@@ -33,3 +33,12 @@ func IsFile(path string) bool {
 	}
 	return !state.IsDir()
 }
+
+// WorkingDir get the current working directory
+func WorkingDir() string {
+	p, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
