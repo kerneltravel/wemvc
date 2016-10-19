@@ -1,10 +1,7 @@
 package wemvc
 
 import (
-	//"log"
 	"net/http"
-	"os"
-	"sync"
 )
 
 // CtxHandler the error handler define
@@ -15,83 +12,83 @@ type FilterFunc func(ctx Context)
 
 // RootDir get the root file path of the web server
 func RootDir() string {
-	return defaultServer.RootDir()
+	return svr.RootDir()
 }
 
 // Config get the config data
 func Config() Configuration {
-	return defaultServer.Config()
+	return svr.Config()
 }
 
 // MapPath Returns the physical file path that corresponds to the specified virtual path.
 // @param virtualPath: the virtual path starts with
 // @return the absolute file path
 func MapPath(virtualPath string) string {
-	return defaultServer.MapPath(virtualPath)
+	return svr.MapPath(virtualPath)
 }
 
 // Namespace return the namespace by name
 func Namespace(ns string) NsSection {
-	return defaultServer.Namespace(ns)
+	return svr.Namespace(ns)
 }
 
 // AddViewFunc add the view func map
 func AddViewFunc(name string, f interface{}) {
-	defaultServer.AddViewFunc(name, f)
+	svr.AddViewFunc(name, f)
 }
 
 // AddRouteFunc add the route analyze helper function to server
 func AddRouteFunc(name string, f RouteValidateFunc) {
-	defaultServer.AddRouteFunc(name, f)
+	svr.AddRouteFunc(name, f)
 }
 
 // SetRootDir set the webroot of the web application
 func SetRootDir(rootDir string) {
-	defaultServer.SetRootDir(rootDir)
+	svr.SetRootDir(rootDir)
 }
 
 // SetViewExt set the view file extension
 func SetViewExt(ext string) {
-	defaultServer.SetViewExt(ext)
+	svr.SetViewExt(ext)
 }
 
 // StaticDir set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
 func StaticDir(pathPrefix string) {
-	defaultServer.StaticDir(pathPrefix)
+	svr.StaticDir(pathPrefix)
 }
 
 // StaticFile serve the path as static file
 func StaticFile(path string) {
-	defaultServer.StaticFile(path)
+	svr.StaticFile(path)
 }
 
 // HandleError handle the error code with the error handler
 func HandleError(errorCode int, handler CtxHandler) {
-	defaultServer.HandleError(errorCode, handler)
+	svr.HandleError(errorCode, handler)
 }
 
 // Route set the route rule
 func Route(routePath string, c interface{}, defaultAction ...string) {
-	defaultServer.Route(routePath, c, defaultAction...)
+	svr.Route(routePath, c, defaultAction...)
 }
 
 // Filter set the route filter
 func Filter(pathPrefix string, filter FilterFunc) {
-	defaultServer.Filter(pathPrefix, filter)
+	svr.Filter(pathPrefix, filter)
 }
 
 // Run run the web application
 func Run(port int) {
-	defaultServer.Run(port)
+	svr.Run(port)
 }
 
 // Run run the web application
 func RunTLS(port int, certFile, keyFile string) {
-	defaultServer.RunTLS(port, certFile, keyFile)
+	svr.RunTLS(port, certFile, keyFile)
 }
 
 // App the application singleton
 var (
-	defaultServer = newServer(WorkingDir())
+	svr = newServer(WorkingDir())
 )
