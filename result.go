@@ -14,9 +14,6 @@ type RedirectResult struct {
 
 // Result define the action result struct
 type Result struct {
-	respFile string
-	redURL   string
-
 	Writer      *bytes.Buffer
 	StatusCode  int
 	ContentType string
