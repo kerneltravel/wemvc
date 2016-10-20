@@ -5,117 +5,81 @@ import (
 	"reflect"
 )
 
-// Context the request context interface
-type Context interface {
-	Response() http.ResponseWriter
-	Request() *http.Request
-	Namespace() NsSection
-	ActionMethod() string
-	ActionName() string
-	CtrlName() string
-	RouteData() map[string]string
-	CtxItems() *CtxItems
-	Server() Server
-	EndContext()
+type CtxRoute struct {
+	RouteUrl  string
+	RouteData map[string]string
+	NsName    string
 }
 
-// CtxItems the context item struct
-type CtxItems struct {
-	items map[string]interface{}
+type CtxController struct {
+	ControllerName string
+	ControllerType reflect.Type
+
+	ActionName       string
+	ActionMethodName string
+	ActionMethod     reflect.Value
 }
 
-// Get the the data from the context item map
-func (ci *CtxItems) Get(key string) interface{} {
-	return ci.items[key]
-}
+type Context struct {
+	req      *http.Request
+	w        http.ResponseWriter
+	ctxItems *CtxItems
+	app      *server
+	ended    bool
 
-// Set add data to the context item map
-func (ci *CtxItems) Set(key string, data interface{}) {
-	ci.items[key] = data
-}
-
-// Clear clear the context item map
-func (ci *CtxItems) Clear() {
-	ci.items = nil
-}
-
-// Delete delete data from the context item map and return the deleted data
-func (ci *CtxItems) Delete(key string) interface{} {
-	data, ok := ci.items[key]
-	if ok {
-		delete(ci.items, key)
-	}
-	return data
-}
-
-type context struct {
-	req          *http.Request
-	w            http.ResponseWriter
-	ctrlType     reflect.Type
-	ns           string
-	actionMethod string
-	actionName   string
-	ctrlName     string
-	routeData    map[string]string
-	ctxItems     *CtxItems
-	app          *server
-}
-
-func (ctx *context) Server() Server {
-	return ctx.app
-}
-
-func (ctx *context) Namespace() NsSection {
-	if len(ctx.ns) == 0 {
-		return nil
-	}
-	return ctx.app.namespaces[ctx.ns]
-}
-
-func (ctx *context) ActionMethod() string {
-	return ctx.actionMethod
-}
-
-func (ctx *context) ActionName() string {
-	return ctx.actionName
-}
-
-func (ctx *context) CtrlName() string {
-	return ctx.ctrlName
-}
-
-// Response get the response info
-func (ctx *context) Response() http.ResponseWriter {
-	if ctx.w == nil {
-		panic(errRespEmpty)
-	}
-	return ctx.w
+	Route  *CtxRoute
+	Ctrl   *CtxController
+	Result interface{}
 }
 
 /// Request get the request info
-func (ctx *context) Request() *http.Request {
+func (ctx *Context) Request() *http.Request {
 	if ctx.req == nil {
 		panic(errReqEmpty)
 	}
 	return ctx.req
 }
 
-// RouteData get the route data
-func (ctx *context) RouteData() map[string]string {
-	if ctx.routeData == nil {
-		ctx.routeData = make(map[string]string)
+// Response get the response info
+func (ctx *Context) Response() http.ResponseWriter {
+	if ctx.w == nil {
+		panic(errRespEmpty)
 	}
-	return ctx.routeData
+	return ctx.w
+}
+
+func (ctx *Context) Server() Server {
+	return ctx.app
 }
 
 // GetItem get the context item
-func (ctx *context) CtxItems() *CtxItems {
+func (ctx *Context) CtxItems() *CtxItems {
 	if ctx.ctxItems == nil {
 		ctx.ctxItems = &CtxItems{items: make(map[string]interface{})}
 	}
 	return ctx.ctxItems
 }
 
-func (ctx *context) EndContext() {
+func (ctx *Context) Namespace() NsSection {
+	if ctx.Route == nil || len(ctx.Route.NsName) == 0 {
+		return nil
+	}
+	return ctx.app.namespaces[ctx.Route.NsName]
+}
+
+// RouteData get the route data
+func (ctx *Context) RouteData() map[string]string {
+	if ctx.Route == nil || ctx.Route.RouteData == nil {
+		return nil
+	}
+	return ctx.Route.RouteData
+}
+
+func (ctx *Context) EndRequest() {
 	panic(&errEndRequest{})
+}
+
+// EndContext end the request context now
+func (ctx *Context) EndContext() {
+	ctx.ended = true
 }

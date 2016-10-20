@@ -6,7 +6,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"encoding/json"
@@ -26,17 +25,18 @@ type Server interface {
 	MapPath(virtualPath string) string
 	//Logger() *log.Logger
 	Namespace(ns string) NsSection
-	SetRootDir(rootDir string) Server
-	StaticDir(pathPrefix string) Server
-	StaticFile(path string) Server
-	HandleError(errorCode int, handler CtxHandler) Server
-	Route(routePath string, c interface{}, defaultAction ...string) Server
-	Filter(pathPrefix string, filter FilterFunc) Server
+	SetRootDir(rootDir string)
+	StaticDir(pathPrefix string)
+	StaticFile(path string)
+	HandleError(errorCode int, handler CtxHandler)
+	Route(routePath string, c interface{}, defaultAction ...string)
+	SetPathFilter(pathPrefix string, filter CtxFilter)
+	SetGlobalFilter(filters []CtxFilter)
 	//SetLogFile(name string) Server
-	SetViewExt(ext string) Server
-	AddViewFunc(name string, f interface{}) Server
-	AddRouteFunc(name string, fun RouteValidateFunc) Server
-	RegSessionProvider(name string, provide SessionProvider) Server
+	SetViewExt(ext string)
+	AddViewFunc(name string, f interface{})
+	AddRouteFunc(name string, fun RouteValidateFunc)
+	RegSessionProvider(name string, provide SessionProvider)
 	NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error)
 	Run(port int)
 	RunTLS(port int, certFile, keyFile string)
@@ -56,6 +56,7 @@ type server struct {
 	//logger          *log.Logger
 	namespaces      map[string]*namespace
 	sessionProvides map[string]SessionProvider
+	globalFilters   []CtxFilter
 	viewContainer
 	filterContainer
 }
@@ -77,20 +78,20 @@ func (app *server) MapPath(virtualPath string) string {
 }
 
 // SetRootDir set the root directory of the web application
-func (app *server) SetRootDir(rootDir string) Server {
+func (app *server) SetRootDir(rootDir string) {
 	app.assertNotLocked()
 	if !IsDir(rootDir) {
 		panic(errInvalidRoot)
 	}
 	app.webRoot = rootDir
-	return app
+	//return app
 }
 
 // SetViewExt set the view file extension
-func (app *server) SetViewExt(ext string) Server {
+func (app *server) SetViewExt(ext string) {
 	app.assertNotLocked()
 	if len(ext) < 1 || !strings.HasPrefix(ext, ".") {
-		return app
+		return
 	}
 	if runtime.GOOS == "windows" {
 		app.viewExt = strings.ToLower(ext)
@@ -102,67 +103,33 @@ func (app *server) SetViewExt(ext string) Server {
 			ns.viewDir = app.viewDir
 		}
 	}
-	return app
+	//return app
 }
 
 // ServeHTTP serve the
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// handle 500 errors
 	defer app.panicRecover(w, req)
-
-	// var lowerURL = strings.ToLower(req.URL.Path)
-	var ctx = &context{
+	var ctx = &Context{
 		req: req,
 		w:   w,
 		app: app,
 	}
-	var result *Result
-	// serve the static file
-	if app.isStaticRequest(req.URL.Path) {
-		if app.serveStaticFile(ctx) {
-			return
-		}
-		goto error404
-	} else {
-		// serve the dynamic page
-		ctx = app.execRoute(ctx)
-		if ctx != nil {
-			// execute the global filters
-			urlPath := req.URL.Path
-			if !app.routing.MatchCase {
-				urlPath = strings.ToLower(urlPath)
+	if len(app.globalFilters) > 0 {
+		for _, filter := range app.globalFilters {
+			filter(ctx)
+			if ctx.ended {
+				break
 			}
-			if len(ctx.ns) < 1 {
-				if app.execFilters(urlPath, ctx) {
-					return
-				}
-			} else {
-				ns, ok := app.namespaces[ctx.ns]
-				if ok && ns != nil {
-					if ns.execFilters(urlPath, ctx) {
-						return
-					}
-				} else {
-					result = nil
-					goto error404
-				}
-			}
-			result = app.handleDynamic(ctx)
 		}
-	}
-	// handle error 404
-error404:
-	if result == nil {
-		result = app.handleError(req, 404)
 	}
 	// process the dynamic result
-	app.flushRequest(result, w, req)
-	result = nil
+	app.flushRequest(w, req, ctx.Result)
 }
 
 // AddStatic set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
-func (app *server) StaticDir(pathPrefix string) Server {
+func (app *server) StaticDir(pathPrefix string) {
 	app.assertNotLocked()
 	if len(pathPrefix) < 1 {
 		panic(errPathPrefix)
@@ -177,10 +144,9 @@ func (app *server) StaticDir(pathPrefix string) Server {
 		pathPrefix = strings.ToLower(pathPrefix)
 	}
 	app.staticPaths = append(app.staticPaths, pathPrefix)
-	return app
 }
 
-func (app *server) StaticFile(path string) Server {
+func (app *server) StaticFile(path string) {
 	app.assertNotLocked()
 	if len(path) < 1 {
 		panic(errPathPrefix)
@@ -195,69 +161,50 @@ func (app *server) StaticFile(path string) Server {
 		path = strings.ToLower(path)
 	}
 	app.staticFiles = append(app.staticFiles, path)
-	return app
 }
 
-func (app *server) HandleError(errorCode int, handler CtxHandler) Server {
+func (app *server) HandleError(errorCode int, handler CtxHandler) {
 	app.assertNotLocked()
 	app.errorHandlers[errorCode] = handler
-	return app
 }
 
-func (app *server) AddViewFunc(name string, f interface{}) Server {
+func (app *server) AddViewFunc(name string, f interface{}) {
 	app.assertNotLocked()
 	app.addViewFunc(name, f)
-	//app.logWriter().Println("add view func:", name)
-	return app
 }
 
-func (app *server) AddRouteFunc(name string, f RouteValidateFunc) Server {
+func (app *server) AddRouteFunc(name string, f RouteValidateFunc) {
 	app.assertNotLocked()
 	err := app.routing.addFunc(name, f)
 	if err != nil {
 		panic(err)
 	}
-	return app
 }
 
-func (app *server) Route(routePath string, c interface{}, defaultAction ...string) Server {
+func (app *server) Route(routePath string, c interface{}, defaultAction ...string) {
 	app.assertNotLocked()
 	action := "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
 		action = defaultAction[0]
 	}
 	app.route("", routePath, c, action)
-	return app
 }
 
-func (app *server) Filter(pathPrefix string, filter FilterFunc) Server {
+func (app *server) SetPathFilter(pathPrefix string, filter CtxFilter) {
 	app.assertNotLocked()
 	if !app.routing.MatchCase {
 		pathPrefix = strings.ToLower(pathPrefix)
 	}
 	app.setFilter(pathPrefix, filter)
-	return app
 }
 
-/*
-func (app *server) Logger() *log.Logger {
-	return app.logWriter()
-}
-*/
-
-/*
-func (app *server) SetLogFile(name string) Server {
+func (app *server) SetGlobalFilter(filters []CtxFilter) {
 	app.assertNotLocked()
-	file, err := os.Create(name)
-	if err != nil {
-		log.Fatal(err.Error())
-		return app
+	if len(filters) < 1 {
+		return
 	}
-	logger := log.New(file, "", log.LstdFlags|log.Llongfile)
-	app.logger = logger
-	return app
+	app.globalFilters = filters
 }
-*/
 
 func (app *server) Namespace(nsName string) NsSection {
 	if len(nsName) > 0 {
@@ -345,27 +292,95 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	app.routing.addRoute(routePath, cInfo)
 }
 
-func (app *server) flushRequest(r *Result, w http.ResponseWriter, req *http.Request) {
-	if len(r.respFile) > 0 {
-		http.ServeFile(w, req, r.respFile)
+func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result interface{}) {
+	if result == nil {
+		result = app.handleError(req, 404)
+	}
+	switch result.(type) {
+	case FileResult:
+		http.ServeFile(w, req, result.(FileResult).FilePath)
 		return
-	}
-	if len(r.redURL) > 0 {
-		http.Redirect(w, req, r.redURL, r.StatusCode)
+	case *FileResult:
+		http.ServeFile(w, req, result.(*FileResult).FilePath)
 		return
-	}
-	// write the result to browser
-	for k, v := range r.Headers {
-		w.Header().Add(k, v)
-	}
-	contentType := fmt.Sprintf("%s;charset=%s", r.ContentType, r.Encoding)
-	w.Header().Add("Content-Type", contentType)
-	if r.StatusCode != 200 {
-		w.WriteHeader(r.StatusCode)
-	}
-	output := r.GetOutput()
-	if len(output) > 0 {
-		w.Write(r.GetOutput())
+	case RedirectResult:
+		res := result.(RedirectResult)
+		if res.StatusCode != 301 {
+			res.StatusCode = 302
+		}
+		http.Redirect(w, req, res.RedirectUrl, res.StatusCode)
+		return
+	case *RedirectResult:
+		res := result.(*RedirectResult)
+		if res.StatusCode != 301 {
+			res.StatusCode = 302
+		}
+		http.Redirect(w, req, res.RedirectUrl, res.StatusCode)
+		return
+	case Result:
+		res := result.(Result)
+		// write the result to browser
+		for k, v := range res.Headers {
+			if k == "Content-Type" {
+				continue
+			}
+			w.Header().Add(k, v)
+		}
+		contentType := fmt.Sprintf("%s;charset=%s", res.ContentType, res.Encoding)
+		w.Header().Add("Content-Type", contentType)
+		if res.StatusCode != 200 {
+			w.WriteHeader(res.StatusCode)
+		}
+		output := res.GetOutput()
+		if len(output) > 0 {
+			w.Write(res.GetOutput())
+		}
+		return
+	case *Result:
+		res := result.(*Result)
+		// write the result to browser
+		for k, v := range res.Headers {
+			if k == "Content-Type" {
+				continue
+			}
+			w.Header().Add(k, v)
+		}
+		contentType := fmt.Sprintf("%s;charset=%s", res.ContentType, res.Encoding)
+		w.Header().Add("Content-Type", contentType)
+		if res.StatusCode != 200 {
+			w.WriteHeader(res.StatusCode)
+		}
+		output := res.GetOutput()
+		if len(output) > 0 {
+			w.Write(res.GetOutput())
+		}
+		return
+	case string:
+	case []byte:
+		w.Header().Add("Content-Type", "text/plain")
+		w.Write(result.([]byte))
+		return
+	case byte:
+		w.Header().Add("Content-Type", "text/plain")
+		w.Write([]byte{result.(byte)})
+		return
+	default:
+		var cType = req.Header.Get("Content-Type")
+		if cType == "text/xml" {
+			xmlBytes, err := xml.Marshal(result)
+			if err != nil {
+				panic(err)
+			}
+			w.Header().Add("Content-Type", "text/xml")
+			w.Write(xmlBytes)
+		} else {
+			jsonBytes, err := json.Marshal(result)
+			if err != nil {
+				panic(err)
+			}
+			w.Header().Add("Content-Type", "application/json")
+			w.Write(jsonBytes)
+		}
 	}
 }
 
@@ -533,192 +548,46 @@ func (app *server) isStaticRequest(url string) bool {
 	return false
 }
 
-func (app *server) serveStaticFile(ctx *context) (ended bool) {
-	ended = false
-	physicalFile := ""
-	var f = app.MapPath(ctx.req.URL.Path)
-	stat, err := os.Stat(f)
-	if err != nil {
-		return
-	}
-	if stat.IsDir() {
-		absolutePath := ctx.req.URL.Path
-		if !strings.HasSuffix(absolutePath, "/") {
-			absolutePath = absolutePath + "/"
-		}
-		physicalPath := app.MapPath(absolutePath)
-		if IsDir(physicalPath) {
-			var defaultUrls = app.config.getDefaultUrls()
-			if len(defaultUrls) > 0 {
-				for _, f := range defaultUrls {
-					var file = app.MapPath(absolutePath + f)
-					if IsFile(file) {
-						physicalFile = file
-						break
-					}
-				}
-			}
-		}
-	} else {
-		physicalFile = f
-	}
-	if len(physicalFile) > 0 {
-		//app.logWriter().Println("handle static path '" + ctx.req.URL.Path + "'")
-		http.ServeFile(ctx.w, ctx.req, physicalFile)
-		ended = true
-	}
-	return
-}
-
-func (app *server) execRoute(ctx *context) *context {
-	var urlPath = ctx.req.URL.Path
-	if len(urlPath) > 1 && strings.HasSuffix(urlPath, "/") {
-		urlPath = strings.TrimRight(urlPath, "/")
-	}
-	//var resp ActionResult
-	cInfo, routeData, err := app.routing.lookup(ctx.req.URL.Path, strings.ToLower(ctx.req.Method))
-	//cInfo, routeData, match := app.router.lookup(ctx.req.Method, urlPath)
-	if err == nil && cInfo != nil {
-		if routeData == nil {
-			routeData = make(map[string]string)
-		}
-		var action = routeData["action"]
-		var ns = cInfo.NsName
-		if len(action) < 1 {
-			action = cInfo.DefaultAction
-		} else {
-			action = strings.Replace(action, "-", "_", -1)
-		}
-		var method = strings.ToLower(ctx.req.Method)
-		// find the action method in controller
-		if ok, actionMethod := cInfo.containsAction(action, method); ok {
-			ctx.routeData = routeData
-			ctx.actionName = action
-			ctx.ctrlType = cInfo.CtrlType
-			ctx.ns = ns
-			ctx.actionMethod = actionMethod
-			ctx.actionName = action
-			ctx.ctrlName = getContrllerName(ctx.ctrlType)
-			ctx.app = app
-			return ctx
-		}
-	}
-	return nil
-}
-
-func (app *server) handleDynamic(ctx *context) *Result {
-	var ctrl = reflect.New(ctx.ctrlType)
-	// call OnInit method
-	onInitMethod := ctrl.MethodByName("OnInit")
-	if onInitMethod.IsValid() {
-		onInitMethod.Call([]reflect.Value{
-			reflect.ValueOf(ctx),
-		})
-	}
-	//parse form
-	if ctx.req.Method == "POST" || ctx.req.Method == "PUT" || ctx.req.Method == "PATCH" {
-		if ctx.req.MultipartForm != nil {
-			var size int64
-			var maxSize = app.config.GetSetting("MaxFormSize")
-			if len(maxSize) < 1 {
-				size = 10485760
-			} else {
-				size, _ = strconv.ParseInt(maxSize, 10, 64)
-			}
-			ctx.req.ParseMultipartForm(size)
-		} else {
-			ctx.req.ParseForm()
-		}
-	}
-	// call OnLoad method
-	onLoadMethod := ctrl.MethodByName("OnLoad")
-	if onLoadMethod.IsValid() {
-		onLoadMethod.Call(nil)
-	}
-	// call action method
-	m := ctrl.MethodByName(ctx.actionMethod)
-	if !m.IsValid() {
-		return nil
-	}
-	/*
-		if len(ctx.ns) < 1 {
-			app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\"}")
-		} else {
-			app.logWriter().Println("handle dynamic path '"+ctx.req.URL.Path+"' {\"controller\":\"", ctx.ctrlName+"\",\"action\":\""+ctx.actionName+"\",\"namespace\":\""+ctx.ns+"\"}")
-		}
-	*/
-	values := m.Call(nil)
-	if len(values) == 1 {
-		var result = values[0].Interface()
-		if result == nil {
-			return NewResult()
-		}
-		value, valid := result.(*Result)
-		if !valid {
-			value = NewResult()
-			var cType = ctx.req.Header.Get("Content-Type")
-			if cType == "text/xml" {
-				xmlBytes, err := xml.Marshal(result)
-				if err != nil {
-					panic(err)
-				}
-				value.ContentType = "text/xml"
-				value.Write(xmlBytes)
-			} else {
-				jsonBytes, err := json.Marshal(result)
-				if err != nil {
-					panic(err)
-				}
-				value.ContentType = "application/json"
-				value.Write(jsonBytes)
-			}
-		}
-		return value
-	}
-	return nil
-}
-
 func (app *server) error404(req *http.Request) *Result {
-	res := NewResult()
-	res.StatusCode = 404
-	res.Write(renderError(404,
+	return renderError(
+		404,
 		"The resource you are looking for has been removed, had its name changed, or is temporarily unavailable",
-		"Request URL:     "+req.URL.String()+"\r\n\r\nPhysical Path:   "+app.MapPath(req.URL.Path),
-		""))
-	return res
+		"Request URL: "+req.URL.String(),
+		"",
+	)
 }
 
 func (app *server) error403(req *http.Request) *Result {
-	res := NewResult()
-	res.StatusCode = 403
-	res.Write(renderError(403,
+	return renderError(
+		403,
 		"The server understood the request but refuses to authorize it",
-		"Request URL:     "+req.URL.String()+"\r\n\r\nPhysical Path:   "+app.MapPath(req.URL.Path),
-		""))
-	return res
+		"Request URL: "+req.URL.String(),
+		"",
+	)
 }
 
-func (app *server) handleError(req *http.Request, code int) *Result {
+func (app *server) handleError(req *http.Request, code int, title ...string) *Result {
 	var handler = app.errorHandlers[code]
 	if handler != nil {
 		return handler(req)
+	} else if errTitle, ok := statusCodeMapping[code]; ok {
+		t := errTitle
+		if len(title) > 0 && len(title[0]) > 0 {
+			t = t + ":" + title[0]
+		}
+		return renderError(
+			code,
+			t,
+			"Request URL: "+req.URL.String(),
+			"",
+		)
 	}
-	// app.logWriter().Fatalln("unhandled request", req.Method, "'"+req.URL.Path+"'")
 	return app.error404(req)
 }
 
 func (app *server) viewFolder() string {
 	return app.MapPath("/views")
 }
-
-/*
-func (app *server) logWriter() *log.Logger {
-	if app.logger == nil {
-		app.logger = log.New(os.Stdout, "", log.LstdFlags|log.Llongfile)
-	}
-	return app.logger
-}
-*/
 
 func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	rec := recover()
@@ -736,9 +605,9 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
 	debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
 	if err, ok := rec.(error); ok {
-		res.Write(renderError(500, "", err.Error(), debugStack))
+		res.Write(genError(500, "", err.Error(), debugStack))
 	} else {
-		res.Write(renderError(500, "", "Unkown Internal Server Error", debugStack))
+		res.Write(genError(500, "", "Unkown Internal Server Error", debugStack))
 	}
 }
 
@@ -749,9 +618,16 @@ func newServer(webRoot string) *server {
 		errorHandlers: make(map[int]CtxHandler),
 	}
 	app.views = make(map[string]*view)
-	app.filters = make(map[string][]FilterFunc)
+	app.filters = make(map[string][]CtxFilter)
 	app.viewExt = ".html"
 	app.sessionProvides = make(map[string]SessionProvider)
 	app.RegSessionProvider("memory", &MemSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
+	app.globalFilters = []CtxFilter{
+		ServeStatic,
+		InitRoute,
+		HandleRoute,
+		ExecutePathFilters,
+		ExecuteAction,
+	}
 	return app
 }

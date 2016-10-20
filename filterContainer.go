@@ -6,12 +6,12 @@ import (
 )
 
 type filterContainer struct {
-	filters map[string][]FilterFunc
+	filters map[string][]CtxFilter
 }
 
-func (fc *filterContainer) execFilters(urlPath string, ctx *context) bool {
+func (fc *filterContainer) execFilters(urlPath string, ctx *Context) {
 	if len(fc.filters) < 1 {
-		return false
+		return
 	}
 	if !strings.HasSuffix(urlPath, "/") {
 		urlPath = urlPath + "/"
@@ -26,13 +26,15 @@ func (fc *filterContainer) execFilters(urlPath string, ctx *context) bool {
 		if strings.HasPrefix(urlPath+"/", key) {
 			for _, f := range tmpFilters[key] {
 				f(ctx)
+				if ctx.ended {
+					return
+				}
 			}
 		}
 	}
-	return false
 }
 
-func (fc *filterContainer) setFilter(pathPrefix string, filter FilterFunc) {
+func (fc *filterContainer) setFilter(pathPrefix string, filter CtxFilter) {
 	if !strings.HasPrefix(pathPrefix, "") {
 		panic(errFilterPrefix)
 	}
@@ -40,7 +42,7 @@ func (fc *filterContainer) setFilter(pathPrefix string, filter FilterFunc) {
 		pathPrefix = pathPrefix + "/"
 	}
 	if fc.filters == nil {
-		fc.filters = make(map[string][]FilterFunc)
+		fc.filters = make(map[string][]CtxFilter)
 	}
 	fc.filters[pathPrefix] = append(fc.filters[pathPrefix], filter)
 }

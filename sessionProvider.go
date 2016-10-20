@@ -21,10 +21,8 @@ type SessionProvider interface {
 // Register makes a session provide available by the provided name.
 // If Register is called twice with the same name or if driver is nil,
 // it panics.
-func (app *server) RegSessionProvider(name string, provide SessionProvider) Server {
-	if app.locked {
-		return app
-	}
+func (app *server) RegSessionProvider(name string, provide SessionProvider) {
+	app.assertNotLocked()
 	if provide == nil {
 		panic(errSessionProvNil)
 	}
@@ -32,7 +30,6 @@ func (app *server) RegSessionProvider(name string, provide SessionProvider) Serv
 		panic(errSessionRegTwice(name))
 	}
 	app.sessionProvides[name] = provide
-	return app
 }
 
 // MemSessionProvider Implement the provider interface

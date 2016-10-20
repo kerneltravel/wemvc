@@ -19,18 +19,18 @@ type Controller struct {
 	Server     Server
 	Namespace  NsSection
 	session    SessionStore
-	Context    Context
+	Context    *Context
 }
 
 // OnInit this method is called at first while executing the controller
-func (ctrl *Controller) OnInit(ctx Context) {
+func (ctrl *Controller) OnInit(ctx *Context) {
 	ctrl.Server = ctx.Server()
 	ctrl.Request = ctx.Request()
 	ctrl.Response = ctx.Response()
 	ctrl.RouteData = ctx.RouteData()
 	ctrl.Namespace = ctx.Namespace()
-	ctrl.Action = ctx.ActionName()
-	ctrl.Controller = ctx.CtrlName()
+	ctrl.Action = ctx.Ctrl.ActionName
+	ctrl.Controller = ctx.Ctrl.ControllerName
 	ctrl.ViewData = make(map[string]interface{})
 	ctrl.Items = ctx.CtxItems()
 	ctrl.Context = ctx
@@ -46,10 +46,6 @@ func (ctrl *Controller) Session() SessionStore {
 		ctrl.session = session
 	}
 	return ctrl.session
-}
-
-// OnLoad the OnLoad is called just after the OnInit method
-func (ctrl *Controller) OnLoad() {
 }
 
 // ViewFile execute a view file and return the HTML
@@ -130,30 +126,29 @@ func (ctrl *Controller) XML(data interface{}) *Result {
 }
 
 // File serve the file as action result
-func (ctrl *Controller) File(path string, cntType string) *Result {
-	var resp = &Result{
-		StatusCode:  200,
-		respFile:    path,
+func (ctrl *Controller) File(path string, cntType string) interface{} {
+	var resp = &FileResult{
+		FilePath:    path,
 		ContentType: cntType,
 	}
 	return resp
 }
 
-func (ctrl *Controller) redirect(url string, statusCode int) *Result {
-	var resp = &Result{
-		StatusCode: statusCode,
-		redURL:     url,
+func (ctrl *Controller) redirect(url string, statusCode int) interface{} {
+	var resp = &RedirectResult{
+		StatusCode:  statusCode,
+		RedirectUrl: url,
 	}
 	return resp
 }
 
 // Redirect Redirects a request to a new URL and specifies the new URL.
-func (ctrl *Controller) Redirect(url string) *Result {
+func (ctrl *Controller) Redirect(url string) interface{} {
 	return ctrl.redirect(url, 302)
 }
 
 // RedirectPermanent Performs a permanent redirection from the requested URL to the specified URL.
-func (ctrl *Controller) RedirectPermanent(url string) *Result {
+func (ctrl *Controller) RedirectPermanent(url string) interface{} {
 	return ctrl.redirect(url, 301)
 }
 

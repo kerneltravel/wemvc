@@ -7,9 +7,6 @@ import (
 // CtxHandler the error handler define
 type CtxHandler func(*http.Request) *Result
 
-// FilterFunc request filter func
-type FilterFunc func(ctx Context)
-
 // RootDir get the root file path of the web server
 func RootDir() string {
 	return svr.RootDir()
@@ -74,8 +71,12 @@ func Route(routePath string, c interface{}, defaultAction ...string) {
 }
 
 // Filter set the route filter
-func Filter(pathPrefix string, filter FilterFunc) {
-	svr.Filter(pathPrefix, filter)
+func Filter(pathPrefix string, filter CtxFilter) {
+	svr.SetPathFilter(pathPrefix, filter)
+}
+
+func SetGlobalFilters(filters []CtxFilter) {
+	svr.SetGlobalFilter(filters)
 }
 
 // Run run the web application

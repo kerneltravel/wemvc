@@ -117,7 +117,7 @@ var errorTpl, _ = template.New("error").Parse(`<!DOCTYPE html>
 </body>
 </html>`)
 
-func renderError(statusCode int, errorTitle, errDetail, stack string) []byte {
+func genError(statusCode int, errorTitle, errDetail, stack string) []byte {
 	var data = map[string]interface{}{
 		"StatusCode":  statusCode,
 		"Status":      statusCodeMapping[statusCode],
@@ -132,4 +132,11 @@ func renderError(statusCode int, errorTitle, errDetail, stack string) []byte {
 	var buf = &bytes.Buffer{}
 	errorTpl.Execute(buf, data)
 	return buf.Bytes()
+}
+
+func renderError(statusCode int, errorTitle, errDetail, stack string) *Result {
+	res := NewResult()
+	res.StatusCode = statusCode
+	res.Write(genError(statusCode, errorTitle, errDetail, stack))
+	return res
 }

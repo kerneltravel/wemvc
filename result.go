@@ -2,6 +2,16 @@ package wemvc
 
 import "bytes"
 
+type FileResult struct {
+	ContentType string
+	FilePath    string
+}
+
+type RedirectResult struct {
+	RedirectUrl string
+	StatusCode  int
+}
+
 // Result define the action result struct
 type Result struct {
 	respFile string

@@ -9,7 +9,7 @@ type NsSection interface {
 	GetName() string
 	GetNsDir() string
 	Route(string, interface{}, ...string) NsSection
-	Filter(string, FilterFunc) NsSection
+	Filter(string, CtxFilter) NsSection
 	StaticDir(string) NsSection
 	StaticFile(string) NsSection
 	GetSetting(string) string
@@ -54,7 +54,7 @@ func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...str
 	return ns
 }
 
-func (ns *namespace) Filter(pathPrefix string, filter FilterFunc) NsSection {
+func (ns *namespace) Filter(pathPrefix string, filter CtxFilter) NsSection {
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = "/" + pathPrefix
 	}
