@@ -24,7 +24,7 @@ func (app *server) error403(req *http.Request) *Result {
 	)
 }
 
-func (app *server) handleError(req *http.Request, code int, title ...string) *Result {
+func (app *server) handleErrorReq(req *http.Request, code int, title ...string) *Result {
 	var handler = app.errorHandlers[code]
 	if handler != nil {
 		return handler(req)

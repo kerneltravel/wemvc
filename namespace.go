@@ -37,7 +37,7 @@ func (ns *namespace) GetName() string {
 }
 
 func (ns *namespace) GetNsDir() string {
-	return ns.server.MapPath(ns.GetName())
+	return ns.server.mapPath(ns.GetName())
 }
 
 func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...string) NsSection {
@@ -50,7 +50,7 @@ func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...str
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
 		action = defaultAction[0]
 	}
-	ns.server.route(nsName, routePath, c, action)
+	ns.server.addRoute(nsName, routePath, c, action)
 	return ns
 }
 
@@ -87,7 +87,7 @@ func (ns *namespace) StaticDir(pathPrefix string) NsSection {
 	if !strings.HasSuffix(pathPrefix, "/") {
 		pathPrefix = pathPrefix + "/"
 	}
-	ns.server.StaticDir(ns.GetName() + pathPrefix)
+	ns.server.staticDir(ns.GetName() + pathPrefix)
 	return ns
 }
 
@@ -101,7 +101,7 @@ func (ns *namespace) StaticFile(file string) NsSection {
 	if strings.HasSuffix(file, "/") {
 		panic(errInvalidPath)
 	}
-	ns.server.StaticFile(ns.GetName() + file)
+	ns.server.staticFile(ns.GetName() + file)
 	return ns
 }
 
@@ -115,7 +115,7 @@ func (ns *namespace) RenderView(viewName string, data interface{}) ([]byte, erro
 }
 
 func (ns *namespace) nsSettingFile() string {
-	return ns.server.MapPath(ns.GetName() + "/settings.xml")
+	return ns.server.mapPath(ns.GetName() + "/settings.xml")
 }
 
 func (ns *namespace) isConfigFile(f string) bool {
@@ -145,5 +145,5 @@ func (ns *namespace) loadConfig() {
 }
 
 func (ns *namespace) viewFolder() string {
-	return ns.server.MapPath(ns.GetName() + "/views")
+	return ns.server.mapPath(ns.GetName() + "/views")
 }

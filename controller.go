@@ -150,7 +150,7 @@ func (ctrl *Controller) RedirectPermanent(url string) interface{} {
 
 // NotFound return a 404 page as action result
 func (ctrl *Controller) NotFound() *Result {
-	return ctrl.Context.app.handleError(ctrl.Request, 404)
+	return ctrl.Context.app.handleErrorReq(ctrl.Request, 404)
 }
 
 // EndRequest end the current request immediately

@@ -16,7 +16,7 @@ func ServeStatic(ctx *Context) {
 		return
 	}
 	physicalFile := ""
-	var f = ctx.app.MapPath(ctx.req.URL.Path)
+	var f = ctx.app.mapPath(ctx.req.URL.Path)
 	stat, err := os.Stat(f)
 	if err == nil {
 		if stat.IsDir() {
@@ -24,12 +24,12 @@ func ServeStatic(ctx *Context) {
 			if !strings.HasSuffix(absolutePath, "/") {
 				absolutePath = absolutePath + "/"
 			}
-			physicalPath := ctx.app.MapPath(absolutePath)
+			physicalPath := ctx.app.mapPath(absolutePath)
 			if IsDir(physicalPath) {
 				var defaultUrls = ctx.app.config.getDefaultUrls()
 				if len(defaultUrls) > 0 {
 					for _, f := range defaultUrls {
-						var file = ctx.app.MapPath(absolutePath + f)
+						var file = ctx.app.mapPath(absolutePath + f)
 						if IsFile(file) {
 							physicalFile = file
 							break
@@ -98,7 +98,7 @@ func HandleRoute(ctx *Context) {
 		}
 	}
 	if err != nil {
-		ctx.Result = ctx.app.handleError(ctx.Request(), 500, err.Error())
+		ctx.Result = ctx.app.handleErrorReq(ctx.Request(), 500, err.Error())
 		return
 	}
 	ctx.EndContext()

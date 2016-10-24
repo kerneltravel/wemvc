@@ -19,17 +19,16 @@ import (
 )
 
 type server struct {
-	errorHandlers map[int]CtxHandler
-	port          int
-	webRoot       string
-	config        *config
-	routing       *routeTree
-	watcher       *fsnotify.Watcher
-	locked        bool
-	staticPaths   []string
-	staticFiles   []string
-	globalSession *SessionManager
-	//logger          *log.Logger
+	errorHandlers   map[int]CtxHandler
+	port            int
+	webRoot         string
+	config          *config
+	routing         *routeTree
+	watcher         *fsnotify.Watcher
+	locked          bool
+	staticPaths     []string
+	staticFiles     []string
+	globalSession   *SessionManager
 	namespaces      map[string]*namespace
 	sessionProvides map[string]SessionProvider
 	globalFilters   []CtxFilter
@@ -37,49 +36,10 @@ type server struct {
 	filterContainer
 }
 
-// RootDir get the root file path of the web server
-func (app *server) RootDir() string {
-	return app.webRoot
-}
-
-// Config get the config data
-func (app *server) Config() Configuration {
-	return app.config
-}
-
 // MapPath Returns the physical file path that corresponds to the specified virtual path.
-func (app *server) MapPath(virtualPath string) string {
-	var res = path.Join(app.RootDir(), virtualPath)
+func (app *server) mapPath(virtualPath string) string {
+	var res = path.Join(app.webRoot, virtualPath)
 	return fixPath(res)
-}
-
-// SetRootDir set the root directory of the web application
-func (app *server) SetRootDir(rootDir string) {
-	app.assertNotLocked()
-	if !IsDir(rootDir) {
-		panic(errInvalidRoot)
-	}
-	app.webRoot = rootDir
-	//return app
-}
-
-// SetViewExt set the view file extension
-func (app *server) SetViewExt(ext string) {
-	app.assertNotLocked()
-	if len(ext) < 1 || !strings.HasPrefix(ext, ".") {
-		return
-	}
-	if runtime.GOOS == "windows" {
-		app.viewExt = strings.ToLower(ext)
-	} else {
-		app.viewExt = ext
-	}
-	if app.namespaces != nil {
-		for _, ns := range app.namespaces {
-			ns.viewDir = app.viewDir
-		}
-	}
-	//return app
 }
 
 // ServeHTTP serve the
@@ -104,9 +64,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	app.flushRequest(w, req, ctx.Result)
 }
 
-// AddStatic set the path as a static path that the file under this path is served as static file
-// @param pathPrefix: the path prefix starts with '/'
-func (app *server) StaticDir(pathPrefix string) {
+func (app *server) staticDir(pathPrefix string) {
 	app.assertNotLocked()
 	if len(pathPrefix) < 1 {
 		panic(errPathPrefix)
@@ -123,7 +81,7 @@ func (app *server) StaticDir(pathPrefix string) {
 	app.staticPaths = append(app.staticPaths, pathPrefix)
 }
 
-func (app *server) StaticFile(path string) {
+func (app *server) staticFile(path string) {
 	app.assertNotLocked()
 	if len(path) < 1 {
 		panic(errPathPrefix)
@@ -140,50 +98,7 @@ func (app *server) StaticFile(path string) {
 	app.staticFiles = append(app.staticFiles, path)
 }
 
-func (app *server) HandleError(errorCode int, handler CtxHandler) {
-	app.assertNotLocked()
-	app.errorHandlers[errorCode] = handler
-}
-
-func (app *server) AddViewFunc(name string, f interface{}) {
-	app.assertNotLocked()
-	app.addViewFunc(name, f)
-}
-
-func (app *server) AddRouteFunc(name string, f RouteValidateFunc) {
-	app.assertNotLocked()
-	err := app.routing.addFunc(name, f)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (app *server) Route(routePath string, c interface{}, defaultAction ...string) {
-	app.assertNotLocked()
-	action := "index"
-	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
-		action = defaultAction[0]
-	}
-	app.route("", routePath, c, action)
-}
-
-func (app *server) SetPathFilter(pathPrefix string, filter CtxFilter) {
-	app.assertNotLocked()
-	if !app.routing.MatchCase {
-		pathPrefix = strings.ToLower(pathPrefix)
-	}
-	app.setFilter(pathPrefix, filter)
-}
-
-func (app *server) SetGlobalFilter(filters []CtxFilter) {
-	app.assertNotLocked()
-	if len(filters) < 1 {
-		return
-	}
-	app.globalFilters = filters
-}
-
-func (app *server) Namespace(nsName string) NsSection {
+func (app *server) getNamespace(nsName string) NsSection {
 	if len(nsName) > 0 {
 		if !strings.HasPrefix(nsName, "/") {
 			nsName = "/" + nsName
@@ -209,41 +124,13 @@ func (app *server) Namespace(nsName string) NsSection {
 	return ns
 }
 
-func (app *server) Run(port int) {
-	err := app.init()
-	if err != nil {
-		return
-	}
-	app.locked = true
-	app.port = port
-	portStr := fmt.Sprintf(":%d", app.port)
-	err = http.ListenAndServe(portStr, app)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (app *server) RunTLS(port int, certFile, keyFile string) {
-	err := app.init()
-	if err != nil {
-		return
-	}
-	app.locked = true
-	app.port = port
-	portStr := fmt.Sprintf(":%d", app.port)
-	err = http.ListenAndServeTLS(portStr, certFile, keyFile, app)
-	if err != nil {
-		panic(err)
-	}
-}
-
 func (app *server) assertNotLocked() {
 	if app.locked {
 		panic("Invalid operation. You cannot call this function after the server setting is locked")
 	}
 }
 
-func (app *server) route(namespace string, routePath string, c interface{}, action string) {
+func (app *server) addRoute(namespace string, routePath string, c interface{}, action string) {
 	t := reflect.TypeOf(c)
 	cInfo := newControllerInfo(app, namespace, t, action)
 	if app.routing == nil {
@@ -254,7 +141,7 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 
 func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result interface{}) {
 	if result == nil {
-		result = app.handleError(req, 404)
+		result = app.handleErrorReq(req, 404)
 	}
 	switch result.(type) {
 	case *FileResult:
@@ -335,7 +222,7 @@ func (app *server) init() error {
 	}
 	app.watcher = w
 	// load & watch the global config files
-	globalConfigFile := app.MapPath("/config.xml")
+	globalConfigFile := app.mapPath("/config.xml")
 	config := &config{svr: app}
 	if config.loadFile(globalConfigFile) {
 		err = app.watcher.Watch(globalConfigFile)
@@ -446,7 +333,7 @@ func (app *server) watchFile() {
 }
 
 func (app *server) isConfigFile(f string) bool {
-	if app.MapPath("/config.xml") == f {
+	if app.mapPath("/config.xml") == f {
 		return true
 	}
 	return false
@@ -488,12 +375,7 @@ func (app *server) isStaticRequest(req *http.Request) bool {
 }
 
 func (app *server) viewFolder() string {
-	return app.MapPath("/views")
-}
-
-// PrintRouteTree print the route tree as json format
-func (app *server)printRoute() []byte {
-	return data2Json(app.routing)
+	return app.mapPath("/views")
 }
 
 func newServer(webRoot string) *server {
