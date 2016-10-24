@@ -18,30 +18,6 @@ import (
 	"net/url"
 )
 
-// Server the application interface that define the useful function
-type Server interface {
-	RootDir() string
-	Config() Configuration
-	MapPath(virtualPath string) string
-	//Logger() *log.Logger
-	Namespace(ns string) NsSection
-	SetRootDir(rootDir string)
-	StaticDir(pathPrefix string)
-	StaticFile(path string)
-	HandleError(errorCode int, handler CtxHandler)
-	Route(routePath string, c interface{}, defaultAction ...string)
-	SetPathFilter(pathPrefix string, filter CtxFilter)
-	SetGlobalFilter(filters []CtxFilter)
-	//SetLogFile(name string) Server
-	SetViewExt(ext string)
-	AddViewFunc(name string, f interface{})
-	AddRouteFunc(name string, fun RouteValidateFunc)
-	RegSessionProvider(name string, provide SessionProvider)
-	NewSessionManager(provideName string, config *SessionConfig) (*SessionManager, error)
-	Run(port int)
-	RunTLS(port int, certFile, keyFile string)
-}
-
 type server struct {
 	errorHandlers map[int]CtxHandler
 	port          int
