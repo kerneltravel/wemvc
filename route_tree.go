@@ -182,6 +182,9 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 }
 
 func (tree *routeTree) lookup(urlPath, method string) (*controllerInfo, map[string]string, error) {
+	if len(urlPath) == 0 {
+		urlPath = "/"
+	}
 	if urlPath == "/" {
 		ctrl := tree.CtrlInfo
 		if ctrl == nil {

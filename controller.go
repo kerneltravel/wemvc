@@ -3,7 +3,6 @@ package wemvc
 import (
 	"encoding/json"
 	"encoding/xml"
-	"html/template"
 	"net/http"
 )
 
@@ -16,7 +15,6 @@ type Controller struct {
 	Action     string
 	ViewData   map[string]interface{}
 	Items      *CtxItems
-	Server     Server
 	Namespace  NsSection
 	session    SessionStore
 	Context    *Context
@@ -24,7 +22,6 @@ type Controller struct {
 
 // OnInit this method is called at first while executing the controller
 func (ctrl *Controller) OnInit(ctx *Context) {
-	ctrl.Server = ctx.Server()
 	ctrl.Request = ctx.Request()
 	ctrl.Response = ctx.Response()
 	ctrl.RouteData = ctx.RouteData()
@@ -39,7 +36,7 @@ func (ctrl *Controller) OnInit(ctx *Context) {
 // Session start the session
 func (ctrl *Controller) Session() SessionStore {
 	if ctrl.session == nil {
-		session, err := ctrl.Server.(*server).globalSession.SessionStart(ctrl.Response, ctrl.Request)
+		session, err := ctrl.Context.app.globalSession.SessionStart(ctrl.Response, ctrl.Request)
 		if err != nil {
 			panic(err)
 		}
@@ -50,9 +47,7 @@ func (ctrl *Controller) Session() SessionStore {
 
 // ViewFile execute a view file and return the HTML
 func (ctrl *Controller) ViewFile(viewPath string) *Result {
-	var res template.HTML
-	var code int
-	ctrl.ViewData["Server"] = ctrl.Server
+	var res []byte
 	ctrl.ViewData["Request"] = ctrl.Request
 	ctrl.ViewData["Response"] = ctrl.Response
 	ctrl.ViewData["RouteData"] = ctrl.RouteData
@@ -60,16 +55,17 @@ func (ctrl *Controller) ViewFile(viewPath string) *Result {
 	ctrl.ViewData["Action"] = ctrl.Action
 	ctrl.ViewData["Controller"] = ctrl.Controller
 	ctrl.ViewData["CtxItems"] = ctrl.Items
+	var err error
 	if ctrl.Namespace != nil {
-		res, code = ctrl.Namespace.(*namespace).renderView(viewPath, ctrl.ViewData)
+		res,err = ctrl.Namespace.(*namespace).renderView(viewPath, ctrl.ViewData)
 	} else {
-		res, code = ctrl.Server.(*server).renderView(viewPath, ctrl.ViewData)
+		res,err = ctrl.Context.app.renderView(viewPath, ctrl.ViewData)
+	}
+	if err != nil {
+		panic(err)
 	}
 	var resp = NewResult()
-	resp.Write([]byte(res))
-	if code != 200 {
-		resp.StatusCode = code
-	}
+	resp.Write(res)
 	return resp
 }
 
@@ -154,7 +150,7 @@ func (ctrl *Controller) RedirectPermanent(url string) interface{} {
 
 // NotFound return a 404 page as action result
 func (ctrl *Controller) NotFound() *Result {
-	return ctrl.Server.(*server).handleError(ctrl.Request, 404)
+	return ctrl.Context.app.handleError(ctrl.Request, 404)
 }
 
 // EndRequest end the current request immediately

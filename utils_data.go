@@ -40,12 +40,3 @@ func file2Xml(path string, v interface{}) error {
 	}
 	return nil
 }
-
-// PrintRouteTree print the route tree as json format
-func PrintRouteTree(app Server) []byte {
-	ap, ok := app.(*server)
-	if !ok {
-		return []byte("{}")
-	}
-	return data2Json(ap.routing)
-}

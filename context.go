@@ -48,10 +48,6 @@ func (ctx *Context) Response() http.ResponseWriter {
 	return ctx.w
 }
 
-func (ctx *Context) Server() Server {
-	return ctx.app
-}
-
 // GetItem get the context item
 func (ctx *Context) CtxItems() *CtxItems {
 	if ctx.ctxItems == nil {

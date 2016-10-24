@@ -12,10 +12,10 @@ import (
 	"encoding/xml"
 	"fmt"
 	"github.com/howeyc/fsnotify"
-	"runtime/debug"
 
 	"container/list"
 	"runtime"
+	"net/url"
 )
 
 // Server the application interface that define the useful function
@@ -115,6 +115,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w:   w,
 		app: app,
 	}
+	// execute global filters
 	if len(app.globalFilters) > 0 {
 		for _, filter := range app.globalFilters {
 			filter(ctx)
@@ -123,7 +124,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 	}
-	// process the dynamic result
+	// flush the request
 	app.flushRequest(w, req, ctx.Result)
 }
 
@@ -233,45 +234,29 @@ func (app *server) Namespace(nsName string) NsSection {
 }
 
 func (app *server) Run(port int) {
-	//app.logWriter().Println("use root dir '" + app.webRoot + "'")
 	err := app.init()
 	if err != nil {
-		//app.logWriter().Println(err.Error())
 		return
 	}
 	app.locked = true
 	app.port = port
-	//host, err := os.Hostname()
-	//if err != nil {
-	//	host = "localhost"
-	//}
-	//app.logWriter().Println(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
 	portStr := fmt.Sprintf(":%d", app.port)
 	err = http.ListenAndServe(portStr, app)
 	if err != nil {
-		//app.logWriter().Println(err.Error())
 		panic(err)
 	}
 }
 
 func (app *server) RunTLS(port int, certFile, keyFile string) {
-	//app.logWriter().Println("use root dir '" + app.webRoot + "'")
 	err := app.init()
 	if err != nil {
-		//app.logWriter().Println(err.Error())
 		return
 	}
 	app.locked = true
 	app.port = port
-	//host, err := os.Hostname()
-	//if err != nil {
-	//	host = "localhost"
-	//}
-	//app.logWriter().Println(fmt.Sprintf("server is running on port '%d'. http://%s:%d", app.port, host, app.port))
 	portStr := fmt.Sprintf(":%d", app.port)
 	err = http.ListenAndServeTLS(portStr, certFile, keyFile, app)
 	if err != nil {
-		//app.logWriter().Println(err.Error())
 		panic(err)
 	}
 }
@@ -288,7 +273,6 @@ func (app *server) route(namespace string, routePath string, c interface{}, acti
 	if app.routing == nil {
 		app.routing = newRouteTree()
 	}
-	//app.logWriter().Println("set route '"+routePath+"'        controller:", cInfo.CtrlType.Name(), "       default action:", cInfo.DefaultAction+"\r\n")
 	app.routing.addRoute(routePath, cInfo)
 }
 
@@ -297,18 +281,8 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 		result = app.handleError(req, 404)
 	}
 	switch result.(type) {
-	case FileResult:
-		http.ServeFile(w, req, result.(FileResult).FilePath)
-		return
 	case *FileResult:
 		http.ServeFile(w, req, result.(*FileResult).FilePath)
-		return
-	case RedirectResult:
-		res := result.(RedirectResult)
-		if res.StatusCode != 301 {
-			res.StatusCode = 302
-		}
-		http.Redirect(w, req, res.RedirectUrl, res.StatusCode)
 		return
 	case *RedirectResult:
 		res := result.(*RedirectResult)
@@ -317,24 +291,9 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 		}
 		http.Redirect(w, req, res.RedirectUrl, res.StatusCode)
 		return
-	case Result:
-		res := result.(Result)
-		// write the result to browser
-		for k, v := range res.Headers {
-			if k == "Content-Type" {
-				continue
-			}
-			w.Header().Add(k, v)
-		}
-		contentType := fmt.Sprintf("%s;charset=%s", res.ContentType, res.Encoding)
-		w.Header().Add("Content-Type", contentType)
-		if res.StatusCode != 200 {
-			w.WriteHeader(res.StatusCode)
-		}
-		output := res.GetOutput()
-		if len(output) > 0 {
-			w.Write(res.GetOutput())
-		}
+	case *url.URL:
+		res := result.(*url.URL)
+		http.Redirect(w, req, res.String(), 302)
 		return
 	case *Result:
 		res := result.(*Result)
@@ -366,21 +325,22 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 		return
 	default:
 		var cType = req.Header.Get("Content-Type")
+		var contentBytes []byte
+		var err error
 		if cType == "text/xml" {
-			xmlBytes, err := xml.Marshal(result)
+			contentBytes, err = xml.Marshal(result)
 			if err != nil {
 				panic(err)
 			}
 			w.Header().Add("Content-Type", "text/xml")
-			w.Write(xmlBytes)
 		} else {
-			jsonBytes, err := json.Marshal(result)
+			contentBytes, err = json.Marshal(result)
 			if err != nil {
 				panic(err)
 			}
 			w.Header().Add("Content-Type", "application/json")
-			w.Write(jsonBytes)
 		}
+		w.Write(contentBytes)
 	}
 }
 
@@ -531,9 +491,12 @@ func (app *server) isInViewFolder(f string) bool {
 }
 
 // isStaticRequest check the current request is indicate to static path
-func (app *server) isStaticRequest(url string) bool {
+func (app *server) isStaticRequest(req *http.Request) bool {
+	var url string
 	if runtime.GOOS == "windows" {
-		url = strings.ToLower(url)
+		url = strings.ToLower(req.URL.Path)
+	} else {
+		url = req.URL.Path
 	}
 	for _, f := range app.staticFiles {
 		if f == url {
@@ -548,67 +511,13 @@ func (app *server) isStaticRequest(url string) bool {
 	return false
 }
 
-func (app *server) error404(req *http.Request) *Result {
-	return renderError(
-		404,
-		"The resource you are looking for has been removed, had its name changed, or is temporarily unavailable",
-		"Request URL: "+req.URL.String(),
-		"",
-	)
-}
-
-func (app *server) error403(req *http.Request) *Result {
-	return renderError(
-		403,
-		"The server understood the request but refuses to authorize it",
-		"Request URL: "+req.URL.String(),
-		"",
-	)
-}
-
-func (app *server) handleError(req *http.Request, code int, title ...string) *Result {
-	var handler = app.errorHandlers[code]
-	if handler != nil {
-		return handler(req)
-	} else if errTitle, ok := statusCodeMapping[code]; ok {
-		t := errTitle
-		if len(title) > 0 && len(title[0]) > 0 {
-			t = t + ":" + title[0]
-		}
-		return renderError(
-			code,
-			t,
-			"Request URL: "+req.URL.String(),
-			"",
-		)
-	}
-	return app.error404(req)
-}
-
 func (app *server) viewFolder() string {
 	return app.MapPath("/views")
 }
 
-func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
-	rec := recover()
-	if rec == nil {
-		return
-	}
-	// detect end request
-	_, ok := rec.(*errEndRequest)
-	if ok {
-		return
-	}
-	// process 500 error
-	res.WriteHeader(500)
-	var debugStack = string(debug.Stack())
-	debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
-	debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
-	if err, ok := rec.(error); ok {
-		res.Write(genError(500, "", err.Error(), debugStack))
-	} else {
-		res.Write(genError(500, "", "Unkown Internal Server Error", debugStack))
-	}
+// PrintRouteTree print the route tree as json format
+func (app *server)printRoute() []byte {
+	return data2Json(app.routing)
 }
 
 func newServer(webRoot string) *server {

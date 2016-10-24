@@ -90,6 +90,7 @@ func (ns *namespace) StaticDir(pathPrefix string) NsSection {
 	ns.server.StaticDir(ns.GetName() + pathPrefix)
 	return ns
 }
+
 func (ns *namespace) StaticFile(file string) NsSection {
 	if len(file) < 1 {
 		panic(errPathPrefix)
@@ -106,8 +107,11 @@ func (ns *namespace) StaticFile(file string) NsSection {
 
 func (ns *namespace) AddViewFunc(name string, f interface{}) NsSection {
 	ns.addViewFunc(name, f)
-	//ns.server.logWriter().Println("add view func:", name)
 	return ns
+}
+
+func (ns *namespace) RenderView(viewName string, data interface{}) ([]byte, error) {
+	return ns.renderView(viewName, data)
 }
 
 func (ns *namespace) nsSettingFile() string {
