@@ -2,8 +2,8 @@ package wemvc
 
 import (
 	"net/http"
-	"strings"
 	"runtime/debug"
+	"strings"
 )
 
 func (app *server) error404(req *http.Request) *Result {

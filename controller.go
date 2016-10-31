@@ -57,9 +57,9 @@ func (ctrl *Controller) ViewFile(viewPath string) *Result {
 	ctrl.ViewData["CtxItems"] = ctrl.Items
 	var err error
 	if ctrl.Namespace != nil {
-		res,err = ctrl.Namespace.(*namespace).renderView(viewPath, ctrl.ViewData)
+		res, err = ctrl.Namespace.(*namespace).renderView(viewPath, ctrl.ViewData)
 	} else {
-		res,err = ctrl.Context.app.renderView(viewPath, ctrl.ViewData)
+		res, err = ctrl.Context.app.renderView(viewPath, ctrl.ViewData)
 	}
 	if err != nil {
 		panic(err)

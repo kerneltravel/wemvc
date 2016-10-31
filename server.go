@@ -14,8 +14,8 @@ import (
 	"github.com/howeyc/fsnotify"
 
 	"container/list"
-	"runtime"
 	"net/url"
+	"runtime"
 )
 
 type server struct {
