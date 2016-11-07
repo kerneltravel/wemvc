@@ -2,10 +2,12 @@ package wemvc
 
 import (
 	"strings"
+	"fmt"
 )
 
 // Configuration the global config interface
 type Configuration interface {
+	GetDefaultUrls() []string
 	GetConnConfig(string) (typeName string, connString string)
 	GetSetting(string) string
 }
@@ -34,53 +36,40 @@ type config struct {
 	settingMap    map[string]string
 	connMap       map[string]*connSetting
 	defaultUrls   []string
-	svr           *server
 }
 
-func (conf *config) loadFile(file string) bool {
-	//conf.svr.logWriter().Printf("load config file '%s'\r\n", file)
-	res := false
+func (conf *config) loadFile(file string) error {
 	conf.settingMap = make(map[string]string)
 	conf.connMap = make(map[string]*connSetting)
-	if IsFile(file) {
-		err := file2Xml(file, conf)
-		if err != nil {
-			goto defaultSetting
-		}
-		res = true
-		if len(conf.Settings.List) > 0 {
-			for _, s := range conf.Settings.List {
-				if len(s.Key) < 1 {
-					continue
-				}
-				//if _, ok := conf.settingMap[s.Key]; ok {
-				//    conf.svr.logWriter().Fatalf("Duplicate definition of setting key '%s', and the previous one will be ignored", s.Key)
-				//}
-				conf.settingMap[s.Key] = s.Value
+	err := file2Xml(file, conf)
+	if err != nil {
+		return err
+	}
+	if len(conf.Settings.List) > 0 {
+		for _, s := range conf.Settings.List {
+			if len(s.Key) < 1 {
+				continue
 			}
-		}
-		if len(conf.ConnStrings.List) > 0 {
-			for _, conn := range conf.ConnStrings.List {
-				if len(conn.Name) < 1 {
-					continue
-				}
-				//if _, ok := conf.connMap[conn.Name]; ok {
-				//	conf.svr.logWriter().Fatalf("Duplicate definition of connection string '%s', and the previouse one will be ignored", conn.Name)
-				//}
-				conf.connMap[conn.Name] = &connSetting{typeName: conn.Type, connString: conn.ConnString}
-			}
-		}
-		if len(conf.DefaultURL) > 0 {
-			splits := strings.Split(conf.DefaultURL, ";,")
-			for _, s := range splits {
-				if len(s) < 1 {
-					continue
-				}
-				conf.defaultUrls = append(conf.defaultUrls, s)
-			}
+			conf.settingMap[s.Key] = s.Value
 		}
 	}
-defaultSetting:
+	if len(conf.ConnStrings.List) > 0 {
+		for _, conn := range conf.ConnStrings.List {
+			if len(conn.Name) < 1 {
+				continue
+			}
+			conf.connMap[conn.Name] = &connSetting{typeName: conn.Type, connString: conn.ConnString}
+		}
+	}
+	if len(conf.DefaultURL) > 0 {
+		splits := strings.Split(conf.DefaultURL, ";,")
+		for _, s := range splits {
+			if len(s) < 1 {
+				continue
+			}
+			conf.defaultUrls = append(conf.defaultUrls, s)
+		}
+	}
 	if len(conf.defaultUrls) < 1 {
 		conf.defaultUrls = []string{"index.html", "index.htm"}
 	}
@@ -96,7 +85,7 @@ defaultSetting:
 	if conf.SessionConfig.MaxLifetime == 0 {
 		conf.SessionConfig.MaxLifetime = 3600
 	}
-	return res
+	return nil
 }
 
 func (conf *config) GetConnConfig(connName string) (string, string) {
@@ -119,6 +108,18 @@ func (conf *config) GetSetting(key string) string {
 	return ""
 }
 
-func (conf *config) getDefaultUrls() []string {
+func (conf *config) GetDefaultUrls() []string {
 	return conf.defaultUrls
+}
+
+func newConfig(strPath string) (*config, error) {
+	if !IsFile(strPath) {
+		return nil, fmt.Errorf("Canot fild the config file: %s", strPath)
+	}
+	conf := &config{}
+	err := conf.loadFile(strPath)
+	if err != nil {
+		return nil, err
+	}
+	return conf, nil
 }

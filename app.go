@@ -132,7 +132,7 @@ func RenderView(viewName string, data interface{}) ([]byte, error) {
 func Run(port int) {
 	err := app.init()
 	if err != nil {
-		return
+		panic(err)
 	}
 	app.locked = true
 	app.port = port
@@ -147,7 +147,7 @@ func Run(port int) {
 func RunTLS(port int, certFile, keyFile string) {
 	err := app.init()
 	if err != nil {
-		return
+		panic(err)
 	}
 	app.locked = true
 	app.port = port

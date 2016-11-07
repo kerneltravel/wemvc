@@ -2,6 +2,7 @@ package wemvc
 
 import (
 	"strings"
+	"runtime"
 )
 
 // NamespaceSection the namespace section interface
@@ -119,7 +120,11 @@ func (ns *namespace) nsSettingFile() string {
 }
 
 func (ns *namespace) isConfigFile(f string) bool {
-	return ns.nsSettingFile() == f
+	if runtime.GOOS == "windows" {
+		return strings.EqualFold(ns.nsSettingFile(), f)
+	} else {
+		return ns.nsSettingFile() == f
+	}
 }
 
 func (ns *namespace) isInViewFolder(f string) bool {

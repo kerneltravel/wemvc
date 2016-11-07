@@ -26,7 +26,7 @@ func ServeStatic(ctx *Context) {
 			}
 			physicalPath := ctx.app.mapPath(absolutePath)
 			if IsDir(physicalPath) {
-				var defaultUrls = ctx.app.config.getDefaultUrls()
+				var defaultUrls = ctx.app.config.GetDefaultUrls()
 				if len(defaultUrls) > 0 {
 					for _, f := range defaultUrls {
 						var file = ctx.app.mapPath(absolutePath + f)
