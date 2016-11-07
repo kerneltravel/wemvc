@@ -16,7 +16,6 @@ import (
 	"container/list"
 	"net/url"
 	"runtime"
-	"sync"
 )
 
 type server struct {
@@ -33,7 +32,6 @@ type server struct {
 	sessionProvides map[string]SessionProvider
 	globalFilters   []CtxFilter
 	internalErr     error
-	configLock      sync.RWMutex
 	fileWatcher     *FileWatcher
 	viewContainer
 	filterContainer
@@ -222,13 +220,14 @@ func (app *server) init() error {
 	// init the error handler
 	app.errorHandlers[404] = app.error404
 	app.errorHandlers[403] = app.error403
-	// init fsnotify watcher
+	// fsnotify watcher
 	w, err := NewWatcher()
 	if err != nil {
 		return err
 	}
 	app.fileWatcher = w
 	app.addWatcherHandler()
+	app.fileWatcher.Start()
 
 	// load & watch the global config files
 	globalConfigFile := app.mapPath("/config.xml")
@@ -277,8 +276,6 @@ func (app *server) init() error {
 			})
 		}
 	}
-	// start to watch the files and dirs
-	app.fileWatcher.Start()
 
 	// init sessionManager
 	mgr, err := app.NewSessionManager(app.config.SessionConfig.ManagerName, app.config.SessionConfig)
@@ -298,7 +295,6 @@ func (app *server) addWatcherHandler() {
 	// add config file handler
 	app.fileWatcher.AddHandler(&configDetector{app:app}, func(ev *fsnotify.FileEvent) bool {
 		strFile := path.Clean(ev.Name)
-		app.configLock.Lock()
 		conf,err := newConfig(strFile)
 		if err == nil {
 			app.config = conf
@@ -306,7 +302,6 @@ func (app *server) addWatcherHandler() {
 		} else {
 			app.internalErr = err
 		}
-		app.configLock.Unlock()
 		return false;
 	})
 	// add ns config handler

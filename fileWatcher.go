@@ -38,12 +38,15 @@ func (fw *FileWatcher) AddHandler(detector WatcherDetector, h WatcherHandler) er
 
 func (fw *FileWatcher) Start() {
 	go func() {
-		select {
-		case ev := <- fw.watcher.Event:
-			for det, h := range fw.handlers {
-				if det.CanHandle(path.Clean(ev.Name)) {
-					if !h(ev) {
-						break
+		for {
+			select {
+			case ev := <- fw.watcher.Event:
+				println(ev.Name)
+				for det, h := range fw.handlers {
+					if det.CanHandle(path.Clean(ev.Name)) {
+						if !h(ev) {
+							break
+						}
 					}
 				}
 			}
