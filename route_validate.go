@@ -65,5 +65,8 @@ var (
 
 func validateActionName(urlPath string, opt RouteOption) string {
 	bytes := acReg.Find([]byte(urlPath))
+	if uint8(len(bytes)) > opt.MaxLength || uint8(len(bytes)) < opt.MinLength {
+		return ""
+	}
 	return string(bytes)
 }

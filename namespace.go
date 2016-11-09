@@ -26,7 +26,6 @@ type nsSettingGroup struct {
 
 type namespace struct {
 	name     string
-	views    map[string]*view
 	server   *server
 	settings map[string]string
 	viewContainer

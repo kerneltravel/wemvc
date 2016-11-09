@@ -31,12 +31,12 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 	found = false
 	ctrl = nil
 	routeMap = nil
-	if indexNode.MaxDepth+indexNode.CurDepth <= pathLength || indexNode.NodeType == root {
+	if indexNode.MaxDepth+indexNode.CurDepth <= pathLength || indexNode.NodeType == rtRoot {
 		return
 	}
 	var routeData = make(map[string]string)
 	var curPath = urlParts[indexNode.CurDepth-1]
-	if indexNode.NodeType == catchAll {
+	if indexNode.NodeType == rtCatchAll {
 		// deal with *pathInfo
 		var path string
 		for _, part := range urlParts[indexNode.CurDepth-1:] {
@@ -50,7 +50,7 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		ctrl = indexNode.CtrlInfo
 		routeMap = routeData
 		return
-	} else if indexNode.NodeType == static {
+	} else if indexNode.NodeType == rtStatic {
 		// deal with static path
 		str1 := indexNode.Path
 		str2 := curPath
@@ -61,7 +61,7 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		if str1 != str2 {
 			return
 		}
-	} else if indexNode.NodeType == param {
+	} else if indexNode.NodeType == rtParam {
 		// deal with dynamic path
 		var dynPathSplits []string // the dynamic route paths that to be check
 		var str1 string
@@ -249,7 +249,7 @@ func newRouteTree() *routeTree {
 			"action": validateActionName,
 		},
 	}
-	node.NodeType = root
+	node.NodeType = rtRoot
 	node.CurDepth = 0
 	node.MaxDepth = 0
 	node.Path = "/"

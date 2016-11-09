@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func (app *server) error404(req *http.Request) *Result {
+func (app *server) error404(req *http.Request) *ContentResult {
 	return renderError(
 		404,
 		"The resource you are looking for has been removed, had its name changed, or is temporarily unavailable",
@@ -15,7 +15,7 @@ func (app *server) error404(req *http.Request) *Result {
 	)
 }
 
-func (app *server) error403(req *http.Request) *Result {
+func (app *server) error403(req *http.Request) *ContentResult {
 	return renderError(
 		403,
 		"The server understood the request but refuses to authorize it",
@@ -24,7 +24,7 @@ func (app *server) error403(req *http.Request) *Result {
 	)
 }
 
-func (app *server) handleErrorReq(req *http.Request, code int, title ...string) *Result {
+func (app *server) handleErrorReq(req *http.Request, code int, title ...string) *ContentResult {
 	var handler = app.errorHandlers[code]
 	if handler != nil {
 		return handler(req)

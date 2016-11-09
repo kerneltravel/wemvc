@@ -9,16 +9,16 @@ import (
 type pathType uint8
 
 const (
-	static pathType = iota
-	root
-	param
-	catchAll
+	rtStatic pathType = iota
+	rtRoot
+	rtParam
+	rtCatchAll
 
-	paramBegin    = '<'
-	paramBeginStr = "<"
-	paramEnd      = '>'
-	paramEndStr   = ">"
-	pathInfo      = "*pathInfo"
+	rtParamBegin = '<'
+	rtParamBeginStr = "<"
+	rtParamEnd = '>'
+	rtParamEndStr = ">"
+	rtPathInfo = "*pathInfo"
 )
 
 // RouteOption the route option struct
@@ -43,7 +43,7 @@ type routeNode struct {
 }
 
 func (node *routeNode) isLeaf() bool {
-	if node.NodeType == root {
+	if node.NodeType == rtRoot {
 		return false
 	}
 	return node.hasChildren() == false
@@ -96,7 +96,7 @@ func (node *routeNode) addChild(childNode *routeNode) error {
 }
 
 func (node *routeNode) isParamPath(path string) bool {
-	return strings.HasPrefix(path, paramBeginStr) && strings.HasSuffix(path, paramEndStr)
+	return strings.HasPrefix(path, rtParamBeginStr) && strings.HasSuffix(path, rtParamEndStr)
 }
 
 func (node *routeNode) detectDefault(method string) (bool, *controllerInfo, map[string]string) {
@@ -104,7 +104,7 @@ func (node *routeNode) detectDefault(method string) (bool, *controllerInfo, map[
 		return false, nil, nil
 	}
 	for _, child := range node.Children {
-		if child.NodeType != param || len(child.PathSplits) != 1 || !node.isParamPath(child.PathSplits[0]) {
+		if child.NodeType != rtParam || len(child.PathSplits) != 1 || !node.isParamPath(child.PathSplits[0]) {
 			continue
 		}
 		paramName := ""
@@ -152,7 +152,7 @@ func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error
 	if length == 0 {
 		return nil, nil
 	}
-	if detectNodeType(splitPaths[length-1]) == catchAll {
+	if detectNodeType(splitPaths[length-1]) == rtCatchAll {
 		length = 255
 	}
 	var result *routeNode
@@ -164,7 +164,7 @@ func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error
 			MaxDepth: uint16(length - uint16(i)),
 			Path:     p,
 		}
-		if child.NodeType == param {
+		if child.NodeType == rtParam {
 			paramPath, params, err := analyzeParamOption(child.Path)
 			if err != nil {
 				return nil, err
@@ -186,10 +186,10 @@ func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error
 		if current == nil {
 			break
 		}
-		if strings.Contains(current.Path, "*") && current.NodeType != catchAll {
+		if strings.Contains(current.Path, "*") && current.NodeType != rtCatchAll {
 			return nil, errors.New("Invalid URL route parameter '" + current.Path + "'")
 		}
-		if current.NodeType == catchAll && len(current.Children) > 0 {
+		if current.NodeType == rtCatchAll && len(current.Children) > 0 {
 			return nil, errors.New("Invalid route'" + routePath + ". " +
 				"The '*pathInfo' parameter should be at the end of the route. " +
 				"For example: '/shell/*pathInfo'.")

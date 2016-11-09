@@ -10,7 +10,6 @@ import (
 
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"github.com/howeyc/fsnotify"
 
 	"container/list"
@@ -139,7 +138,7 @@ func (app *server) assertNotLocked() {
 
 func (app *server) addRoute(namespace string, routePath string, c interface{}, action string) {
 	t := reflect.TypeOf(c)
-	cInfo := newControllerInfo(app, namespace, t, action)
+	cInfo := newControllerInfo(namespace, t, action)
 	if app.routing == nil {
 		app.routing = newRouteTree()
 	}
@@ -151,38 +150,12 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 		result = app.handleErrorReq(req, 404)
 	}
 	switch result.(type) {
-	case *FileResult:
-		http.ServeFile(w, req, result.(*FileResult).FilePath)
-		return
-	case *RedirectResult:
-		res := result.(*RedirectResult)
-		if res.StatusCode != 301 {
-			res.StatusCode = 302
-		}
-		http.Redirect(w, req, res.RedirectUrl, res.StatusCode)
+	case Result:
+		result.(Result).ExecResult(w,req)
 		return
 	case *url.URL:
 		res := result.(*url.URL)
 		http.Redirect(w, req, res.String(), 302)
-		return
-	case *Result:
-		res := result.(*Result)
-		// write the result to browser
-		for k, v := range res.Headers {
-			if k == "Content-Type" {
-				continue
-			}
-			w.Header().Add(k, v)
-		}
-		contentType := fmt.Sprintf("%s;charset=%s", res.ContentType, res.Encoding)
-		w.Header().Add("Content-Type", contentType)
-		if res.StatusCode != 200 {
-			w.WriteHeader(res.StatusCode)
-		}
-		output := res.GetOutput()
-		if len(output) > 0 {
-			w.Write(res.GetOutput())
-		}
 		return
 	case string:
 	case []byte:

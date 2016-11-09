@@ -41,15 +41,15 @@ func splitURLPath(urlPath string) ([]string, error) {
 
 func detectNodeType(p string) pathType {
 	if p == "/" {
-		return root
+		return rtRoot
 	}
-	if strings.Contains(p, string([]byte{paramBegin})) || strings.Contains(p, string([]byte{paramEnd})) {
-		return param
+	if strings.Contains(p, string([]byte{rtParamBegin})) || strings.Contains(p, string([]byte{rtParamEnd})) {
+		return rtParam
 	}
-	if p == pathInfo {
-		return catchAll
+	if p == rtPathInfo {
+		return rtCatchAll
 	}
-	return static
+	return rtStatic
 }
 
 func checkRoutePath(path string) error {
@@ -59,7 +59,7 @@ func checkRoutePath(path string) error {
 
 	for i := 0; i < len(path); i++ {
 		// param begin
-		if path[i] == paramBegin {
+		if path[i] == rtParamBegin {
 			if len(paramChars) == 0 {
 				inParamChar = true
 				continue
@@ -68,7 +68,7 @@ func checkRoutePath(path string) error {
 			}
 		}
 		// param end
-		if path[i] == paramEnd {
+		if path[i] == rtParamEnd {
 			// check and ensure current route param is not empty
 			if len(paramChars) == 0 {
 				return fmt.Errorf("Invalid route parameter '<>' or the route parameter has no begining tag '<': %d", i)
@@ -106,14 +106,14 @@ func splitRouteParam(path string) []string {
 	var splits []string
 	var byteQueue []byte
 	for _, char := range []byte(path) {
-		if char == paramEnd {
+		if char == rtParamEnd {
 			byteQueue = append(byteQueue, char)
 			if len(byteQueue) > 0 {
 				splits = append(splits, string(byteQueue))
 				byteQueue = nil
 			}
 		} else {
-			if char == paramBegin && len(byteQueue) > 0 {
+			if char == rtParamBegin && len(byteQueue) > 0 {
 				splits = append(splits, string(byteQueue))
 				byteQueue = nil
 			}
@@ -151,8 +151,8 @@ func analyzeParamOption(path string) ([]string, map[string]RouteOption, error) {
 	optionMap := make(map[string]RouteOption)
 	var paramPath []string
 	for _, sp := range splitParams {
-		if strings.HasSuffix(sp, paramEndStr) && strings.HasPrefix(sp, paramBeginStr) {
-			paramStr := strings.Trim(sp, paramBeginStr+paramEndStr)
+		if strings.HasSuffix(sp, rtParamEndStr) && strings.HasPrefix(sp, rtParamBeginStr) {
+			paramStr := strings.Trim(sp, rtParamBeginStr + rtParamEndStr)
 			splits := strings.Split(paramStr, ":")
 			// paramName: the name of the route param (with default value), like 'name', 'name=Steve Jobs' or 'name='
 			paramName := splits[0]
@@ -234,7 +234,7 @@ func analyzeParamOption(path string) ([]string, map[string]RouteOption, error) {
 				}
 			}
 			optionMap[paramName] = opt
-			paramPath = append(paramPath, paramBeginStr+paramName+paramEndStr)
+			paramPath = append(paramPath, rtParamBeginStr +paramName+ rtParamEndStr)
 		} else {
 			paramPath = append(paramPath, sp)
 		}

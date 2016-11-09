@@ -2,10 +2,8 @@ package wemvc
 
 import (
 	"html/template"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 )
 
@@ -44,108 +42,4 @@ func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 		vf.files[subDir] = m
 	}
 	return nil
-}
-
-func getTemplate(root, file, viewExt string, funcMap template.FuncMap, others ...string) (t *template.Template, err error) {
-	t = template.New(file)
-	if funcMap != nil {
-		t.Funcs(funcMap)
-	}
-	var subMods [][]string
-	t, subMods, err = getTemplateDeep(root, file, viewExt, "", t)
-	if err != nil {
-		return nil, err
-	}
-	t, err = getTemplateLoop(t, root, viewExt, subMods, others...)
-
-	if err != nil {
-		return nil, err
-	}
-	return
-}
-
-func getTemplateDeep(root, file, viewExt, parent string, t *template.Template) (*template.Template, [][]string, error) {
-	var fileAbsPath string
-	if filepath.HasPrefix(file, "../") {
-		fileAbsPath = filepath.Join(root, filepath.Dir(parent), file)
-	} else {
-		fileAbsPath = filepath.Join(root, file)
-	}
-	if e := IsFile(fileAbsPath); !e {
-		return nil, [][]string{}, errNotFoundTpl(file)
-	}
-	data, err := ioutil.ReadFile(fileAbsPath)
-	if err != nil {
-		return nil, [][]string{}, err
-	}
-	t, err = t.New(file).Parse(string(data))
-	if err != nil {
-		return nil, [][]string{}, err
-	}
-	reg := regexp.MustCompile("{{" + "[ ]*template[ ]+\"([^\"]+)\"")
-	allSub := reg.FindAllStringSubmatch(string(data), -1)
-	for _, m := range allSub {
-		if len(m) == 2 {
-			look := t.Lookup(m[1])
-			if look != nil {
-				continue
-			}
-			if !strings.HasSuffix(strings.ToLower(m[1]), viewExt) {
-				continue
-			}
-			t, _, err = getTemplateDeep(root, m[1], viewExt, file, t)
-			if err != nil {
-				return nil, [][]string{}, err
-			}
-		}
-	}
-	return t, allSub, nil
-}
-
-func getTemplateLoop(t0 *template.Template, root, viewExt string, subMods [][]string, others ...string) (t *template.Template, err error) {
-	t = t0
-	for _, m := range subMods {
-		if len(m) == 2 {
-			tpl := t.Lookup(m[1])
-			if tpl != nil {
-				continue
-			}
-			//first check filename
-			for _, otherFile := range others {
-				if otherFile == m[1] {
-					var subMods1 [][]string
-					t, subMods1, err = getTemplateDeep(root, otherFile, viewExt, "", t)
-					if err != nil {
-						return nil, err
-					} else if subMods1 != nil && len(subMods1) > 0 {
-						t, err = getTemplateLoop(t, root, viewExt, subMods1, others...)
-					}
-					break
-				}
-			}
-			//second check define
-			for _, otherFile := range others {
-				fileAbsPath := filepath.Join(root, otherFile)
-				data, err := ioutil.ReadFile(fileAbsPath)
-				if err != nil {
-					continue
-				}
-				reg := regexp.MustCompile("{{" + "[ ]*define[ ]+\"([^\"]+)\"")
-				allSub := reg.FindAllStringSubmatch(string(data), -1)
-				for _, sub := range allSub {
-					if len(sub) == 2 && sub[1] == m[1] {
-						var subMods1 [][]string
-						t, subMods1, err = getTemplateDeep(root, otherFile, viewExt, "", t)
-						if err != nil {
-							return nil, err
-						} else if subMods1 != nil && len(subMods1) > 0 {
-							t, err = getTemplateLoop(t, root, viewExt, subMods1, others...)
-						}
-						break
-					}
-				}
-			}
-		}
-	}
-	return
 }

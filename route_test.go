@@ -29,13 +29,13 @@ func Test_splitUrlPath(t *testing.T) {
 }
 
 func Test_detectNodeType(t *testing.T) {
-	if detectNodeType("/") != root {
+	if detectNodeType("/") != rtRoot {
 		t.Error("test 1 failed")
 	}
-	if detectNodeType("test-a") != static {
+	if detectNodeType("test-a") != rtStatic {
 		t.Error("test 2 failed")
 	}
-	if detectNodeType("edit-<user>") != param {
+	if detectNodeType("edit-<user>") != rtParam {
 		t.Error("test 3 failed")
 	}
 }
@@ -44,7 +44,7 @@ type testCtrl struct {
 	Controller
 }
 
-func (t testCtrl) Index() Result {
+func (t testCtrl) Index() ContentResult {
 	return t.PlainText("test")
 }
 

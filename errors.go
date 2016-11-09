@@ -134,7 +134,7 @@ func genError(statusCode int, errorTitle, errDetail, stack string) []byte {
 	return buf.Bytes()
 }
 
-func renderError(statusCode int, errorTitle, errDetail, stack string) *Result {
+func renderError(statusCode int, errorTitle, errDetail, stack string) *ContentResult {
 	res := NewResult()
 	res.StatusCode = statusCode
 	res.Write(genError(statusCode, errorTitle, errDetail, stack))

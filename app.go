@@ -8,7 +8,7 @@ import (
 )
 
 // CtxHandler the error handler define
-type CtxHandler func(*http.Request) *Result
+type CtxHandler func(*http.Request) *ContentResult
 
 // RootDir get the root file path of the web server
 func RootDir() string {
