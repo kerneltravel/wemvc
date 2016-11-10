@@ -8,6 +8,9 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"regexp"
+	"errors"
+	"encoding/hex"
 )
 
 // UUID define the uuid
@@ -31,6 +34,18 @@ func (uuid UUID) ShortString() string {
 	bytes := []byte(uuid)
 	str := fmt.Sprintf("%x%x%x%x%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
 	return strings.ToUpper(str)
+}
+
+func (uuid UUID) Equal(newUUid UUID) bool {
+	if len(uuid) != 16 || len(newUUid) != 16 {
+		return false
+	}
+	for i := 0; i < 16; i++ {
+		if uuid[i] != newUUid[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func uuidRandBytes() UUID {
@@ -59,4 +74,24 @@ func NewUUID() UUID {
 		return uuidRandBytes()
 	}
 	return b
+}
+
+var uuidRegex *regexp.Regexp = regexp.MustCompile(`^\{?([a-fA-F0-9]{8})-?([a-fA-F0-9]{4})-?([a-fA-F0-9]{4})-?([a-fA-F0-9]{4})-?([a-fA-F0-9]{12})\}?$`)
+
+func ParseUUID(s string) (id UUID, err error) {
+	if len(s) == 0 {
+		err = errors.New("Empty UUID string")
+		return
+	}
+
+	parts := uuidRegex.FindStringSubmatch(s)
+	if parts == nil {
+		err = errors.New("Invalid UUID string format")
+		return
+	}
+	var array [16]byte
+	slice, _ := hex.DecodeString(strings.Join(parts[1:], ""))
+	copy(array[:], slice)
+	id = array
+	return
 }

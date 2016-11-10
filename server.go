@@ -42,6 +42,17 @@ func (app *server) mapPath(virtualPath string) string {
 	return fixPath(res)
 }
 
+func (app *server) RegSessionProvider(name string, provide SessionProvider) {
+	app.assertNotLocked()
+	if provide == nil {
+		panic(errSessionProvNil)
+	}
+	if _, dup := app.sessionProvides[name]; dup {
+		panic(errSessionRegTwice(name))
+	}
+	app.sessionProvides[name] = provide
+}
+
 // ServeHTTP serve the
 func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// handle 500 errors
@@ -260,68 +271,76 @@ func (app *server) init() error {
 	return nil
 }
 
+func (app *server) onConfigFileChange(ev *fsnotify.FileEvent) bool {
+	strFile := path.Clean(ev.Name)
+	conf,err := newConfig(strFile)
+	if err == nil {
+		app.config = conf
+		app.internalErr = nil
+	} else {
+		app.internalErr = err
+	}
+	return false;
+}
+
+func (app *server) onNsConfigFileChange(ev *fsnotify.FileEvent) bool {
+	for _, ns := range app.namespaces {
+		strFile := path.Clean(ev.Name)
+		if ns.isConfigFile(strFile) {
+			ns.loadConfig()
+		}
+	}
+	return false
+}
+
+func (app *server) onViewFileChange(ev *fsnotify.FileEvent) bool {
+	strFile := path.Clean(ev.Name)
+	lowerStrFile := strings.ToLower(strFile)
+	if IsDir(strFile) {
+		if ev.IsDelete() {
+			app.fileWatcher.RemoveWatch(strFile)
+		} else if ev.IsCreate() {
+			app.fileWatcher.AddWatch(strFile)
+		}
+	} else if strings.HasSuffix(lowerStrFile, ".html") {
+		app.compileViews(app.viewFolder())
+	}
+	return false
+}
+
+func (app *server) onNsViewFileChange(ev *fsnotify.FileEvent) bool {
+	strFile := path.Clean(ev.Name)
+	lowerStrFile := strings.ToLower(strFile)
+	for _, ns := range app.namespaces {
+		if ns.isInViewFolder(strFile) {
+			if IsDir(strFile) {
+				if ev.IsDelete() {
+					app.fileWatcher.RemoveWatch(strFile)
+				} else if ev.IsCreate() {
+					app.fileWatcher.AddWatch(strFile)
+				}
+			} else if strings.HasSuffix(lowerStrFile, ".html") {
+				ns.compileViews(ns.viewFolder())
+			}
+			return false
+		}
+	}
+	return false
+}
+
 // watchFile used to watching the required files: config files and view files
 func (app *server) addWatcherHandler() {
 	if app.fileWatcher == nil {
 		return
 	}
 	// add config file handler
-	app.fileWatcher.AddHandler(&configDetector{app:app}, func(ev *fsnotify.FileEvent) bool {
-		strFile := path.Clean(ev.Name)
-		conf,err := newConfig(strFile)
-		if err == nil {
-			app.config = conf
-			app.internalErr = nil
-		} else {
-			app.internalErr = err
-		}
-		return false;
-	})
+	app.fileWatcher.AddHandler(&configDetector{app:app}, app.onConfigFileChange)
 	// add ns config handler
-	app.fileWatcher.AddHandler(&nsConfigDetector{app:app}, func(ev *fsnotify.FileEvent) bool {
-		for _, ns := range app.namespaces {
-			strFile := path.Clean(ev.Name)
-			if ns.isConfigFile(strFile) {
-				ns.loadConfig()
-			}
-		}
-		return false
-	})
+	app.fileWatcher.AddHandler(&nsConfigDetector{app:app}, app.onNsConfigFileChange)
 	// add view file handler
-	app.fileWatcher.AddHandler(&viewDetector{app:app}, func(ev *fsnotify.FileEvent) bool {
-		strFile := path.Clean(ev.Name)
-		lowerStrFile := strings.ToLower(strFile)
-		if IsDir(strFile) {
-			if ev.IsDelete() {
-				app.fileWatcher.RemoveWatch(strFile)
-			} else if ev.IsCreate() {
-				app.fileWatcher.AddWatch(strFile)
-			}
-		} else if strings.HasSuffix(lowerStrFile, ".html") {
-			app.compileViews(app.viewFolder())
-		}
-		return false
-	})
+	app.fileWatcher.AddHandler(&viewDetector{app:app}, app.onViewFileChange)
 	// add ns view file handler
-	app.fileWatcher.AddHandler(&nsViewDetector{app:app}, func(ev *fsnotify.FileEvent) bool {
-		strFile := path.Clean(ev.Name)
-		lowerStrFile := strings.ToLower(strFile)
-		for _, ns := range app.namespaces {
-			if ns.isInViewFolder(strFile) {
-				if IsDir(strFile) {
-					if ev.IsDelete() {
-						app.fileWatcher.RemoveWatch(strFile)
-					} else if ev.IsCreate() {
-						app.fileWatcher.AddWatch(strFile)
-					}
-				} else if strings.HasSuffix(lowerStrFile, ".html") {
-					ns.compileViews(ns.viewFolder())
-				}
-				return false
-			}
-		}
-		return false
-	})
+	app.fileWatcher.AddHandler(&nsViewDetector{app:app}, app.onViewFileChange)
 }
 
 func (app *server) isConfigFile(f string) bool {
@@ -348,19 +367,19 @@ func (app *server) isInViewFolder(f string) bool {
 
 // isStaticRequest check the current request is indicate to static path
 func (app *server) isStaticRequest(req *http.Request) bool {
-	var url string
+	var reqUrl string
 	if runtime.GOOS == "windows" {
-		url = strings.ToLower(req.URL.Path)
+		reqUrl = strings.ToLower(req.URL.Path)
 	} else {
-		url = req.URL.Path
+		reqUrl = req.URL.Path
 	}
 	for _, f := range app.staticFiles {
-		if f == url {
+		if f == reqUrl {
 			return true
 		}
 	}
 	for _, p := range app.staticPaths {
-		if strings.HasPrefix(url, p) {
+		if strings.HasPrefix(reqUrl, p) {
 			return true
 		}
 	}
@@ -381,7 +400,7 @@ func newServer(webRoot string) *server {
 	app.filters = make(map[string][]CtxFilter)
 	app.viewExt = ".html"
 	app.sessionProvides = make(map[string]SessionProvider)
-	app.RegSessionProvider("memory", &MemSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
+	app.RegSessionProvider("memory", &memSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
 	app.globalFilters = []CtxFilter{
 		ServeStatic,
 		InitRoute,

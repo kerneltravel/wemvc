@@ -18,22 +18,8 @@ type SessionProvider interface {
 	SessionGC()
 }
 
-// Register makes a session provide available by the provided name.
-// If Register is called twice with the same name or if driver is nil,
-// it panics.
-func (app *server) RegSessionProvider(name string, provide SessionProvider) {
-	app.assertNotLocked()
-	if provide == nil {
-		panic(errSessionProvNil)
-	}
-	if _, dup := app.sessionProvides[name]; dup {
-		panic(errSessionRegTwice(name))
-	}
-	app.sessionProvides[name] = provide
-}
-
 // MemSessionProvider Implement the provider interface
-type MemSessionProvider struct {
+type memSessionProvider struct {
 	lock        sync.RWMutex             // locker
 	sessions    map[string]*list.Element // map in memory
 	list        *list.List               // for gc
@@ -42,14 +28,14 @@ type MemSessionProvider struct {
 }
 
 // SessionInit init memory session
-func (prov *MemSessionProvider) SessionInit(maxLifeTime int64, savePath string) error {
+func (prov *memSessionProvider) SessionInit(maxLifeTime int64, savePath string) error {
 	prov.maxLifetime = maxLifeTime
 	prov.savePath = savePath
 	return nil
 }
 
 // SessionRead get memory session store by sid
-func (prov *MemSessionProvider) SessionRead(sid string) (SessionStore, error) {
+func (prov *memSessionProvider) SessionRead(sid string) (SessionStore, error) {
 	prov.lock.RLock()
 	if element, ok := prov.sessions[sid]; ok {
 		go prov.SessionUpdate(sid)
@@ -66,7 +52,7 @@ func (prov *MemSessionProvider) SessionRead(sid string) (SessionStore, error) {
 }
 
 // SessionExist check session store exist in memory session by sid
-func (prov *MemSessionProvider) SessionExist(sid string) bool {
+func (prov *memSessionProvider) SessionExist(sid string) bool {
 	prov.lock.RLock()
 	defer prov.lock.RUnlock()
 	if _, ok := prov.sessions[sid]; ok {
@@ -76,7 +62,7 @@ func (prov *MemSessionProvider) SessionExist(sid string) bool {
 }
 
 // SessionRegenerate generate new sid for session store in memory session
-func (prov *MemSessionProvider) SessionRegenerate(oldsid, sid string) (SessionStore, error) {
+func (prov *memSessionProvider) SessionRegenerate(oldsid, sid string) (SessionStore, error) {
 	prov.lock.RLock()
 	if element, ok := prov.sessions[oldsid]; ok {
 		go prov.SessionUpdate(oldsid)
@@ -98,7 +84,7 @@ func (prov *MemSessionProvider) SessionRegenerate(oldsid, sid string) (SessionSt
 }
 
 // SessionDestroy delete session store in memory session by id
-func (prov *MemSessionProvider) SessionDestroy(sid string) error {
+func (prov *memSessionProvider) SessionDestroy(sid string) error {
 	prov.lock.Lock()
 	defer prov.lock.Unlock()
 	if element, ok := prov.sessions[sid]; ok {
@@ -110,7 +96,7 @@ func (prov *MemSessionProvider) SessionDestroy(sid string) error {
 }
 
 // SessionGC clean expired session stores in memory session
-func (prov *MemSessionProvider) SessionGC() {
+func (prov *memSessionProvider) SessionGC() {
 	prov.lock.RLock()
 	for {
 		element := prov.list.Back()
@@ -132,12 +118,12 @@ func (prov *MemSessionProvider) SessionGC() {
 }
 
 // SessionAll get count number of memory session
-func (prov *MemSessionProvider) SessionAll() int {
+func (prov *memSessionProvider) SessionAll() int {
 	return prov.list.Len()
 }
 
 // SessionUpdate expand time of session store by id in memory session
-func (prov *MemSessionProvider) SessionUpdate(sid string) error {
+func (prov *memSessionProvider) SessionUpdate(sid string) error {
 	prov.lock.Lock()
 	defer prov.lock.Unlock()
 	if element, ok := prov.sessions[sid]; ok {

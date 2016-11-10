@@ -3,12 +3,15 @@ package wemvc
 import (
 	"strings"
 	"fmt"
+	"database/sql"
+	"errors"
 )
 
 // Configuration the global config interface
 type Configuration interface {
 	GetDefaultUrls() []string
 	GetConnConfig(string) (typeName string, connString string)
+	GetConn(connName string) (*sql.DB, error)
 	GetSetting(string) string
 }
 
@@ -94,6 +97,14 @@ func (conf *config) GetConnConfig(connName string) (string, string) {
 		return conn.typeName, conn.connString
 	}
 	return "", ""
+}
+
+func (conf *config) GetConn(connName string) (*sql.DB, error) {
+	driverName, dataSource := conf.GetConnConfig(connName)
+	if len(driverName) == 0 || len(dataSource) == 0 {
+		return nil, errors.New("No driver or data source found in config file")
+	}
+	return sql.Open(driverName, dataSource)
 }
 
 func (conf *config) getSessionConfig() *SessionConfig {

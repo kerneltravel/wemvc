@@ -85,14 +85,6 @@ func (manager *SessionManager) isSecure(req *http.Request) bool {
 func (manager *SessionManager) sessionID() (string, error) {
 	uuid := NewUUID()
 	return uuid.ShortString(), nil
-	/*
-		b := make([]byte, manager.config.SessionIDLength)
-		n, err := rand.Read(b)
-		if n != len(b) || err != nil {
-			return "", errors.New("Could not successfully read from the system CSPRNG.")
-		}
-		return hex.EncodeToString(b), nil
-	*/
 }
 
 // SessionStart generate or read the session id from http request.
