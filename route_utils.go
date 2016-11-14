@@ -146,9 +146,9 @@ func checkNumberRange(optStr string) bool {
 	return reg.Match([]byte(optStr))
 }
 
-func analyzeParamOption(path string) ([]string, map[string]RouteOption, error) {
+func analyzeParamOption(path string) ([]string, map[string]*RouteOption, error) {
 	splitParams := splitRouteParam(path)
-	optionMap := make(map[string]RouteOption)
+	optionMap := make(map[string]*RouteOption)
 	var paramPath []string
 	for _, sp := range splitParams {
 		if strings.HasSuffix(sp, rtParamEndStr) && strings.HasPrefix(sp, rtParamBeginStr) {
@@ -233,7 +233,7 @@ func analyzeParamOption(path string) ([]string, map[string]RouteOption, error) {
 					opt.Setting = setting
 				}
 			}
-			optionMap[paramName] = opt
+			optionMap[paramName] = &opt
 			paramPath = append(paramPath, rtParamBeginStr +paramName+ rtParamEndStr)
 		} else {
 			paramPath = append(paramPath, sp)
