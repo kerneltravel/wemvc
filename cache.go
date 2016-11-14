@@ -41,14 +41,14 @@ func (c *CacheManager) Get(name string) interface{} {
 	if c.dataMap == nil {
 		return nil
 	}
-	c.locker.Lock()
-	defer c.locker.Unlock()
 	data,ok := c.dataMap[name]
 	if ok {
 		if time.Now().Before(data.expire) {
 			return data.data
 		}
+		c.locker.Lock()
 		delete(c.dataMap, name)
+		c.locker.Unlock()
 		return nil
 	}
 	return nil
@@ -105,7 +105,9 @@ func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []stri
 		dependencies: dFiles,
 		expire: *expire,
 	}
+	c.locker.Lock()
 	c.dataMap[name] = cData
+	c.locker.Unlock()
 	if len(dFiles) > 0 {
 		for _, f := range dFiles {
 			c.fileWatcher.AddWatch(f)
