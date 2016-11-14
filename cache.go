@@ -6,23 +6,43 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"github.com/howeyc/fsnotify"
+	"sync"
 )
 
 type cacheData struct {
-	data interface{}
-	expire time.Time
+	data         interface{}
+	dependencies []string
+	expire       time.Time
 }
 
-type Cache struct {
-	dataMap     map[string]cacheData
-	gcFrequency int64
+type CacheManager struct {
+	dataMap     map[string]*cacheData
+	gcFrequency time.Duration
 	fileWatcher *FileWatcher
+	locker      *sync.RWMutex
 }
 
-func (c *Cache) Get(name string) interface{} {
+func (c *CacheManager) countDepFileUsage(fPath string) int {
+	var count int = 0
+	for _, data := range c.dataMap {
+		if len(data.dependencies) > 0 {
+			for _, f := range data.dependencies {
+				if strings.EqualFold(fPath, f) {
+					count = count + 1
+				}
+			}
+		}
+	}
+	return count
+}
+
+func (c *CacheManager) Get(name string) interface{} {
 	if c.dataMap == nil {
 		return nil
 	}
+	c.locker.Lock()
+	defer c.locker.Unlock()
 	data,ok := c.dataMap[name]
 	if ok {
 		if time.Now().Before(data.expire) {
@@ -34,7 +54,7 @@ func (c *Cache) Get(name string) interface{} {
 	return nil
 }
 
-func (c *Cache) AllKeys(name string)  {
+func (c *CacheManager) AllKeys(name string) []string {
 	var keys []string
 	for key := range c.dataMap {
 		keys = append(keys, key)
@@ -42,7 +62,7 @@ func (c *Cache) AllKeys(name string)  {
 	return keys
 }
 
-func (c *Cache) AllData() map[string]interface{} {
+func (c *CacheManager) AllData() map[string]interface{} {
 	var data = make(map[string]interface{})
 	var now = time.Now()
 	for key, value := range c.dataMap {
@@ -53,25 +73,124 @@ func (c *Cache) AllData() map[string]interface{} {
 	return data
 }
 
-func (c *Cache) Add(name string, data interface{}, dependencyFile string, expire *time.Time)  {
-	// todo: write add cache code here
+func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []string, expire *time.Time) error {
+	if len(name) == 0 {
+		return errors.New("The parameter 'name' cannot be empty")
+	}
+	if data == nil {
+		return errors.New("The parameter 'data' cannot be nil")
+	}
+	c.locker.Lock()
+	defer c.locker.Unlock()
+	var dFiles []string
+	if len(dependencyFiles) != 0 {
+		for _, file := range dependencyFiles {
+			if len(file) == 0 {
+				continue
+			}
+			fPath := path.Clean(fixPath(file))
+			if (!IsFile(fPath)) {
+				return fmt.Errorf("The dependency file does not exist: %s", file)
+			} else {
+				dFiles = append(dFiles, fPath)
+			}
+		}
+	}
+	if expire == nil {
+		t := time.Date(9999, 12, 31, 23, 59, 59, 999, time.UTC)
+		expire = &t
+	}
+	cData := &cacheData{
+		data: data,
+		dependencies: dFiles,
+		expire: *expire,
+	}
+	c.dataMap[name] = cData
+	if len(dFiles) > 0 {
+		for _, f := range dFiles {
+			c.fileWatcher.AddWatch(f)
+		}
+	}
+	return nil
+}
+
+func (c *CacheManager) Remove(name string) {
+	if len(name) == 0 {
+		return
+	}
+	data,ok := c.dataMap[name]
+	if !ok {
+		return
+	}
+	if len(data.dependencies) > 0 {
+		for _, f := range data.dependencies {
+			if c.countDepFileUsage(f) == 1 {
+				c.fileWatcher.RemoveWatch(f)
+			}
+		}
+	}
+	c.locker.Lock()
+	delete(c.dataMap, name)
+	c.locker.Unlock()
+}
+
+func (c *CacheManager) gc() {
+	go func() {
+		time.Sleep(c.gcFrequency)
+		var now = time.Now()
+		for name, data := range c.dataMap {
+			if now.Before(data.expire) {
+				c.locker.Lock()
+				delete(c.dataMap, name)
+				c.locker.Unlock()
+			}
+		}
+	}()
+}
+
+func (c *CacheManager) onDepFileChange(ctxData interface{}, ev *fsnotify.FileEvent) bool {
+	name,ok := ctxData.(string)
+	if ok {
+		c.locker.Lock()
+		delete(c.dataMap, name)
+		c.locker.Unlock()
+	}
+	return true
+}
+
+func (c *CacheManager) Start() {
+	detector := newCacheDetector(c)
+	c.fileWatcher.AddHandler(detector, c.onDepFileChange)
+	c.gc()
+}
+
+func newCacheManager(fw *FileWatcher) *CacheManager {
+	return &CacheManager{
+		locker: &sync.RWMutex{},
+		dataMap: make(map[string]*cacheData),
+		gcFrequency: 10*time.Second,
+		fileWatcher: fw,
+	}
 }
 
 type cacheDetector struct {
-	file string
+	cacheManager *CacheManager
 }
 
-func (cd *cacheDetector) CanHandle(path string) bool {
-	return strings.EqualFold(cd.file, path)
+func (cd *cacheDetector) CanHandle(path string) (bool, interface{}) {
+	for name, data := range cd.cacheManager.dataMap {
+		if len(data.dependencies) == 0 {
+			continue
+		}
+		for _, file := range data.dependencies {
+			if strings.EqualFold(file, path) {
+				return true, name
+			}
+		}
+	}
+	return false, nil
 }
 
-func NewCacheDetector(filePath string) (WatcherDetector, error) {
-	if len(filePath) == 0 {
-		return nil, errors.New("'filePath' argument cannot be empty")
-	}
-	fixPath := path.Clean(fixPath(filePath))
-	if !IsFile(fixPath) {
-		return nil, fmt.Errorf("file does not exist: %s", filePath)
-	}
-	return &cacheDetector{file:fixPath}
+func newCacheDetector(manager *CacheManager) *cacheDetector {
+	return &cacheDetector{cacheManager: manager}
 }

@@ -20,6 +20,10 @@ func Config() Configuration {
 	return app.config
 }
 
+func Cache() *CacheManager {
+	return app.cacheManager
+}
+
 // MapPath Returns the physical file path that corresponds to the specified virtual path.
 // @param virtualPath: the virtual path starts with
 // @return the absolute file path

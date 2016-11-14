@@ -32,6 +32,7 @@ type server struct {
 	globalFilters   []CtxFilter
 	internalErr     error
 	fileWatcher     *FileWatcher
+	cacheManager    *CacheManager
 	viewContainer
 	filterContainer
 }
@@ -167,6 +168,10 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 		http.Redirect(w, req, res.String(), 302)
 		return
 	case string:
+		content := result.(string)
+		w.Header().Add("Content-Type", "text/plain")
+		w.Write([]byte(content))
+		return
 	case []byte:
 		w.Header().Add("Content-Type", "text/plain")
 		w.Write(result.([]byte))
@@ -268,10 +273,15 @@ func (app *server) init() error {
 	}
 	app.globalSession = mgr
 	go app.globalSession.GC()
+
+	// init cache manager
+	app.cacheManager = newCacheManager(app.fileWatcher)
+	app.cacheManager.Start()
+
 	return nil
 }
 
-func (app *server) onConfigFileChange(ev *fsnotify.FileEvent) bool {
+func (app *server) onConfigFileChange(ctx interface{}, ev *fsnotify.FileEvent) bool {
 	strFile := path.Clean(ev.Name)
 	conf,err := newConfig(strFile)
 	if err == nil {
@@ -283,17 +293,15 @@ func (app *server) onConfigFileChange(ev *fsnotify.FileEvent) bool {
 	return false;
 }
 
-func (app *server) onNsConfigFileChange(ev *fsnotify.FileEvent) bool {
-	for _, ns := range app.namespaces {
-		strFile := path.Clean(ev.Name)
-		if ns.isConfigFile(strFile) {
-			ns.loadConfig()
-		}
+func (app *server) onNsConfigFileChange(ctx interface{}, ev *fsnotify.FileEvent) bool {
+	ns,ok := ctx.(*namespace)
+	if ok {
+		ns.loadConfig()
 	}
 	return false
 }
 
-func (app *server) onViewFileChange(ev *fsnotify.FileEvent) bool {
+func (app *server) onViewFileChange(ctx interface{}, ev *fsnotify.FileEvent) bool {
 	strFile := path.Clean(ev.Name)
 	lowerStrFile := strings.ToLower(strFile)
 	if IsDir(strFile) {
@@ -308,22 +316,21 @@ func (app *server) onViewFileChange(ev *fsnotify.FileEvent) bool {
 	return false
 }
 
-func (app *server) onNsViewFileChange(ev *fsnotify.FileEvent) bool {
+func (app *server) onNsViewFileChange(ctxData interface{}, ev *fsnotify.FileEvent) bool {
 	strFile := path.Clean(ev.Name)
 	lowerStrFile := strings.ToLower(strFile)
-	for _, ns := range app.namespaces {
-		if ns.isInViewFolder(strFile) {
-			if IsDir(strFile) {
-				if ev.IsDelete() {
-					app.fileWatcher.RemoveWatch(strFile)
-				} else if ev.IsCreate() {
-					app.fileWatcher.AddWatch(strFile)
-				}
-			} else if strings.HasSuffix(lowerStrFile, ".html") {
-				ns.compileViews(ns.viewFolder())
+	ns,ok := ctxData.(*namespace)
+	if ok {
+		if IsDir(strFile) {
+			if ev.IsDelete() {
+				app.fileWatcher.RemoveWatch(strFile)
+			} else if ev.IsCreate() {
+				app.fileWatcher.AddWatch(strFile)
 			}
-			return false
+		} else if strings.HasSuffix(lowerStrFile, ".html") {
+			ns.compileViews(ns.viewFolder())
 		}
+		return false
 	}
 	return false
 }
@@ -340,7 +347,7 @@ func (app *server) addWatcherHandler() {
 	// add view file handler
 	app.fileWatcher.AddHandler(&viewDetector{app:app}, app.onViewFileChange)
 	// add ns view file handler
-	app.fileWatcher.AddHandler(&nsViewDetector{app:app}, app.onViewFileChange)
+	app.fileWatcher.AddHandler(&nsViewDetector{app:app}, app.onNsViewFileChange)
 }
 
 func (app *server) isConfigFile(f string) bool {
@@ -349,15 +356,6 @@ func (app *server) isConfigFile(f string) bool {
 	} else {
 		return app.mapPath("/config.xml") == f
 	}
-}
-
-func (app *server) isNsConfigFile(f string) bool {
-	for _, ns := range app.namespaces {
-		if ns.isConfigFile(f) {
-			return true
-		}
-	}
-	return false
 }
 
 func (app *server) isInViewFolder(f string) bool {

@@ -6,10 +6,10 @@ import (
 	"path"
 )
 
-type WatcherHandler func(*fsnotify.FileEvent) bool
+type WatcherHandler func(ctxData interface{}, ev *fsnotify.FileEvent) bool
 
 type WatcherDetector interface {
-	CanHandle(path string) bool
+	CanHandle(path string) (bool,interface{})
 }
 
 type FileWatcher struct {
@@ -43,8 +43,9 @@ func (fw *FileWatcher) Start() {
 			case ev := <- fw.watcher.Event:
 				println(ev.Name)
 				for det, h := range fw.handlers {
-					if det.CanHandle(path.Clean(ev.Name)) {
-						if !h(ev) {
+					ok,ctx := det.CanHandle(path.Clean(ev.Name))
+					if ok {
+						if !h(ctx, ev) {
 							break
 						}
 					}

@@ -89,7 +89,7 @@ func ParseUUID(s string) (id UUID, err error) {
 		err = errors.New("Invalid UUID string format")
 		return
 	}
-	var array [16]byte
+	var array []byte
 	slice, _ := hex.DecodeString(strings.Join(parts[1:], ""))
 	copy(array[:], slice)
 	id = array
