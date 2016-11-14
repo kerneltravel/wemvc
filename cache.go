@@ -10,6 +10,10 @@ import (
 	"sync"
 )
 
+const (
+	maxDate = time.Date(9999, 12, 31, 23, 59, 59, 999, time.UTC)
+)
+
 type cacheData struct {
 	data         interface{}
 	dependencies []string
@@ -23,7 +27,7 @@ type CacheManager struct {
 	locker      *sync.RWMutex
 }
 
-func (c *CacheManager) countDepFileUsage(fPath string) int {
+func (c *CacheManager) fileUsage(fPath string) int {
 	var count int = 0
 	for _, data := range c.dataMap {
 		if len(data.dependencies) > 0 {
@@ -80,8 +84,6 @@ func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []stri
 	if data == nil {
 		return errors.New("The parameter 'data' cannot be nil")
 	}
-	c.locker.Lock()
-	defer c.locker.Unlock()
 	var dFiles []string
 	if len(dependencyFiles) != 0 {
 		for _, file := range dependencyFiles {
@@ -97,7 +99,7 @@ func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []stri
 		}
 	}
 	if expire == nil {
-		t := time.Date(9999, 12, 31, 23, 59, 59, 999, time.UTC)
+		t := maxDate
 		expire = &t
 	}
 	cData := &cacheData{
@@ -126,7 +128,7 @@ func (c *CacheManager) Remove(name string) {
 	}
 	if len(data.dependencies) > 0 {
 		for _, f := range data.dependencies {
-			if c.countDepFileUsage(f) == 1 {
+			if c.fileUsage(f) == 1 {
 				c.fileWatcher.RemoveWatch(f)
 			}
 		}
