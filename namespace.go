@@ -5,18 +5,6 @@ import (
 	"runtime"
 )
 
-// NamespaceSection the namespace section interface
-type NsSection interface {
-	GetName() string
-	GetNsDir() string
-	Route(string, interface{}, ...string) NsSection
-	Filter(string, CtxFilter) NsSection
-	StaticDir(string) NsSection
-	StaticFile(string) NsSection
-	GetSetting(string) string
-	AddViewFunc(name string, f interface{}) NsSection
-}
-
 type nsSettingGroup struct {
 	Settings []struct {
 		Key   string `xml:"key,attr"`
@@ -24,7 +12,7 @@ type nsSettingGroup struct {
 	} `xml:"add"`
 }
 
-type namespace struct {
+type NsSection struct {
 	name     string
 	server   *server
 	settings map[string]string
@@ -32,15 +20,15 @@ type namespace struct {
 	filterContainer
 }
 
-func (ns *namespace) Name() string {
+func (ns *NsSection) Name() string {
 	return ns.name
 }
 
-func (ns *namespace) Dir() string {
+func (ns *NsSection) Dir() string {
 	return ns.server.mapPath(ns.Name())
 }
 
-func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...string) NsSection {
+func (ns *NsSection) Route(routePath string, c interface{}, defaultAction ...string) *NsSection {
 	if !strings.HasPrefix(routePath, "/") {
 		routePath = "/" + routePath
 	}
@@ -54,7 +42,7 @@ func (ns *namespace) Route(routePath string, c interface{}, defaultAction ...str
 	return ns
 }
 
-func (ns *namespace) Filter(pathPrefix string, filter CtxFilter) NsSection {
+func (ns *NsSection) Filter(pathPrefix string, filter CtxFilter) *NsSection {
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = "/" + pathPrefix
 	}
@@ -69,7 +57,7 @@ func (ns *namespace) Filter(pathPrefix string, filter CtxFilter) NsSection {
 	return ns
 }
 
-func (ns *namespace) GetSetting(key string) string {
+func (ns *NsSection) GetSetting(key string) string {
 	v, ok := ns.settings[key]
 	if ok {
 		return v
@@ -77,7 +65,7 @@ func (ns *namespace) GetSetting(key string) string {
 	return ""
 }
 
-func (ns *namespace) StaticDir(pathPrefix string) NsSection {
+func (ns *NsSection) StaticDir(pathPrefix string) *NsSection {
 	if len(pathPrefix) < 1 {
 		panic(errPathPrefix)
 	}
@@ -91,7 +79,7 @@ func (ns *namespace) StaticDir(pathPrefix string) NsSection {
 	return ns
 }
 
-func (ns *namespace) StaticFile(file string) NsSection {
+func (ns *NsSection) StaticFile(file string) *NsSection {
 	if len(file) < 1 {
 		panic(errPathPrefix)
 	}
@@ -105,20 +93,20 @@ func (ns *namespace) StaticFile(file string) NsSection {
 	return ns
 }
 
-func (ns *namespace) AddViewFunc(name string, f interface{}) NsSection {
+func (ns *NsSection) AddViewFunc(name string, f interface{}) *NsSection {
 	ns.addViewFunc(name, f)
 	return ns
 }
 
-func (ns *namespace) RenderView(viewName string, data interface{}) ([]byte, error) {
+func (ns *NsSection) RenderView(viewName string, data interface{}) ([]byte, error) {
 	return ns.renderView(viewName, data)
 }
 
-func (ns *namespace) nsSettingFile() string {
+func (ns *NsSection) nsSettingFile() string {
 	return ns.server.mapPath(ns.Name() + "/settings.xml")
 }
 
-func (ns *namespace) isConfigFile(f string) bool {
+func (ns *NsSection) isConfigFile(f string) bool {
 	if runtime.GOOS == "windows" {
 		return strings.EqualFold(ns.nsSettingFile(), f)
 	} else {
@@ -126,12 +114,12 @@ func (ns *namespace) isConfigFile(f string) bool {
 	}
 }
 
-func (ns *namespace) isInViewFolder(f string) bool {
+func (ns *NsSection) isInViewFolder(f string) bool {
 	var viewPath = ns.viewFolder()
 	return strings.HasPrefix(f, viewPath)
 }
 
-func (ns *namespace) loadConfig() {
+func (ns *NsSection) loadConfig() {
 	var path = ns.nsSettingFile()
 	if IsFile(path) {
 		var settings = &nsSettingGroup{}
@@ -148,6 +136,6 @@ func (ns *namespace) loadConfig() {
 	}
 }
 
-func (ns *namespace) viewFolder() string {
+func (ns *NsSection) viewFolder() string {
 	return ns.server.mapPath(ns.Name() + "/views")
 }

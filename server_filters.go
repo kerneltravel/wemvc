@@ -5,10 +5,24 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"fmt"
 )
 
 // CtxFilter request filter func
 type CtxFilter func(ctx *Context)
+
+var (
+	dangerChars = []string{ "<" , ">", "&", "%", "*"}
+)
+
+func DangerousRequest(ctx *Context) {
+	for _, c := range dangerChars {
+		var ltIndex = strings.Index(ctx.Request().URL.Path, c)
+		if ltIndex >= 0 {
+			panic(fmt.Errorf("The dangerous character '%s' found in the request path: %d", c,  ltIndex))
+		}
+	}
+}
 
 // ServeStatic serve static request function
 func ServeStatic(ctx *Context) {

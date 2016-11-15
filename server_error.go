@@ -55,9 +55,12 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	}
 	// process 500 error
 	res.WriteHeader(500)
-	var debugStack = string(debug.Stack())
-	debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
-	debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
+	var debugStack string
+	if app.config.GetSetting("DebugMode") == "true" {
+		debugStack = string(debug.Stack())
+		debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
+		debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
+	}
 	if err, ok := rec.(error); ok {
 		res.Write(genError(500, "", err.Error(), debugStack))
 	} else {

@@ -56,7 +56,7 @@ func (ctx *Context) CtxItems() *CtxItems {
 	return ctx.ctxItems
 }
 
-func (ctx *Context) Namespace() NsSection {
+func (ctx *Context) Namespace() *NsSection {
 	if ctx.Route == nil || len(ctx.Route.NsName) == 0 {
 		return nil
 	}

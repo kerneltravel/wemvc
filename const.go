@@ -2,7 +2,7 @@ package wemvc
 
 const (
 	// Version the wemvc Version number
-	Version = "1.0"
+	Version = "1.4"
 )
 
 var statusCodeMapping = map[int]string{

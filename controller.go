@@ -15,7 +15,7 @@ type Controller struct {
 	Action     string
 	ViewData   map[string]interface{}
 	Items      *CtxItems
-	Namespace  NsSection
+	Namespace  *NsSection
 	session    SessionStore
 	Context    *Context
 }
@@ -57,7 +57,7 @@ func (ctrl *Controller) ViewFile(viewPath string) Result {
 	ctrl.ViewData["CtxItems"] = ctrl.Items
 	var err error
 	if ctrl.Namespace != nil {
-		res, err = ctrl.Namespace.(*namespace).renderView(viewPath, ctrl.ViewData)
+		res, err = ctrl.Namespace.renderView(viewPath, ctrl.ViewData)
 	} else {
 		res, err = ctrl.Context.app.renderView(viewPath, ctrl.ViewData)
 	}

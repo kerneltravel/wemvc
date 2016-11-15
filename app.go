@@ -32,7 +32,7 @@ func MapPath(virtualPath string) string {
 }
 
 // Namespace return the namespace by name
-func Namespace(ns string) NsSection {
+func Namespace(ns string) *NsSection {
 	return app.getNamespace(ns)
 }
 

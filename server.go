@@ -28,7 +28,7 @@ type server struct {
 	staticPaths     []string
 	staticFiles     []string
 	globalSession   *SessionManager
-	namespaces      map[string]*namespace
+	namespaces      map[string]*NsSection
 	sessionProvides map[string]SessionProvider
 	globalFilters   []CtxFilter
 	internalErr     error
@@ -115,7 +115,7 @@ func (app *server) staticFile(path string) {
 	app.staticFiles = append(app.staticFiles, path)
 }
 
-func (app *server) getNamespace(nsName string) NsSection {
+func (app *server) getNamespace(nsName string) *NsSection {
 	if len(nsName) > 0 {
 		if !strings.HasPrefix(nsName, "/") {
 			nsName = "/" + nsName
@@ -126,13 +126,13 @@ func (app *server) getNamespace(nsName string) NsSection {
 		panic(errInvalidNamespace)
 	}
 	if app.namespaces == nil {
-		app.namespaces = make(map[string]*namespace)
+		app.namespaces = make(map[string]*NsSection)
 	}
 	ns, ok := app.namespaces[nsName]
 	if ok {
 		return ns
 	}
-	ns = &namespace{
+	ns = &NsSection{
 		name:   nsName,
 		server: app,
 	}
@@ -289,7 +289,7 @@ func (app *server) onConfigFileChange(ctx interface{}, ev *fsnotify.FileEvent) b
 }
 
 func (app *server) onNsConfigFileChange(ctx interface{}, ev *fsnotify.FileEvent) bool {
-	ns,ok := ctx.(*namespace)
+	ns,ok := ctx.(*NsSection)
 	if ok {
 		ns.loadConfig()
 	}
@@ -314,7 +314,7 @@ func (app *server) onViewFileChange(ctx interface{}, ev *fsnotify.FileEvent) boo
 func (app *server) onNsViewFileChange(ctxData interface{}, ev *fsnotify.FileEvent) bool {
 	strFile := path.Clean(ev.Name)
 	lowerStrFile := strings.ToLower(strFile)
-	ns,ok := ctxData.(*namespace)
+	ns,ok := ctxData.(*NsSection)
 	if ok {
 		if IsDir(strFile) {
 			if ev.IsDelete() {
@@ -395,6 +395,7 @@ func newServer(webRoot string) *server {
 	app.sessionProvides = make(map[string]SessionProvider)
 	app.RegSessionProvider("memory", &memSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
 	app.globalFilters = []CtxFilter{
+		DangerousRequest,
 		ServeStatic,
 		InitRoute,
 		HandleRoute,
