@@ -403,7 +403,7 @@ func newServer(webRoot string) *server {
 	}
 	w, err := NewWatcher()
 	if err != nil {
-		return err
+		panic(err)
 	}
 	app.fileWatcher = w
 	return app

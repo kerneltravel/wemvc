@@ -91,7 +91,7 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 						validationStr = validationStr[len(data):]
 					}
 				}
-				// check the last part of the pram
+				// check the last part of the route param
 				if len(curPath) == index && len(validationStr) > 0 {
 					return
 				}
