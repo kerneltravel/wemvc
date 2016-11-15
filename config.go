@@ -2,7 +2,7 @@ package wemvc
 
 import (
 	"strings"
-	"fmt"
+
 	"database/sql"
 	"errors"
 )
@@ -125,7 +125,7 @@ func (conf *config) GetDefaultUrls() []string {
 
 func newConfig(strPath string) (*config, error) {
 	if !IsFile(strPath) {
-		return nil, fmt.Errorf("Canot fild the config file: %s", strPath)
+		return nil, nil
 	}
 	conf := &config{}
 	err := conf.loadFile(strPath)

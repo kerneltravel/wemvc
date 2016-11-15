@@ -216,14 +216,28 @@ func (app *server) init() error {
 	// load & watch the global config files
 	globalConfigFile := app.mapPath("/config.xml")
 	conf,err := newConfig(globalConfigFile)
-	app.config = conf
-	err1 := app.fileWatcher.AddWatch(globalConfigFile)
 	if err != nil {
-		return err
+		panic(err)
 	}
-	if err1 != nil {
-		panic(err1)
+	if conf == nil {
+		conf = &config{
+			defaultUrls: []string{"index.html"},
+			DefaultURL: "index.html",
+			SessionConfig: &SessionConfig{
+				ManagerName: "memory",
+				CookieName: "Session_ID",
+				EnableSetCookie: true,
+				SessionIDLength: 32,
+			},
+		}
+	} else {
+		err1 := app.fileWatcher.AddWatch(globalConfigFile)
+		if err1 != nil {
+			panic(err1)
+		}
 	}
+	app.config = conf
+
 	// build the view template and watch the changes
 	viewDir := app.viewFolder()
 	if IsDir(viewDir) {
