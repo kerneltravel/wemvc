@@ -221,8 +221,8 @@ func (app *server) init() error {
 	}
 	if conf == nil {
 		conf = &config{
-			defaultUrls: []string{"index.html"},
-			DefaultURL: "index.html",
+			defaultUrls: []string{"index.html", "index.htm"},
+			DefaultURL: "index.html;index.htm",
 			SessionConfig: &SessionConfig{
 				ManagerName: "memory",
 				CookieName: "Session_ID",
