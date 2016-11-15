@@ -162,7 +162,8 @@ func RunTLS(port int, certFile, keyFile string) {
 	}
 }
 
-// App the application singleton
-var (
+var app *server
+
+func init() {
 	app = newServer(WorkingDir())
-)
+}

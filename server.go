@@ -15,6 +15,7 @@ import (
 	"container/list"
 	"net/url"
 	"runtime"
+	"time"
 )
 
 type server struct {
@@ -209,12 +210,6 @@ func (app *server) init() error {
 	// init the error handler
 	app.errorHandlers[404] = app.error404
 	app.errorHandlers[403] = app.error403
-	// fsnotify watcher
-	w, err := NewWatcher()
-	if err != nil {
-		return err
-	}
-	app.fileWatcher = w
 	app.addWatcherHandler()
 	app.fileWatcher.Start()
 
@@ -275,8 +270,8 @@ func (app *server) init() error {
 	go app.globalSession.GC()
 
 	// init cache manager
-	app.cacheManager = newCacheManager(app.fileWatcher)
-	app.cacheManager.Start()
+	app.cacheManager = newCacheManager(app.fileWatcher, 10*time.Second)
+	app.cacheManager.start()
 
 	return nil
 }
@@ -406,5 +401,10 @@ func newServer(webRoot string) *server {
 		ExecutePathFilters,
 		ExecuteAction,
 	}
+	w, err := NewWatcher()
+	if err != nil {
+		return err
+	}
+	app.fileWatcher = w
 	return app
 }

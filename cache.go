@@ -21,6 +21,7 @@ type CacheManager struct {
 	gcFrequency time.Duration
 	fileWatcher *FileWatcher
 	locker      *sync.RWMutex
+	started     bool
 }
 
 func (c *CacheManager) countDepFileUsage(fPath string) int {
@@ -160,17 +161,22 @@ func (c *CacheManager) onDepFileChange(ctxData interface{}, ev *fsnotify.FileEve
 	return true
 }
 
-func (c *CacheManager) Start() {
+func (c *CacheManager) start() {
+	if c.started {
+		return
+	}
+	c.started = true
+	c.fileWatcher.Start()
 	detector := newCacheDetector(c)
 	c.fileWatcher.AddHandler(detector, c.onDepFileChange)
 	c.gc()
 }
 
-func newCacheManager(fw *FileWatcher) *CacheManager {
+func newCacheManager(fw *FileWatcher, gcFrequency time.Duration) *CacheManager {
 	return &CacheManager{
 		locker: &sync.RWMutex{},
 		dataMap: make(map[string]*cacheData),
-		gcFrequency: 10*time.Second,
+		gcFrequency: gcFrequency,
 		fileWatcher: fw,
 	}
 }

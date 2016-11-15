@@ -15,6 +15,7 @@ type WatcherDetector interface {
 type FileWatcher struct {
 	watcher *fsnotify.Watcher
 	handlers map[WatcherDetector]WatcherHandler
+	started  bool
 }
 
 func (fw *FileWatcher) AddWatch(path string) error {
@@ -37,6 +38,10 @@ func (fw *FileWatcher) AddHandler(detector WatcherDetector, h WatcherHandler) er
 }
 
 func (fw *FileWatcher) Start() {
+	if fw.started {
+		return
+	}
+	fw.started = true
 	go func() {
 		for {
 			select {
