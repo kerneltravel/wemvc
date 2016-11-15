@@ -132,6 +132,10 @@ func RenderView(viewName string, data interface{}) ([]byte, error) {
 	return app.renderView(viewName, data)
 }
 
+func RegSessionProvider(name string, provider SessionProvider) {
+	app.RegSessionProvider(name, provider)
+}
+
 // Run run the web application
 func Run(port int) {
 	err := app.init()
