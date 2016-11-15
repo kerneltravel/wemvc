@@ -37,7 +37,7 @@ type routeNode struct {
 	MaxDepth   uint16
 	Path       string
 	PathSplits []string
-	Params     map[string]RouteOption
+	Params     map[string]*RouteOption
 	CtrlInfo   *controllerInfo
 	Children   []*routeNode
 }
@@ -108,7 +108,7 @@ func (node *routeNode) detectDefault(method string) (bool, *controllerInfo, map[
 			continue
 		}
 		paramName := ""
-		var opt RouteOption
+		var opt *RouteOption
 		for name, o := range child.Params {
 			paramName = name
 			opt = o

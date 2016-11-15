@@ -22,8 +22,8 @@ func (fw *FileWatcher) AddWatch(path string) error {
 	return fw.watcher.Watch(path)
 }
 
-func (fw *FileWatcher) RemoveWatch(strFile string) {
-	fw.watcher.RemoveWatch(strFile)
+func (fw *FileWatcher) RemoveWatch(strFile string) error {
+	return fw.watcher.RemoveWatch(strFile)
 }
 
 func (fw *FileWatcher) AddHandler(detector WatcherDetector, h WatcherHandler) error {

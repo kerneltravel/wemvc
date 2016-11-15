@@ -5,10 +5,15 @@ import (
 	"strings"
 )
 
-// RouteFunc define the route check function
-type RouteValidateFunc func(urlPath string, opt RouteOption) string
+var (
+	acReg, _ = regexp.Compile("^[a-zA-Z0-9_]+(-[a-zA-Z0-9_]+)*")
+	wordReg, _ = regexp.Compile("^[\\w]+")
+)
 
-func validateAny(urlPath string, opt RouteOption) string {
+// RouteFunc define the route check function
+type RouteValidateFunc func(urlPath string, opt *RouteOption) string
+
+func validateAny(urlPath string, opt *RouteOption) string {
 	var length = uint8(len(urlPath))
 	if length >= opt.MinLength && length <= opt.MaxLength {
 		return urlPath
@@ -16,7 +21,7 @@ func validateAny(urlPath string, opt RouteOption) string {
 	return ""
 }
 
-func validateInt(urlPath string, opt RouteOption) string {
+func validateInt(urlPath string, opt *RouteOption) string {
 	var numBytes []byte
 	for _, char := range []byte(urlPath) {
 		if isNumber(char) {
@@ -34,11 +39,7 @@ func validateInt(urlPath string, opt RouteOption) string {
 	return ""
 }
 
-var (
-	wordReg, _ = regexp.Compile("^[\\w]+")
-)
-
-func validateWord(urlPath string, opt RouteOption) string {
+func validateWord(urlPath string, opt *RouteOption) string {
 	bytes := wordReg.Find([]byte(urlPath))
 	if uint8(len(bytes)) >= opt.MinLength && uint8(len(bytes)) <= opt.MaxLength {
 		return string(bytes)
@@ -46,7 +47,7 @@ func validateWord(urlPath string, opt RouteOption) string {
 	return ""
 }
 
-func validateEnum(urlPath string, opt RouteOption) string {
+func validateEnum(urlPath string, opt *RouteOption) string {
 	if len(opt.Setting) == 0 {
 		return ""
 	}
@@ -59,11 +60,7 @@ func validateEnum(urlPath string, opt RouteOption) string {
 	return ""
 }
 
-var (
-	acReg, _ = regexp.Compile("^[a-zA-Z0-9_]+(-[a-zA-Z0-9_]+)*")
-)
-
-func validateActionName(urlPath string, opt RouteOption) string {
+func validateActionName(urlPath string, opt *RouteOption) string {
 	bytes := acReg.Find([]byte(urlPath))
 	if uint8(len(bytes)) > opt.MaxLength || uint8(len(bytes)) < opt.MinLength {
 		return ""
