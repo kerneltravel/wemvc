@@ -83,7 +83,7 @@ func (ctrl *Controller) Content(str string, cntType string) Result {
 		resp.ContentType = cntType
 	}
 	if len(str) > 0 {
-		resp.Write([]byte(str))
+		resp.Write(str2Byte(str))
 	}
 	return resp
 }
@@ -109,7 +109,7 @@ func (ctrl *Controller) JSON(data interface{}) Result {
 	if err != nil {
 		panic(err)
 	}
-	return ctrl.Content(string(bytes), "application/json")
+	return ctrl.Content(byte2Str(bytes), "application/json")
 }
 
 // XML return the Xml string as action result
@@ -118,7 +118,7 @@ func (ctrl *Controller) XML(data interface{}) Result {
 	if err != nil {
 		panic(err)
 	}
-	return ctrl.Content(string(bytes), "text/xml")
+	return ctrl.Content(byte2Str(bytes), "text/xml")
 }
 
 // File serve the file as action result

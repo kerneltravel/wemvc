@@ -23,7 +23,7 @@ func validateAny(urlPath string, opt *RouteOption) string {
 
 func validateInt(urlPath string, opt *RouteOption) string {
 	var numBytes []byte
-	for _, char := range []byte(urlPath) {
+	for _, char := range str2Byte(urlPath) {
 		if isNumber(char) {
 			numBytes = append(numBytes, char)
 		} else {
@@ -34,15 +34,15 @@ func validateInt(urlPath string, opt *RouteOption) string {
 		}
 	}
 	if uint8(len(numBytes)) >= opt.MinLength {
-		return string(numBytes)
+		return byte2Str(numBytes)
 	}
 	return ""
 }
 
 func validateWord(urlPath string, opt *RouteOption) string {
-	bytes := wordReg.Find([]byte(urlPath))
+	bytes := wordReg.Find(str2Byte(urlPath))
 	if uint8(len(bytes)) >= opt.MinLength && uint8(len(bytes)) <= opt.MaxLength {
-		return string(bytes)
+		return byte2Str(bytes)
 	}
 	return ""
 }
@@ -61,9 +61,9 @@ func validateEnum(urlPath string, opt *RouteOption) string {
 }
 
 func validateActionName(urlPath string, opt *RouteOption) string {
-	bytes := acReg.Find([]byte(urlPath))
+	bytes := acReg.Find(str2Byte(urlPath))
 	if uint8(len(bytes)) > opt.MaxLength || uint8(len(bytes)) < opt.MinLength {
 		return ""
 	}
-	return string(bytes)
+	return byte2Str(bytes)
 }

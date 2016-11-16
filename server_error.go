@@ -57,7 +57,7 @@ func (app *server) panicRecover(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(500)
 	var debugStack string
 	if app.config.GetSetting("DebugMode") == "true" {
-		debugStack = string(debug.Stack())
+		debugStack = byte2Str(debug.Stack())
 		debugStack = strings.Replace(debugStack, "<", "&lt;", -1)
 		debugStack = strings.Replace(debugStack, ">", "&gt;", -1)
 	}

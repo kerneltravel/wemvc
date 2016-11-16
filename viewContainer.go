@@ -79,7 +79,7 @@ func (vc *viewContainer) getTemplateDeep(file, viewExt, parent string, t *templa
 		return nil, [][]string{}, err
 	}
 	reg := regexp.MustCompile("{{" + "[ ]*template[ ]+\"([^\"]+)\"")
-	allSub := reg.FindAllStringSubmatch(string(data), -1)
+	allSub := reg.FindAllStringSubmatch(byte2Str(data), -1)
 	for _, m := range allSub {
 		if len(m) == 2 {
 			look := t.Lookup(m[1])
@@ -127,7 +127,7 @@ func (vc *viewContainer) getTemplateLoop(t0 *template.Template, viewExt string, 
 					continue
 				}
 				reg := regexp.MustCompile("{{" + "[ ]*define[ ]+\"([^\"]+)\"")
-				allSub := reg.FindAllStringSubmatch(string(data), -1)
+				allSub := reg.FindAllStringSubmatch(byte2Str(data), -1)
 				for _, sub := range allSub {
 					if len(sub) == 2 && sub[1] == m[1] {
 						var subMods1 [][]string

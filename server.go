@@ -87,10 +87,10 @@ func (app *server) staticDir(pathPrefix string) {
 		panic(errPathPrefix)
 	}
 	if !strings.HasPrefix(pathPrefix, "/") {
-		pathPrefix = "/" + pathPrefix
+		pathPrefix = strAdd("/", pathPrefix)
 	}
 	if !strings.HasSuffix(pathPrefix, "/") {
-		pathPrefix = pathPrefix + "/"
+		pathPrefix = strAdd(pathPrefix, "/")
 	}
 	if runtime.GOOS == "windows" {
 		pathPrefix = strings.ToLower(pathPrefix)
@@ -104,7 +104,7 @@ func (app *server) staticFile(path string) {
 		panic(errPathPrefix)
 	}
 	if !strings.HasPrefix(path, "/") {
-		path = "/" + path
+		path = strAdd("/", path)
 	}
 	if strings.HasSuffix(path, "/") {
 		panic(errInvalidPath)
@@ -118,7 +118,7 @@ func (app *server) staticFile(path string) {
 func (app *server) getNamespace(nsName string) *NsSection {
 	if len(nsName) > 0 {
 		if !strings.HasPrefix(nsName, "/") {
-			nsName = "/" + nsName
+			nsName = strAdd("/", nsName)
 		}
 		nsName = strings.TrimRight(nsName, "/")
 	}
@@ -171,7 +171,7 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 	case string:
 		content := result.(string)
 		w.Header().Add("Content-Type", "text/plain")
-		w.Write([]byte(content))
+		w.Write(str2Byte(content))
 		return
 	case []byte:
 		w.Header().Add("Content-Type", "text/plain")

@@ -75,7 +75,7 @@ func Test_newRouteDepth(t *testing.T) {
 	b2, err := newRouteNode("/test/*path", ctrlInfo)
 	if err == nil {
 		t.Error("Error check failed")
-		println(string(data2Json(b2)))
+		println(byte2Str(data2Json(b2)))
 	} else {
 		println(err.Error())
 	}
@@ -102,17 +102,17 @@ func Test_newRootNode(t *testing.T) {
 	if err := root.addRoute("/edit/<user:word(4)>/<action=edit-user>", ctrlInfo); err != nil {
 		t.Error(err.Error())
 	}
-	println(string(data2Json(root)))
+	println(byte2Str(data2Json(root)))
 }
 
 func Test_splitRouteParam(t *testing.T) {
 	var path = "<word>-fag-<username><email:word(4)>"
 	var splits = splitRouteParam(path)
-	println(string(data2Json(splits)))
+	println(byte2Str(data2Json(splits)))
 	if len(splits) != 4 || splits[0] != "<word>" || splits[1] != "-fag-" || splits[2] != "<username>" || splits[3] != "<email:word(4)>" {
 		t.Error("test 1 failed")
 	}
-	println(string(data2Json(splitRouteParam("fdsgdfsg>fa<-fag>-"))))
+	println(byte2Str(data2Json(splitRouteParam("fdsgdfsg>fa<-fag>-"))))
 }
 
 func Test_checkParamName(t *testing.T) {

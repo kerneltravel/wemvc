@@ -43,7 +43,7 @@ func detectNodeType(p string) pathType {
 	if p == "/" {
 		return rtRoot
 	}
-	if strings.Contains(p, string([]byte{rtParamBegin})) || strings.Contains(p, string([]byte{rtParamEnd})) {
+	if strings.Contains(p, byte2Str([]byte{rtParamBegin})) || strings.Contains(p, byte2Str([]byte{rtParamEnd})) {
 		return rtParam
 	}
 	if p == rtPathInfo {
@@ -64,16 +64,16 @@ func checkRoutePath(path string) error {
 				inParamChar = true
 				continue
 			} else {
-				return fmt.Errorf("the route param has no closing character '>': %d", i)
+				return fmt.Errorf("the route param has no closing character '%s': %d", rtParamEndStr, i)
 			}
 		}
 		// param end
 		if path[i] == rtParamEnd {
 			// check and ensure current route param is not empty
 			if len(paramChars) == 0 {
-				return fmt.Errorf("Invalid route parameter '<>' or the route parameter has no begining tag '<': %d", i)
+				return fmt.Errorf("Invalid route parameter '<>' or the route parameter has no begining tag '%s': %d", rtParamBeginStr, i)
 			}
-			curParam := strings.Split(string(paramChars), ":")[0]
+			curParam := strings.Split(byte2Str(paramChars), ":")[0]
 			for _, tmp := range routeParams {
 				if tmp == curParam {
 					return fmt.Errorf("Duplicate route param '%s': %d", curParam, i)
@@ -97,7 +97,7 @@ func checkRoutePath(path string) error {
 		}
 	}
 	if len(routeParams) > 255 {
-		return errors.New("Too many route params: the maximum number of the route param is 255")
+		return errors.New("Too many route params. The maximum number of the route param is 255")
 	}
 	return nil
 }
@@ -105,45 +105,45 @@ func checkRoutePath(path string) error {
 func splitRouteParam(path string) []string {
 	var splits []string
 	var byteQueue []byte
-	for _, char := range []byte(path) {
+	for _, char := range str2Byte(path) {
 		if char == rtParamEnd {
 			byteQueue = append(byteQueue, char)
 			if len(byteQueue) > 0 {
-				splits = append(splits, string(byteQueue))
+				splits = append(splits, byte2Str(byteQueue))
 				byteQueue = nil
 			}
 		} else {
 			if char == rtParamBegin && len(byteQueue) > 0 {
-				splits = append(splits, string(byteQueue))
+				splits = append(splits, byte2Str(byteQueue))
 				byteQueue = nil
 			}
 			byteQueue = append(byteQueue, char)
 		}
 	}
 	if len(byteQueue) > 0 {
-		splits = append(splits, string(byteQueue))
+		splits = append(splits, byte2Str(byteQueue))
 	}
 	return splits
 }
 
 func checkParamName(name string) bool {
 	reg, _ := regexp.Compile("^[a-zA-Z][\\w]*$")
-	return reg.Match([]byte(name))
+	return reg.Match(str2Byte(name))
 }
 
 func checkParamOption(optionStr string) bool {
 	reg, _ := regexp.Compile("^[a-zA-Z][\\w]*\\(.+\\)$")
-	return reg.Match([]byte(optionStr))
+	return reg.Match(str2Byte(optionStr))
 }
 
 func checkNumber(opt string) bool {
 	reg, _ := regexp.Compile("^[0-9]+$")
-	return reg.Match([]byte(opt))
+	return reg.Match(str2Byte(opt))
 }
 
 func checkNumberRange(optStr string) bool {
 	reg, _ := regexp.Compile("^[0-9]+(~)+[0-9]+$")
-	return reg.Match([]byte(optStr))
+	return reg.Match(str2Byte(optStr))
 }
 
 func analyzeParamOption(path string) ([]string, map[string]*RouteOption, error) {

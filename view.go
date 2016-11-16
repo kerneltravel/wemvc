@@ -28,11 +28,10 @@ func (vf *viewFile) visit(paths string, f os.FileInfo, err error) error {
 	if !strings.HasSuffix(strings.ToLower(paths), vf.viewExt) {
 		return nil
 	}
-
 	replace := strings.NewReplacer("\\", "/")
-	a := []byte(paths)
-	a = a[len([]byte(vf.root)):]
-	file := strings.TrimLeft(replace.Replace(string(a)), "/")
+	a := str2Byte(paths)
+	a = a[len(vf.root):]
+	file := strings.TrimLeft(replace.Replace(byte2Str(a)), "/")
 	subDir := filepath.Dir(file)
 	if _, ok := vf.files[subDir]; ok {
 		vf.files[subDir] = append(vf.files[subDir], file)
