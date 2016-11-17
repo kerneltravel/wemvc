@@ -6,14 +6,14 @@ import (
 	"path"
 )
 
-type WatcherDetector interface {
+type WatcherHandler interface {
 	CanHandle(path string) bool
 	Handle(ev *fsnotify.FileEvent)
 }
 
 type FileWatcher struct {
 	watcher  *fsnotify.Watcher
-	handlers []WatcherDetector
+	handlers []WatcherHandler
 	started  bool
 }
 
@@ -25,7 +25,7 @@ func (fw *FileWatcher) RemoveWatch(strFile string) error {
 	return fw.watcher.RemoveWatch(strFile)
 }
 
-func (fw *FileWatcher) AddHandler(detector WatcherDetector) error {
+func (fw *FileWatcher) AddHandler(detector WatcherHandler) error {
 	if detector == nil {
 		return errors.New("The parameter 'detector' cannot be nil")
 	}
