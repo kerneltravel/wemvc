@@ -16,7 +16,9 @@ type FileResult struct {
 }
 
 func (fr *FileResult) ExecResult(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", fr.ContentType)
+	if len(fr.ContentType) > 0 {
+		w.Header().Add("Content-Type", fr.ContentType)
+	}
 	http.ServeFile(w, r, fr.FilePath)
 }
 
