@@ -85,6 +85,9 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	app.execReqEvents(B_Route, ctx)
 	app.execReqEvents(A_Route, ctx)
+	if !ctx.ended {
+		ExecutePathFilters(ctx)
+	}
 	app.execReqEvents(B_Action, ctx)
 	app.execReqEvents(A_Action, ctx)
 	// flush the request

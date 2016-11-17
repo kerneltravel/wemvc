@@ -43,7 +43,7 @@ func detectNodeType(p string) pathType {
 	if p == "/" {
 		return rtRoot
 	}
-	if strings.Contains(p, byte2Str([]byte{rtParamBegin})) || strings.Contains(p, byte2Str([]byte{rtParamEnd})) {
+	if strings.Contains(p, rtParamBeginStr) || strings.Contains(p, rtParamEndStr) {
 		return rtParam
 	}
 	if p == rtPathInfo {
