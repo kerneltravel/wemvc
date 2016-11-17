@@ -1,8 +1,18 @@
 package wemvc
 
+type ReqEvent string
+
 const (
-	// Version the wemvc Version number
-	Version = "1.4"
+	B_SCheck ReqEvent = "BeforeSecurityCheck"
+	A_SCheck ReqEvent = "AfterSecurityCheck"
+	B_Static ReqEvent = "BeforeServeStatic"
+	A_Static ReqEvent = "AfterServeStatic"
+	B_Route  ReqEvent = "BeforeRoute"
+	A_Route  ReqEvent = "AfterRoute"
+	B_Action ReqEvent = "BeforeExecAction"
+	A_Action ReqEvent = "AfterExecAction"
+
+	Version = "1.4" // Version the wemvc Version number
 )
 
 var statusCodeMapping = map[int]string{

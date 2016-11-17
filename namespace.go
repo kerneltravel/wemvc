@@ -1,8 +1,8 @@
 package wemvc
 
 import (
-	"strings"
 	"runtime"
+	"strings"
 )
 
 type nsSettingGroup struct {

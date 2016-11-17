@@ -10,13 +10,14 @@ import (
 
 	"encoding/json"
 	"encoding/xml"
-	"github.com/howeyc/fsnotify"
 
 	"container/list"
 	"net/url"
 	"runtime"
 	"time"
 )
+
+type EventHandler func() error
 
 type server struct {
 	errorHandlers   map[int]CtxHandler
@@ -30,12 +31,20 @@ type server struct {
 	globalSession   *SessionManager
 	namespaces      map[string]*NsSection
 	sessionProvides map[string]SessionProvider
-	globalFilters   []CtxFilter
 	internalErr     error
 	fileWatcher     *FileWatcher
 	cacheManager    *CacheManager
+	appInitEvents   []EventHandler
+	httpReqEvents   map[ReqEvent][]CtxFilter
 	viewContainer
 	filterContainer
+}
+
+func (app *server) onAppInit(h EventHandler) {
+	if h == nil {
+		return
+	}
+	app.appInitEvents = append(app.appInitEvents, h)
 }
 
 // MapPath Returns the physical file path that corresponds to the specified virtual path.
@@ -68,15 +77,16 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w:   w,
 		app: app,
 	}
-	// execute global filters
-	if len(app.globalFilters) > 0 {
-		for _, filter := range app.globalFilters {
-			filter(ctx)
-			if ctx.ended {
-				break
-			}
-		}
+	app.execReqEvents(B_SCheck, ctx)
+	app.execReqEvents(A_SCheck, ctx)
+	if app.isStaticRequest(req) {
+		app.execReqEvents(B_Static, ctx)
+		app.execReqEvents(A_Static, ctx)
 	}
+	app.execReqEvents(B_Route, ctx)
+	app.execReqEvents(A_Route, ctx)
+	app.execReqEvents(B_Action, ctx)
+	app.execReqEvents(A_Action, ctx)
 	// flush the request
 	app.flushRequest(w, req, ctx.Result)
 }
@@ -162,7 +172,7 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 	}
 	switch result.(type) {
 	case Result:
-		result.(Result).ExecResult(w,req)
+		result.(Result).ExecResult(w, req)
 		return
 	case *url.URL:
 		res := result.(*url.URL)
@@ -202,30 +212,34 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 	}
 }
 
-// init used to initialize the server
-// 1. load the config file
-// 2. watch the view file
-// 3. init the global session
-func (app *server) init() error {
-	// init the error handler
-	app.errorHandlers[404] = app.error404
-	app.errorHandlers[403] = app.error403
-	app.addWatcherHandler()
+func (app *server) initWatcher() error {
+	// add config file handler
+	app.fileWatcher.AddHandler(&configDetector{app: app})
+	// add ns config handler
+	app.fileWatcher.AddHandler(&nsConfigDetector{app: app})
+	// add view file handler
+	app.fileWatcher.AddHandler(&viewDetector{app: app})
+	// add ns view file handler
+	app.fileWatcher.AddHandler(&nsViewDetector{app: app})
+	// start file watcher
 	app.fileWatcher.Start()
+	return nil
+}
 
+func (app *server) initConfig() error {
 	// load & watch the global config files
 	globalConfigFile := app.mapPath("/config.xml")
-	conf,err := newConfig(globalConfigFile)
+	conf, err := newConfig(globalConfigFile)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if conf == nil {
 		conf = &config{
 			defaultUrls: []string{"index.html", "index.htm"},
-			DefaultURL: "index.html;index.htm",
+			DefaultURL:  "index.html;index.htm",
 			SessionConfig: &SessionConfig{
-				ManagerName: "memory",
-				CookieName: "Session_ID",
+				ManagerName:     "memory",
+				CookieName:      "Session_ID",
 				EnableSetCookie: true,
 				SessionIDLength: 32,
 			},
@@ -233,130 +247,95 @@ func (app *server) init() error {
 	} else {
 		err1 := app.fileWatcher.AddWatch(globalConfigFile)
 		if err1 != nil {
-			panic(err1)
+			return err
 		}
 	}
 	app.config = conf
+	return nil
+}
 
+func (app *server) initViews() error {
 	// build the view template and watch the changes
 	viewDir := app.viewFolder()
 	if IsDir(viewDir) {
 		app.compileViews(viewDir)
-		//app.logWriter().Println("compile view files in dir", viewDir)
-		app.fileWatcher.AddWatch(viewDir)
-		filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
-			if info.IsDir() {
-				app.fileWatcher.AddWatch(p)
-			}
-			return nil
-		})
-	}
-	// process namespaces: build the views files and load the config
-	if app.namespaces != nil {
-		//for name, ns := range app.namespaces {
-		for _, ns := range app.namespaces {
-			//app.logWriter().Println("process namespace", name)
-			settingFile := ns.nsSettingFile()
-			ns.loadConfig()
-			app.fileWatcher.AddWatch(settingFile)
-			nsViewDir := ns.viewFolder()
-			ns.compileViews(nsViewDir)
-			//app.logWriter().Println("compile view files in dir", nsViewDir)
-			app.fileWatcher.AddWatch(nsViewDir)
-			filepath.Walk(nsViewDir, func(p string, info os.FileInfo, er error) error {
-				if er != nil {
-					return nil
-				}
-				if info != nil && info.IsDir() {
+		if app.fileWatcher != nil {
+			app.fileWatcher.AddWatch(viewDir)
+			filepath.Walk(viewDir, func(p string, info os.FileInfo, er error) error {
+				if info.IsDir() {
 					app.fileWatcher.AddWatch(p)
 				}
 				return nil
 			})
 		}
 	}
+	return nil
+}
 
+func (app *server) initNs() error {
+	// process namespaces: build the views files and load the config
+	if app.namespaces != nil {
+		for _, ns := range app.namespaces {
+			//app.logWriter().Println("process namespace", name)
+			settingFile := ns.nsSettingFile()
+			ns.loadConfig()
+			if app.fileWatcher != nil {
+				app.fileWatcher.AddWatch(settingFile)
+			}
+			nsViewDir := ns.viewFolder()
+			ns.compileViews(nsViewDir)
+			if app.fileWatcher != nil {
+				app.fileWatcher.AddWatch(nsViewDir)
+				filepath.Walk(nsViewDir, func(p string, info os.FileInfo, er error) error {
+					if er != nil {
+						return nil
+					}
+					if info != nil && info.IsDir() {
+						app.fileWatcher.AddWatch(p)
+					}
+					return nil
+				})
+			}
+		}
+	}
+	return nil
+}
+
+func (app *server) initSessionMgr() error {
 	// init sessionManager
+	app.RegSessionProvider("memory", &memSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
 	mgr, err := app.NewSessionManager(app.config.SessionConfig.ManagerName, app.config.SessionConfig)
 	if err != nil {
 		return err
 	}
 	app.globalSession = mgr
 	go app.globalSession.GC()
-
-	// init cache manager
-	app.cacheManager = newCacheManager(app.fileWatcher, 10*time.Second)
-	app.cacheManager.start()
-
 	return nil
 }
 
-func (app *server) onConfigFileChange(ctx interface{}, ev *fsnotify.FileEvent) bool {
-	strFile := path.Clean(ev.Name)
-	conf,err := newConfig(strFile)
-	if err == nil {
-		app.config = conf
-		app.internalErr = nil
-	} else {
-		app.internalErr = err
-	}
-	return false;
+func (app *server) initCacheMgr() error {
+	// init cache manager
+	app.cacheManager = newCacheManager(app.fileWatcher, 10*time.Second)
+	app.cacheManager.start()
+	return nil
 }
 
-func (app *server) onNsConfigFileChange(ctx interface{}, ev *fsnotify.FileEvent) bool {
-	ns,ok := ctx.(*NsSection)
-	if ok {
-		ns.loadConfig()
-	}
-	return false
+func (app *server) initErrorHandler() error {
+	app.errorHandlers[404] = app.error404
+	app.errorHandlers[403] = app.error403
+	return nil
 }
 
-func (app *server) onViewFileChange(ctx interface{}, ev *fsnotify.FileEvent) bool {
-	strFile := path.Clean(ev.Name)
-	lowerStrFile := strings.ToLower(strFile)
-	if IsDir(strFile) {
-		if ev.IsDelete() {
-			app.fileWatcher.RemoveWatch(strFile)
-		} else if ev.IsCreate() {
-			app.fileWatcher.AddWatch(strFile)
+func (app *server) init() error {
+	// init the error handler
+	var err error
+	for _, h := range app.appInitEvents {
+		err = h()
+		if err != nil {
+			return err
 		}
-	} else if strings.HasSuffix(lowerStrFile, ".html") {
-		app.compileViews(app.viewFolder())
 	}
-	return false
-}
-
-func (app *server) onNsViewFileChange(ctxData interface{}, ev *fsnotify.FileEvent) bool {
-	strFile := path.Clean(ev.Name)
-	lowerStrFile := strings.ToLower(strFile)
-	ns,ok := ctxData.(*NsSection)
-	if ok {
-		if IsDir(strFile) {
-			if ev.IsDelete() {
-				app.fileWatcher.RemoveWatch(strFile)
-			} else if ev.IsCreate() {
-				app.fileWatcher.AddWatch(strFile)
-			}
-		} else if strings.HasSuffix(lowerStrFile, ".html") {
-			ns.compileViews(ns.viewFolder())
-		}
-		return false
-	}
-	return false
-}
-
-// watchFile used to watching the required files: config files and view files
-func (app *server) addWatcherHandler() {
-	if app.fileWatcher == nil {
-		return
-	}
-	// add config file handler
-	app.fileWatcher.AddHandler(&configDetector{app:app}, app.onConfigFileChange)
-	// add ns config handler
-	app.fileWatcher.AddHandler(&nsConfigDetector{app:app}, app.onNsConfigFileChange)
-	// add view file handler
-	app.fileWatcher.AddHandler(&viewDetector{app:app}, app.onViewFileChange)
-	// add ns view file handler
-	app.fileWatcher.AddHandler(&nsViewDetector{app:app}, app.onNsViewFileChange)
+	return nil
 }
 
 func (app *server) isConfigFile(f string) bool {
@@ -397,6 +376,20 @@ func (app *server) viewFolder() string {
 	return app.mapPath("/views")
 }
 
+func (app *server) execReqEvents(ev ReqEvent, ctx *Context) {
+	if ctx == nil || ctx.ended {
+		return
+	}
+	hs, ok := app.httpReqEvents[ev]
+	if ok && len(hs) > 0 {
+		for _, h := range hs {
+			if h != nil {
+				h(ctx)
+			}
+		}
+	}
+}
+
 func newServer(webRoot string) *server {
 	var app = &server{
 		webRoot:       webRoot,
@@ -407,15 +400,21 @@ func newServer(webRoot string) *server {
 	app.filters = make(map[string][]CtxFilter)
 	app.viewExt = ".html"
 	app.sessionProvides = make(map[string]SessionProvider)
-	app.RegSessionProvider("memory", &memSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
-	app.globalFilters = []CtxFilter{
-		DangerousRequest,
-		ServeStatic,
-		InitRoute,
-		HandleRoute,
-		ExecutePathFilters,
-		ExecuteAction,
-	}
+	app.httpReqEvents = make(map[ReqEvent][]CtxFilter, 8)
+	app.httpReqEvents[B_SCheck] = nil
+	app.httpReqEvents[A_SCheck] = []CtxFilter{DangerousRequest}
+	app.httpReqEvents[B_Static] = nil
+	app.httpReqEvents[A_Static] = []CtxFilter{ServeStatic}
+	app.httpReqEvents[B_Route] = nil
+	app.httpReqEvents[A_Route] = []CtxFilter{HandleRoute}
+	app.httpReqEvents[B_Action] = nil
+	app.httpReqEvents[A_Action] = []CtxFilter{ExecuteAction}
+	app.onAppInit(app.initWatcher)
+	app.onAppInit(app.initConfig)
+	app.onAppInit(app.initViews)
+	app.onAppInit(app.initNs)
+	app.onAppInit(app.initSessionMgr)
+	app.onAppInit(app.initCacheMgr)
 	w, err := NewWatcher()
 	if err != nil {
 		panic(err)

@@ -1,20 +1,19 @@
 package wemvc
 
 import (
-	"github.com/howeyc/fsnotify"
 	"errors"
+	"github.com/howeyc/fsnotify"
 	"path"
 )
 
-type WatcherHandler func(ctxData interface{}, ev *fsnotify.FileEvent) bool
-
 type WatcherDetector interface {
-	CanHandle(path string) (bool,interface{})
+	CanHandle(path string) bool
+	Handle(ev *fsnotify.FileEvent)
 }
 
 type FileWatcher struct {
-	watcher *fsnotify.Watcher
-	handlers map[WatcherDetector]WatcherHandler
+	watcher  *fsnotify.Watcher
+	handlers []WatcherDetector
 	started  bool
 }
 
@@ -26,14 +25,11 @@ func (fw *FileWatcher) RemoveWatch(strFile string) error {
 	return fw.watcher.RemoveWatch(strFile)
 }
 
-func (fw *FileWatcher) AddHandler(detector WatcherDetector, h WatcherHandler) error {
+func (fw *FileWatcher) AddHandler(detector WatcherDetector) error {
 	if detector == nil {
 		return errors.New("The parameter 'detector' cannot be nil")
 	}
-	if h == nil {
-		return errors.New("The parameter 'h' cannot be nil")
-	}
-	fw.handlers[detector] = h
+	fw.handlers = append(fw.handlers, detector)
 	return nil
 }
 
@@ -45,14 +41,10 @@ func (fw *FileWatcher) Start() {
 	go func() {
 		for {
 			select {
-			case ev := <- fw.watcher.Event:
-				println(ev.Name)
-				for det, h := range fw.handlers {
-					ok,ctx := det.CanHandle(path.Clean(ev.Name))
-					if ok {
-						if !h(ctx, ev) {
-							break
-						}
+			case ev := <-fw.watcher.Event:
+				for _, detector := range fw.handlers {
+					if detector.CanHandle(path.Clean(ev.Name)) {
+						detector.Handle(ev)
 					}
 				}
 			}
@@ -61,13 +53,12 @@ func (fw *FileWatcher) Start() {
 }
 
 func NewWatcher() (*FileWatcher, error) {
-	tmpWatcher,err := fsnotify.NewWatcher()
+	tmpWatcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 	w := &FileWatcher{
-		handlers: map[WatcherDetector]WatcherHandler{},
-		watcher: tmpWatcher,
+		watcher:  tmpWatcher,
 	}
 	return w, nil
 }

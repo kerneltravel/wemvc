@@ -1,34 +1,31 @@
 package wemvc
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
-	"fmt"
 )
 
 // CtxFilter request filter func
 type CtxFilter func(ctx *Context)
 
 var (
-	dangerChars = []string{ "<" , ">", "&", "%", "*"}
+	dangerChars = []string{"<", ">", "&", "%", "*"}
 )
 
 func DangerousRequest(ctx *Context) {
 	for _, c := range dangerChars {
 		var ltIndex = strings.Index(ctx.Request().URL.Path, c)
 		if ltIndex >= 0 {
-			panic(fmt.Errorf("The dangerous character '%s' found in the request path: %d", c,  ltIndex))
+			panic(fmt.Errorf("The dangerous character '%s' found in the request path: %d", c, ltIndex))
 		}
 	}
 }
 
 // ServeStatic serve static request function
 func ServeStatic(ctx *Context) {
-	if !ctx.app.isStaticRequest(ctx.req) {
-		return
-	}
 	physicalFile := ""
 	var f = ctx.app.mapPath(ctx.req.URL.Path)
 	stat, err := os.Stat(f)
@@ -61,21 +58,19 @@ func ServeStatic(ctx *Context) {
 	ctx.EndContext()
 }
 
-// InitRoute init route request data function
-func InitRoute(ctx *Context) {
+// HandleRouteTree handle request route tree
+func HandleRoute(ctx *Context) {
 	if ctx == nil {
 		return
 	}
-	ctx.Route = &CtxRoute{
-		RouteUrl: ctx.Request().URL.Path,
-	}
-}
 
-// HandleRouteTree handle request route tree
-func HandleRoute(ctx *Context) {
-	if ctx == nil || ctx.Route == nil {
-		return
+	if ctx.Route == nil {
+		ctx.Route = &CtxRoute{}
 	}
+	if len(ctx.Route.RouteUrl) == 0 {
+		ctx.Route.RouteUrl = ctx.Request().URL.Path
+	}
+
 	var urlPath = ctx.Route.RouteUrl
 	if len(urlPath) > 1 && strings.HasSuffix(urlPath, "/") {
 		urlPath = strings.TrimRight(urlPath, "/")
@@ -98,7 +93,7 @@ func HandleRoute(ctx *Context) {
 		if ok, actionMethod := cInfo.containsAction(action, method); ok {
 			ctx.Route.NsName = ns
 			ctx.Ctrl = &CtxController{
-				ControllerName: getContrllerName(cInfo.CtrlType),
+				ControllerName: getControllerName(cInfo.CtrlType),
 				ControllerType: cInfo.CtrlType,
 
 				ActionName:       action,

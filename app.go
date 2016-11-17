@@ -24,6 +24,10 @@ func Cache() *CacheManager {
 	return app.cacheManager
 }
 
+func Watcher() *FileWatcher {
+	return app.fileWatcher
+}
+
 // MapPath Returns the physical file path that corresponds to the specified virtual path.
 // @param virtualPath: the virtual path starts with
 // @return the absolute file path
@@ -87,14 +91,6 @@ func SetPathFilter(pathPrefix string, filter CtxFilter) {
 	app.setFilter(pathPrefix, filter)
 }
 
-func SetGlobalFilters(filters []CtxFilter) {
-	app.assertNotLocked()
-	if len(filters) < 1 {
-		return
-	}
-	app.globalFilters = filters
-}
-
 // StaticDir set the path as a static path that the file under this path is served as static file
 // @param pathPrefix: the path prefix starts with '/'
 func StaticDir(pathPrefix string) {
@@ -110,6 +106,18 @@ func StaticFile(path string) {
 func HandleError(errorCode int, handler CtxHandler) {
 	app.assertNotLocked()
 	app.errorHandlers[errorCode] = handler
+}
+
+func OnAppInit(h EventHandler) {
+	app.onAppInit(h)
+}
+
+func RegRequestEvent(ev ReqEvent, h CtxFilter) {
+	hs, ok := app.httpReqEvents[ev]
+	if ok && h != nil {
+		hs = append(hs, h)
+		app.httpReqEvents[ev] = hs
+	}
 }
 
 // Route set the route rule

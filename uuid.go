@@ -3,14 +3,14 @@ package wemvc
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
-	"regexp"
-	"errors"
-	"encoding/hex"
 )
 
 // UUID define the uuid

@@ -1,23 +1,34 @@
 package wemvc
 
-import "strings"
+import (
+	"strings"
+	"github.com/howeyc/fsnotify"
+)
 
 type cacheDetector struct {
 	cacheManager *CacheManager
+	cacheKey     string
 }
 
-func (cd *cacheDetector) CanHandle(path string) (bool, interface{}) {
+func (cd *cacheDetector) CanHandle(path string) bool {
 	for name, data := range cd.cacheManager.dataMap {
 		if len(data.dependencies) == 0 {
 			continue
 		}
 		for _, file := range data.dependencies {
 			if strings.EqualFold(file, path) {
-				return true, name
+				cd.cacheKey = name
+				return true
 			}
 		}
 	}
-	return false, nil
+	return false
+}
+
+func (cd *cacheDetector) Handle(ev *fsnotify.FileEvent) {
+	cd.cacheManager.locker.Lock()
+	delete(cd.cacheManager.dataMap, cd.cacheKey)
+	cd.cacheManager.locker.Lock()
 }
 
 func newCacheDetector(manager *CacheManager) *cacheDetector {

@@ -2,8 +2,8 @@ package wemvc
 
 import (
 	"bytes"
-	"net/http"
 	"fmt"
+	"net/http"
 )
 
 type Result interface {
@@ -15,7 +15,7 @@ type FileResult struct {
 	FilePath    string
 }
 
-func (fr *FileResult) ExecResult(w http.ResponseWriter, r *http.Request){
+func (fr *FileResult) ExecResult(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", fr.ContentType)
 	http.ServeFile(w, r, fr.FilePath)
 }

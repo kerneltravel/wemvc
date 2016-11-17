@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	acReg, _ = regexp.Compile("^[a-zA-Z0-9_]+(-[a-zA-Z0-9_]+)*")
+	acReg, _   = regexp.Compile("^[a-zA-Z0-9_]+(-[a-zA-Z0-9_]+)*")
 	wordReg, _ = regexp.Compile("^[\\w]+")
 )
 

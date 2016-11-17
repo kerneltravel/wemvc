@@ -3,11 +3,11 @@ package wemvc
 import (
 	"bytes"
 	"html/template"
+	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
-	"io/ioutil"
 	"regexp"
+	"strings"
 )
 
 type viewContainer struct {

@@ -152,7 +152,7 @@ func analyzeParamOption(path string) ([]string, map[string]*RouteOption, error) 
 	var paramPath []string
 	for _, sp := range splitParams {
 		if strings.HasSuffix(sp, rtParamEndStr) && strings.HasPrefix(sp, rtParamBeginStr) {
-			paramStr := strings.Trim(sp, rtParamBeginStr + rtParamEndStr)
+			paramStr := strings.Trim(sp, rtParamBeginStr+rtParamEndStr)
 			splits := strings.Split(paramStr, ":")
 			// paramName: the name of the route param (with default value), like 'name', 'name=Steve Jobs' or 'name='
 			paramName := splits[0]
@@ -234,7 +234,7 @@ func analyzeParamOption(path string) ([]string, map[string]*RouteOption, error) 
 				}
 			}
 			optionMap[paramName] = &opt
-			paramPath = append(paramPath, rtParamBeginStr +paramName+ rtParamEndStr)
+			paramPath = append(paramPath, rtParamBeginStr+paramName+rtParamEndStr)
 		} else {
 			paramPath = append(paramPath, sp)
 		}

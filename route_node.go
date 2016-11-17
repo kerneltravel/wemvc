@@ -14,11 +14,11 @@ const (
 	rtParam
 	rtCatchAll
 
-	rtParamBegin = '<'
+	rtParamBegin    = '<'
 	rtParamBeginStr = "<"
-	rtParamEnd = '>'
-	rtParamEndStr = ">"
-	rtPathInfo = "*pathInfo"
+	rtParamEnd      = '>'
+	rtParamEndStr   = ">"
+	rtPathInfo      = "*pathInfo"
 )
 
 // RouteOption the route option struct

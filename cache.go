@@ -1,13 +1,12 @@
 package wemvc
 
 import (
-	"strings"
-	"path"
 	"errors"
 	"fmt"
-	"time"
-	"github.com/howeyc/fsnotify"
+	"path"
+	"strings"
 	"sync"
+	"time"
 )
 
 var (
@@ -46,7 +45,7 @@ func (c *CacheManager) Get(name string) interface{} {
 	if c.dataMap == nil {
 		return nil
 	}
-	data,ok := c.dataMap[name]
+	data, ok := c.dataMap[name]
 	if ok {
 		if time.Now().Before(data.expire) {
 			return data.data
@@ -92,7 +91,7 @@ func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []stri
 				continue
 			}
 			fPath := path.Clean(fixPath(file))
-			if (!IsFile(fPath)) {
+			if !IsFile(fPath) {
 				return fmt.Errorf("The dependency file does not exist: %s", file)
 			} else {
 				dFiles = append(dFiles, fPath)
@@ -104,14 +103,14 @@ func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []stri
 		expire = &t
 	}
 	cData := &cacheData{
-		data: data,
+		data:         data,
 		dependencies: dFiles,
-		expire: *expire,
+		expire:       *expire,
 	}
 	c.locker.Lock()
 	c.dataMap[name] = cData
 	c.locker.Unlock()
-	if len(dFiles) > 0 {
+	if c.fileWatcher != nil && len(dFiles) > 0 {
 		for _, f := range dFiles {
 			c.fileWatcher.AddWatch(f)
 		}
@@ -123,13 +122,13 @@ func (c *CacheManager) Remove(name string) {
 	if len(name) == 0 {
 		return
 	}
-	data,ok := c.dataMap[name]
+	data, ok := c.dataMap[name]
 	if !ok {
 		return
 	}
 	if len(data.dependencies) > 0 {
 		for _, f := range data.dependencies {
-			if c.fileUsage(f) == 1 {
+			if c.fileUsage(f) == 1 && c.fileWatcher != nil {
 				c.fileWatcher.RemoveWatch(f)
 			}
 		}
@@ -153,31 +152,21 @@ func (c *CacheManager) gc() {
 	}()
 }
 
-func (c *CacheManager) onDepFileChange(ctxData interface{}, ev *fsnotify.FileEvent) bool {
-	name,ok := ctxData.(string)
-	if ok {
-		c.locker.Lock()
-		delete(c.dataMap, name)
-		c.locker.Unlock()
-	}
-	return true
-}
-
 func (c *CacheManager) start() {
-	if c.started {
+	if c.started || c.fileWatcher == nil {
 		return
 	}
 	c.started = true
 	c.fileWatcher.Start()
 	detector := newCacheDetector(c)
-	c.fileWatcher.AddHandler(detector, c.onDepFileChange)
+	c.fileWatcher.AddHandler(detector)
 	c.gc()
 }
 
 func newCacheManager(fw *FileWatcher, gcFrequency time.Duration) *CacheManager {
 	return &CacheManager{
-		locker: &sync.RWMutex{},
-		dataMap: make(map[string]*cacheData),
+		locker:      &sync.RWMutex{},
+		dataMap:     make(map[string]*cacheData),
 		gcFrequency: gcFrequency,
 		fileWatcher: fw,
 	}
