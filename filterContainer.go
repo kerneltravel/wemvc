@@ -14,7 +14,7 @@ func (fc *filterContainer) execFilters(urlPath string, ctx *Context) {
 		return
 	}
 	if !strings.HasSuffix(urlPath, "/") {
-		urlPath = urlPath + "/"
+		urlPath = strAdd(urlPath, "/")
 	}
 	var tmpFilters = fc.filters
 	var keys []string
@@ -23,7 +23,7 @@ func (fc *filterContainer) execFilters(urlPath string, ctx *Context) {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		if strings.HasPrefix(urlPath+"/", key) {
+		if strings.HasPrefix(strAdd(urlPath, "/"), key) {
 			for _, f := range tmpFilters[key] {
 				f(ctx)
 				if ctx.ended {
@@ -39,7 +39,7 @@ func (fc *filterContainer) setFilter(pathPrefix string, filter CtxFilter) {
 		panic(errFilterPrefix)
 	}
 	if !strings.HasSuffix(pathPrefix, "/") {
-		pathPrefix = pathPrefix + "/"
+		pathPrefix = strAdd(pathPrefix, "/")
 	}
 	if fc.filters == nil {
 		fc.filters = make(map[string][]CtxFilter)

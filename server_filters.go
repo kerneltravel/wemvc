@@ -15,7 +15,7 @@ var (
 	dangerChars = []string{"<", ">", "&", "%", "*"}
 )
 
-func DangerousRequest(ctx *Context) {
+func dangerCheck(ctx *Context) {
 	for _, c := range dangerChars {
 		var ltIndex = strings.Index(ctx.Request().URL.Path, c)
 		if ltIndex >= 0 {
@@ -24,8 +24,8 @@ func DangerousRequest(ctx *Context) {
 	}
 }
 
-// ServeStatic serve static request function
-func ServeStatic(ctx *Context) {
+// serveStatic serve the current request as static request
+func serveStatic(ctx *Context) {
 	physicalFile := ""
 	var f = ctx.app.mapPath(ctx.req.URL.Path)
 	stat, err := os.Stat(f)
@@ -33,14 +33,14 @@ func ServeStatic(ctx *Context) {
 		if stat.IsDir() {
 			absolutePath := ctx.req.URL.Path
 			if !strings.HasSuffix(absolutePath, "/") {
-				absolutePath = absolutePath + "/"
+				absolutePath = strAdd(absolutePath, "/")
 			}
 			physicalPath := ctx.app.mapPath(absolutePath)
 			if IsDir(physicalPath) {
 				var defaultUrls = ctx.app.config.GetDefaultUrls()
 				if len(defaultUrls) > 0 {
 					for _, f := range defaultUrls {
-						var file = ctx.app.mapPath(absolutePath + f)
+						var file = ctx.app.mapPath(strAdd(absolutePath, f))
 						if IsFile(file) {
 							physicalFile = file
 							break
@@ -59,11 +59,7 @@ func ServeStatic(ctx *Context) {
 }
 
 // HandleRouteTree handle request route tree
-func HandleRoute(ctx *Context) {
-	if ctx == nil {
-		return
-	}
-
+func handleRoute(ctx *Context) {
 	if ctx.Route == nil {
 		ctx.Route = &CtxRoute{}
 	}
@@ -83,7 +79,7 @@ func HandleRoute(ctx *Context) {
 		}
 		var action = routeData["action"]
 		var ns = cInfo.NsName
-		if len(action) < 1 {
+		if len(action) == 0 {
 			action = cInfo.DefaultAction
 		} else {
 			action = strings.Replace(action, "-", "_", -1)
@@ -93,17 +89,14 @@ func HandleRoute(ctx *Context) {
 		if ok, actionMethod := cInfo.containsAction(action, method); ok {
 			ctx.Route.NsName = ns
 			ctx.Ctrl = &CtxController{
-				ControllerName: getControllerName(cInfo.CtrlType),
+				ControllerName: cInfo.CtrlName,
 				ControllerType: cInfo.CtrlType,
-
 				ActionName:       action,
 				ActionMethodName: actionMethod,
 			}
 			routeData["controller"] = ctx.Ctrl.ControllerName
 			ctx.Route.RouteData = routeData
 			return
-		} else {
-			cInfo = nil
 		}
 	}
 	if err != nil {
@@ -113,7 +106,7 @@ func HandleRoute(ctx *Context) {
 	ctx.EndContext()
 }
 
-func ExecutePathFilters(ctx *Context) {
+func execFilters(ctx *Context) {
 	if ctx == nil || ctx.Route == nil || ctx.Ctrl == nil {
 		return
 	}
@@ -131,7 +124,7 @@ func ExecutePathFilters(ctx *Context) {
 	}
 }
 
-func ExecuteAction(ctx *Context) {
+func execAction(ctx *Context) {
 	if ctx == nil || ctx.Route == nil || ctx.Ctrl == nil {
 		return
 	}

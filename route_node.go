@@ -187,12 +187,14 @@ func newRouteNode(routePath string, ctrlInfo *controllerInfo) (*routeNode, error
 			break
 		}
 		if strings.Contains(current.Path, "*") && current.NodeType != rtCatchAll {
-			return nil, errors.New("Invalid URL route parameter '" + current.Path + "'")
+			return nil, errors.New(strAdd("Invalid URL route parameter '", current.Path, "'"))
 		}
 		if current.NodeType == rtCatchAll && len(current.Children) > 0 {
-			return nil, errors.New("Invalid route'" + routePath + ". " +
-				"The '*pathInfo' parameter should be at the end of the route. " +
-				"For example: '/shell/*pathInfo'.")
+			return nil, errors.New(strAdd("Invalid route '",
+				routePath,
+				". ",
+				"The '*pathInfo' parameter should be at the end of the route. ",
+				"For example: '/shell/*pathInfo'."))
 		}
 		if len(current.Children) > 0 {
 			current = current.Children[0]

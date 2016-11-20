@@ -10,7 +10,7 @@ func (app *server) error404(req *http.Request) *ContentResult {
 	return renderError(
 		404,
 		"The resource you are looking for has been removed, had its name changed, or is temporarily unavailable",
-		"Request URL: "+req.URL.String(),
+		strAdd("Request URL: ", req.URL.String()),
 		"",
 	)
 }
@@ -19,7 +19,7 @@ func (app *server) error403(req *http.Request) *ContentResult {
 	return renderError(
 		403,
 		"The server understood the request but refuses to authorize it",
-		"Request URL: "+req.URL.String(),
+		strAdd("Request URL: ", req.URL.String()),
 		"",
 	)
 }
@@ -31,12 +31,12 @@ func (app *server) handleErrorReq(req *http.Request, code int, title ...string) 
 	} else if errTitle, ok := statusCodeMapping[code]; ok {
 		t := errTitle
 		if len(title) > 0 && len(title[0]) > 0 {
-			t = t + ":" + title[0]
+			t = strAdd(t, ":", title[0])
 		}
 		return renderError(
 			code,
 			t,
-			"Request URL: "+req.URL.String(),
+			strAdd("Request URL: ", req.URL.String()),
 			"",
 		)
 	}

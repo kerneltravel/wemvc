@@ -36,22 +36,22 @@ var errTooManyParam = errors.New("Too many route params. The maximum number of t
 var errSessionProvNil = errors.New("The session provider is nil")
 
 var errNotFoundTpl = func(file string) error {
-	return errors.New("can't find template file \"" + file + "\"")
+	return errors.New(strAdd("can't find template file \"", file, "\""))
 }
 
 var errSessionRegTwice = func(name string) error {
-	return errors.New("session: Register called twice for provider " + name)
+	return errors.New(strAdd("session: Register called twice for provider ", name))
 }
 
 var errViewPathNotFound = func(viewPath string) error {
-	return errors.New("cannot find the view path " + viewPath)
+	return errors.New(strAdd("cannot find the view path ", viewPath))
 }
 
 var errInvalidCtrlType = func(typeName string) error {
-	return errors.New("Invalid controller type: \"" + typeName + "\"")
+	return errors.New(strAdd("Invalid controller type: \"", typeName, "\""))
 }
 var errCtrlNoAction = func(typeName string) error {
-	return errors.New("Thhe controller \"" + typeName + "\" has no action method")
+	return errors.New(strAdd("The controller \"", typeName, "\" has no action method"))
 }
 
 var errorTpl, _ = template.New("error").Parse(`<!DOCTYPE html>

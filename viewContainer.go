@@ -180,7 +180,7 @@ func (vc *viewContainer) renderView(viewPath string, viewData interface{}) ([]by
 		return nil, errEmptyViewPath
 	}
 	if !strings.HasSuffix(viewPath, vc.viewExt) {
-		viewPath = viewPath + vc.viewExt
+		viewPath = strAdd(viewPath, vc.viewExt)
 	}
 	tpl := vc.getView(viewPath)
 	if tpl == nil {

@@ -40,10 +40,10 @@ func (tree *routeTree) lookupDepth(indexNode *routeNode, pathLength uint16, urlP
 		// deal with *pathInfo
 		var path string
 		for _, part := range urlParts[indexNode.CurDepth-1:] {
-			path = path + "/" + part
+			path = strAdd(path, "/", part)
 		}
 		if endWithSlash {
-			path = path + "/"
+			path = strAdd(path, "/")
 		}
 		routeData["pathInfo"] = strings.TrimLeft(path, "/")
 		found = true

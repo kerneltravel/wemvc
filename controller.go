@@ -8,35 +8,60 @@ import (
 
 // Controller the controller base struct
 type Controller struct {
-	Request    *http.Request
-	Response   http.ResponseWriter
-	RouteData  map[string]string
-	Controller string
-	Action     string
 	ViewData   map[string]interface{}
-	Items      *CtxItems
-	Namespace  *NsSection
 	session    SessionStore
 	Context    *Context
 }
 
-// OnInit this method is called at first while executing the controller
-func (ctrl *Controller) OnInit(ctx *Context) {
-	ctrl.Request = ctx.Request()
-	ctrl.Response = ctx.Response()
-	ctrl.RouteData = ctx.RouteData()
-	ctrl.Namespace = ctx.Namespace()
-	ctrl.Action = ctx.Ctrl.ActionName
-	ctrl.Controller = ctx.Ctrl.ControllerName
-	ctrl.ViewData = make(map[string]interface{})
-	ctrl.Items = ctx.CtxItems()
-	ctrl.Context = ctx
+// Request get the http request
+func (ctrl *Controller) Request() *http.Request {
+	return ctrl.Context.Request()
 }
 
-// Session start the session
+// Response get the http response writer
+func (ctrl *Controller) Response() http.ResponseWriter {
+	return ctrl.Context.Response()
+}
+
+// RouteData get the route data map
+func (ctrl *Controller) RouteData() map[string]string {
+	return ctrl.Context.RouteData()
+}
+
+// Namespace get the current namespace
+func (ctrl *Controller) Namespace() *NsSection {
+	return ctrl.Context.Namespace()
+}
+
+// ControllerName get the current controller name
+func (ctrl *Controller) ControllerName() string {
+	return ctrl.Context.Ctrl.ControllerName
+}
+
+// ActionName get the current action name
+func (ctrl *Controller) ActionName() string {
+	return ctrl.Context.Ctrl.ActionName
+}
+
+// Items get the current context items
+func (ctrl *Controller) Items() *CtxItems {
+	return ctrl.Context.CtxItems()
+}
+
+// Cache get the current cache manager
+func (ctrl *Controller) Cache() *CacheManager {
+	return ctrl.Context.app.cacheManager
+}
+
+//MapPath Returns the physical file path that corresponds to the specified virtual path.
+func (ctrl *Controller) MapPath(virtualPath string) string {
+	return ctrl.Context.app.mapPath(virtualPath)
+}
+
+// Session start the session and get the session store
 func (ctrl *Controller) Session() SessionStore {
 	if ctrl.session == nil {
-		session, err := ctrl.Context.app.globalSession.SessionStart(ctrl.Response, ctrl.Request)
+		session, err := ctrl.Context.app.globalSession.SessionStart(ctrl.Response(), ctrl.Request())
 		if err != nil {
 			panic(err)
 		}
@@ -45,19 +70,18 @@ func (ctrl *Controller) Session() SessionStore {
 	return ctrl.session
 }
 
+// OnInit this method is called at first while executing the controller
+func (ctrl *Controller) OnInit(ctx *Context) {
+	ctrl.ViewData = make(map[string]interface{})
+	ctrl.Context = ctx
+}
+
 // ViewFile execute a view file and return the HTML
 func (ctrl *Controller) ViewFile(viewPath string) Result {
 	var res []byte
-	ctrl.ViewData["Request"] = ctrl.Request
-	ctrl.ViewData["Response"] = ctrl.Response
-	ctrl.ViewData["RouteData"] = ctrl.RouteData
-	ctrl.ViewData["Namespace"] = ctrl.Namespace
-	ctrl.ViewData["Action"] = ctrl.Action
-	ctrl.ViewData["Controller"] = ctrl.Controller
-	ctrl.ViewData["CtxItems"] = ctrl.Items
 	var err error
-	if ctrl.Namespace != nil {
-		res, err = ctrl.Namespace.renderView(viewPath, ctrl.ViewData)
+	if ctrl.Namespace() != nil {
+		res, err = ctrl.Namespace().renderView(viewPath, ctrl.ViewData)
 	} else {
 		res, err = ctrl.Context.app.renderView(viewPath, ctrl.ViewData)
 	}
@@ -71,7 +95,7 @@ func (ctrl *Controller) ViewFile(viewPath string) Result {
 
 // View execute the default view file and return the HTML
 func (ctrl *Controller) View() Result {
-	return ctrl.ViewFile(ctrl.Controller + "/" + ctrl.Action)
+	return ctrl.ViewFile(strAdd(ctrl.ControllerName(), "/", ctrl.ActionName()))
 }
 
 // Content return the content as text
@@ -150,7 +174,7 @@ func (ctrl *Controller) RedirectPermanent(url string) Result {
 
 // NotFound return a 404 page as action result
 func (ctrl *Controller) NotFound() Result {
-	return ctrl.Context.app.handleErrorReq(ctrl.Request, 404)
+	return ctrl.Context.app.handleErrorReq(ctrl.Request(), 404)
 }
 
 // EndRequest end the current request immediately

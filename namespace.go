@@ -30,10 +30,10 @@ func (ns *NsSection) Dir() string {
 
 func (ns *NsSection) Route(routePath string, c interface{}, defaultAction ...string) *NsSection {
 	if !strings.HasPrefix(routePath, "/") {
-		routePath = "/" + routePath
+		routePath = strAdd("/", routePath)
 	}
 	var nsName = ns.Name()
-	routePath = nsName + routePath
+	routePath = strAdd(nsName, routePath)
 	var action = "index"
 	if len(defaultAction) > 0 && len(defaultAction[0]) > 0 {
 		action = defaultAction[0]
@@ -44,12 +44,12 @@ func (ns *NsSection) Route(routePath string, c interface{}, defaultAction ...str
 
 func (ns *NsSection) Filter(pathPrefix string, filter CtxFilter) *NsSection {
 	if !strings.HasPrefix(pathPrefix, "/") {
-		pathPrefix = "/" + pathPrefix
+		pathPrefix = strAdd("/", pathPrefix)
 	}
 	if !strings.HasSuffix(pathPrefix, "/") {
-		pathPrefix = pathPrefix + "/"
+		pathPrefix = strAdd(pathPrefix, "/")
 	}
-	prefix := ns.name + pathPrefix
+	prefix := strAdd(ns.name, pathPrefix)
 	if !ns.server.routing.MatchCase {
 		prefix = strings.ToLower(prefix)
 	}
@@ -70,12 +70,12 @@ func (ns *NsSection) StaticDir(pathPrefix string) *NsSection {
 		panic(errPathPrefix)
 	}
 	if !strings.HasPrefix(pathPrefix, "/") {
-		pathPrefix = "/" + pathPrefix
+		pathPrefix = strAdd("/", pathPrefix)
 	}
 	if !strings.HasSuffix(pathPrefix, "/") {
-		pathPrefix = pathPrefix + "/"
+		pathPrefix = strAdd(pathPrefix, "/")
 	}
-	ns.server.staticDir(ns.Name() + pathPrefix)
+	ns.server.staticDir(strAdd(ns.Name(), pathPrefix))
 	return ns
 }
 
@@ -84,12 +84,12 @@ func (ns *NsSection) StaticFile(file string) *NsSection {
 		panic(errPathPrefix)
 	}
 	if !strings.HasPrefix(file, "/") {
-		file = "/" + file
+		file = strAdd("/", file)
 	}
 	if strings.HasSuffix(file, "/") {
 		panic(errInvalidPath)
 	}
-	ns.server.staticFile(ns.Name() + file)
+	ns.server.staticFile(strAdd(ns.Name(), file))
 	return ns
 }
 
@@ -103,7 +103,7 @@ func (ns *NsSection) RenderView(viewName string, data interface{}) ([]byte, erro
 }
 
 func (ns *NsSection) nsSettingFile() string {
-	return ns.server.mapPath(ns.Name() + "/settings.xml")
+	return ns.server.mapPath(strAdd(ns.Name(), "/settings.xml"))
 }
 
 func (ns *NsSection) isConfigFile(f string) bool {
@@ -137,5 +137,5 @@ func (ns *NsSection) loadConfig() {
 }
 
 func (ns *NsSection) viewFolder() string {
-	return ns.server.mapPath(ns.Name() + "/views")
+	return ns.server.mapPath(strAdd(ns.Name(), "/views"))
 }

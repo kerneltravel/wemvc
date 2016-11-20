@@ -86,7 +86,7 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	app.execReqEvents(B_Route, ctx)
 	app.execReqEvents(A_Route, ctx)
 	if !ctx.ended {
-		ExecutePathFilters(ctx)
+		execFilters(ctx)
 	}
 	app.execReqEvents(B_Action, ctx)
 	app.execReqEvents(A_Action, ctx)
@@ -405,13 +405,13 @@ func newServer(webRoot string) *server {
 	app.sessionProvides = make(map[string]SessionProvider)
 	app.httpReqEvents = make(map[ReqEvent][]CtxFilter, 8)
 	app.httpReqEvents[B_SCheck] = nil
-	app.httpReqEvents[A_SCheck] = []CtxFilter{DangerousRequest}
+	app.httpReqEvents[A_SCheck] = []CtxFilter{dangerCheck}
 	app.httpReqEvents[B_Static] = nil
-	app.httpReqEvents[A_Static] = []CtxFilter{ServeStatic}
+	app.httpReqEvents[A_Static] = []CtxFilter{serveStatic}
 	app.httpReqEvents[B_Route] = nil
-	app.httpReqEvents[A_Route] = []CtxFilter{HandleRoute}
+	app.httpReqEvents[A_Route] = []CtxFilter{handleRoute}
 	app.httpReqEvents[B_Action] = nil
-	app.httpReqEvents[A_Action] = []CtxFilter{ExecuteAction}
+	app.httpReqEvents[A_Action] = []CtxFilter{execAction}
 	app.onAppInit(app.initWatcher)
 	app.onAppInit(app.initConfig)
 	app.onAppInit(app.initViews)

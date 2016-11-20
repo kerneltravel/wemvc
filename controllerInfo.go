@@ -18,11 +18,11 @@ func (ctrlInfo *controllerInfo) containsAction(actionName, method string) (bool,
 		return false, ""
 	}
 	actionName = strings.Replace(strings.ToLower(actionName), "-", "_", -1)
-	methodName, ok := ctrlInfo.Actions[method+actionName]
+	methodName, ok := ctrlInfo.Actions[strAdd(method, actionName)]
 	if ok {
 		return true, methodName
 	}
-	methodName, ok = ctrlInfo.Actions[method+"_"+actionName]
+	methodName, ok = ctrlInfo.Actions[strAdd(method, "_", actionName)]
 	if ok {
 		return true, methodName
 	}
@@ -62,7 +62,7 @@ func newControllerInfo(namespace string, t reflect.Type, defaultAction string) *
 	}
 	return &controllerInfo{
 		NsName:        namespace,
-		CtrlName:      typeName,
+		CtrlName:      getControllerName(t),
 		CtrlType:      t,
 		Actions:       actions,
 		DefaultAction: defaultAction,

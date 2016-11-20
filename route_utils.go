@@ -175,7 +175,7 @@ func analyzeParamOption(path string) ([]string, map[string]*RouteOption, error) 
 					}
 				}
 			} else if len(splits) > 2 {
-				return nil, nil, errors.New("Invalid route parameter setting: " + sp)
+				return nil, nil, errors.New(strAdd("Invalid route parameter setting: ", sp))
 			}
 			opt := RouteOption{}
 			var eqIndex = strings.Index(paramName, "=")
@@ -185,7 +185,7 @@ func analyzeParamOption(path string) ([]string, map[string]*RouteOption, error) 
 				opt.DefaultValue = defaultValue
 				opt.HasDefaultValue = true
 			} else if !checkParamName(paramName) {
-				return nil, nil, errors.New("Invalid route parameter name '" + paramName + "': " + sp)
+				return nil, nil, errors.New(strAdd("Invalid route parameter name '", paramName, "': ", sp))
 			} else {
 				opt.HasDefaultValue = false
 			}
@@ -196,12 +196,12 @@ func analyzeParamOption(path string) ([]string, map[string]*RouteOption, error) 
 			} else if checkParamOption(paramOptionStr) {
 				optSplits := strings.Split(paramOptionStr, "(")
 				if len(optSplits) != 2 {
-					return nil, nil, errors.New("Invalid route parameter setting: " + sp)
+					return nil, nil, errors.New(strAdd("Invalid route parameter setting: ", sp))
 				}
 				opt.Validation = optSplits[0]
 				var setting = strings.TrimRight(optSplits[1], ")")
 				if strings.Contains(setting, ")") {
-					return nil, nil, errors.New("Invalid route parameter setting: " + sp)
+					return nil, nil, errors.New(strAdd("Invalid route parameter setting: ", sp))
 				}
 				if checkNumber(setting) {
 					i, err := strconv.ParseUint(setting, 10, 0)
@@ -234,7 +234,7 @@ func analyzeParamOption(path string) ([]string, map[string]*RouteOption, error) 
 				}
 			}
 			optionMap[paramName] = &opt
-			paramPath = append(paramPath, rtParamBeginStr+paramName+rtParamEndStr)
+			paramPath = append(paramPath, strAdd(rtParamBeginStr, paramName, rtParamEndStr))
 		} else {
 			paramPath = append(paramPath, sp)
 		}
