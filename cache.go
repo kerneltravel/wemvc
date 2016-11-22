@@ -20,7 +20,7 @@ type cacheData struct {
 }
 
 type CacheManager struct {
-	dataMap     map[string]*cacheData
+	dataMap     map[string]cacheData
 	gcFrequency time.Duration
 	fileWatcher *FileWatcher
 	locker      *sync.RWMutex
@@ -59,7 +59,7 @@ func (c *CacheManager) Get(name string) interface{} {
 }
 
 func (c *CacheManager) AllKeys(name string) []string {
-	var keys []string
+	keys := make([]string, 0, len(c.dataMap))
 	for key := range c.dataMap {
 		keys = append(keys, key)
 	}
@@ -102,13 +102,12 @@ func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []stri
 		t := maxDate
 		expire = &t
 	}
-	cData := &cacheData{
+	c.locker.Lock()
+	c.dataMap[name] = cacheData{
 		data:         data,
 		dependencies: dFiles,
 		expire:       *expire,
 	}
-	c.locker.Lock()
-	c.dataMap[name] = cData
 	c.locker.Unlock()
 	if c.fileWatcher != nil && len(dFiles) > 0 {
 		for _, f := range dFiles {
@@ -166,7 +165,7 @@ func (c *CacheManager) start() {
 func newCacheManager(fw *FileWatcher, gcFrequency time.Duration) *CacheManager {
 	return &CacheManager{
 		locker:      &sync.RWMutex{},
-		dataMap:     make(map[string]*cacheData),
+		dataMap:     make(map[string]cacheData),
 		gcFrequency: gcFrequency,
 		fileWatcher: fw,
 	}

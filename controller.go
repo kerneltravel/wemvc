@@ -6,6 +6,10 @@ import (
 	"net/http"
 )
 
+type Initializable interface {
+	OnInit(ctx *Context)
+}
+
 // Controller the controller base struct
 type Controller struct {
 	ViewData   map[string]interface{}
