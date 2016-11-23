@@ -19,6 +19,7 @@ type cacheData struct {
 	expire       time.Time
 }
 
+// CacheManager the cache manager struct
 type CacheManager struct {
 	dataMap     map[string]cacheData
 	gcFrequency time.Duration
@@ -28,7 +29,7 @@ type CacheManager struct {
 }
 
 func (c *CacheManager) fileUsage(fPath string) int {
-	var count int = 0
+	count := 0
 	for _, data := range c.dataMap {
 		if len(data.dependencies) > 0 {
 			for _, f := range data.dependencies {
@@ -41,6 +42,7 @@ func (c *CacheManager) fileUsage(fPath string) int {
 	return count
 }
 
+// Get get the cache data by name
 func (c *CacheManager) Get(name string) interface{} {
 	if c.dataMap == nil {
 		return nil
@@ -58,6 +60,7 @@ func (c *CacheManager) Get(name string) interface{} {
 	return nil
 }
 
+// AllKeys get all the cache keys
 func (c *CacheManager) AllKeys(name string) []string {
 	keys := make([]string, 0, len(c.dataMap))
 	for key := range c.dataMap {
@@ -66,6 +69,7 @@ func (c *CacheManager) AllKeys(name string) []string {
 	return keys
 }
 
+// AllData get all the cache and data
 func (c *CacheManager) AllData() map[string]interface{} {
 	var data = make(map[string]interface{})
 	var now = time.Now()
@@ -77,6 +81,7 @@ func (c *CacheManager) AllData() map[string]interface{} {
 	return data
 }
 
+// Add add cache data to memory
 func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []string, expire *time.Time) error {
 	if len(name) == 0 {
 		return errors.New("The parameter 'name' cannot be empty")
@@ -93,9 +98,8 @@ func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []stri
 			fPath := path.Clean(fixPath(file))
 			if !IsFile(fPath) {
 				return fmt.Errorf("The dependency file does not exist: %s", file)
-			} else {
-				dFiles = append(dFiles, fPath)
 			}
+			dFiles = append(dFiles, fPath)
 		}
 	}
 	if expire == nil {
@@ -117,6 +121,7 @@ func (c *CacheManager) Add(name string, data interface{}, dependencyFiles []stri
 	return nil
 }
 
+// Remove remove the cache from memory by key
 func (c *CacheManager) Remove(name string) {
 	if len(name) == 0 {
 		return

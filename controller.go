@@ -6,15 +6,16 @@ import (
 	"net/http"
 )
 
+// Initializable indicate the controller can be initialized
 type Initializable interface {
 	OnInit(ctx *Context)
 }
 
 // Controller the controller base struct
 type Controller struct {
-	ViewData   map[string]interface{}
-	session    SessionStore
-	Context    *Context
+	ViewData map[string]interface{}
+	session  SessionStore
+	Context  *Context
 }
 
 // Request get the http request

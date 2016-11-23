@@ -6,15 +6,18 @@ import (
 	"net/http"
 )
 
+// Result the request result interface
 type Result interface {
 	ExecResult(w http.ResponseWriter, r *http.Request)
 }
 
+// FileResult the file result
 type FileResult struct {
 	ContentType string
 	FilePath    string
 }
 
+// ExecResult execute the result
 func (fr *FileResult) ExecResult(w http.ResponseWriter, r *http.Request) {
 	if len(fr.ContentType) > 0 {
 		w.Header().Add("Content-Type", fr.ContentType)
@@ -22,6 +25,7 @@ func (fr *FileResult) ExecResult(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, fr.FilePath)
 }
 
+// RedirectResult the redirect result
 type RedirectResult struct {
 	RedirectUrl string
 	StatusCode  int
@@ -35,7 +39,7 @@ func (rr *RedirectResult) ExecResult(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, rr.RedirectUrl, statusCode)
 }
 
-// Result define the action result struct
+// ContentResult define the action result struct
 type ContentResult struct {
 	Writer      *bytes.Buffer
 	StatusCode  int
@@ -58,7 +62,7 @@ func (cr *ContentResult) Write(data []byte) {
 	cr.Writer.Write(data)
 }
 
-// GetOutput get the output bytes
+// Output get the output bytes
 func (cr *ContentResult) Output() []byte {
 	if cr.Writer == nil {
 		return nil

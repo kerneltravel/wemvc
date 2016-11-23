@@ -6,6 +6,7 @@ import (
 	"strconv"
 )
 
+// ModelParse parse the url values(request form data) to model
 func ModelParse(m interface{}, values url.Values) {
 	mValue := reflect.ValueOf(m)
 	mType := mValue.Elem().Type()
@@ -13,7 +14,7 @@ func ModelParse(m interface{}, values url.Values) {
 	fieldNum := mType.NumField()
 	for i := 0; i < fieldNum; i++ {
 		field := mType.Field(i)
-		fieldName,ok := field.Tag.Lookup("field")
+		fieldName, ok := field.Tag.Lookup("field")
 		if !ok || len(fieldName) == 0 {
 			fieldName = field.Name
 		}
@@ -28,18 +29,18 @@ func ModelParse(m interface{}, values url.Values) {
 		if fieldValue.IsValid() && fieldValue.CanSet() {
 			switch field.Type.Kind() {
 			case reflect.Bool:
-				v,_ := strconv.ParseBool(value)
+				v, _ := strconv.ParseBool(value)
 				fieldValue.SetBool(v)
 			case reflect.String:
 				fieldValue.SetString(value)
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-				v,_ := strconv.ParseInt(value, 0, 64)
+				v, _ := strconv.ParseInt(value, 0, 64)
 				fieldValue.SetInt(v)
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-				v,_ := strconv.ParseUint(value, 0, 64)
+				v, _ := strconv.ParseUint(value, 0, 64)
 				fieldValue.SetUint(v)
 			case reflect.Float32, reflect.Float64:
-				v,_ := strconv.ParseFloat(value, 64)
+				v, _ := strconv.ParseFloat(value, 64)
 				fieldValue.SetFloat(v)
 			}
 		}

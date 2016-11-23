@@ -20,10 +20,12 @@ func Config() Configuration {
 	return app.config
 }
 
+// Cache get the cache manager
 func Cache() *CacheManager {
 	return app.cacheManager
 }
 
+// Watcher get the file watcher
 func Watcher() *FileWatcher {
 	return app.fileWatcher
 }
@@ -35,12 +37,12 @@ func MapPath(virtualPath string) string {
 	return app.mapPath(virtualPath)
 }
 
-// Namespace return the namespace by name
+// Namespace get the namespace by name
 func Namespace(ns string) *NsSection {
 	return app.getNamespace(ns)
 }
 
-// AddViewFunc add the view func map
+// AddViewFunc add the view func to the view func map
 func AddViewFunc(name string, f interface{}) {
 	app.assertNotLocked()
 	app.addViewFunc(name, f)
@@ -108,10 +110,12 @@ func HandleError(errorCode int, handler CtxHandler) {
 	app.errorHandlers[errorCode] = handler
 }
 
+// OnAppInit add app init handler
 func OnAppInit(h EventHandler) {
 	app.onAppInit(h)
 }
 
+// RegRequestEvent register request filter to the featured request step
 func RegRequestEvent(ev ReqEvent, h CtxFilter) {
 	hs, ok := app.httpReqEvents[ev]
 	if ok && h != nil {
@@ -140,6 +144,7 @@ func RenderView(viewName string, data interface{}) ([]byte, error) {
 	return app.renderView(viewName, data)
 }
 
+// RegSessionProvider register session provider
 func RegSessionProvider(name string, provider SessionProvider) {
 	app.RegSessionProvider(name, provider)
 }
@@ -159,7 +164,7 @@ func Run(port int) {
 	}
 }
 
-// Run run the web application
+// RunTLS run the web application as TLS
 func RunTLS(port int, certFile, keyFile string) {
 	err := app.init()
 	if err != nil {

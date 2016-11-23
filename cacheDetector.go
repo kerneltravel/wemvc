@@ -2,6 +2,7 @@ package wemvc
 
 import (
 	"strings"
+
 	"github.com/howeyc/fsnotify"
 )
 
@@ -10,6 +11,7 @@ type cacheDetector struct {
 	cacheKey     string
 }
 
+// CanHandle detect the fsnotify path can handled by current detector
 func (cd *cacheDetector) CanHandle(path string) bool {
 	for name, data := range cd.cacheManager.dataMap {
 		if len(data.dependencies) == 0 {
@@ -25,6 +27,7 @@ func (cd *cacheDetector) CanHandle(path string) bool {
 	return false
 }
 
+// Handle handle the fsnotify changes
 func (cd *cacheDetector) Handle(ev *fsnotify.FileEvent) {
 	cd.cacheManager.locker.Lock()
 	delete(cd.cacheManager.dataMap, cd.cacheKey)

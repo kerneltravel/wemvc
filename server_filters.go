@@ -63,16 +63,16 @@ func handleRoute(ctx *Context) {
 	if ctx.Route == nil {
 		ctx.Route = &CtxRoute{}
 	}
-	if len(ctx.Route.RouteUrl) == 0 {
-		ctx.Route.RouteUrl = ctx.Request().URL.Path
+	if len(ctx.Route.RouteURL) == 0 {
+		ctx.Route.RouteURL = ctx.Request().URL.Path
 	}
 
-	var urlPath = ctx.Route.RouteUrl
+	var urlPath = ctx.Route.RouteURL
 	if len(urlPath) > 1 && strings.HasSuffix(urlPath, "/") {
 		urlPath = strings.TrimRight(urlPath, "/")
 	}
 	//var resp ActionResult
-	cInfo, routeData, err := ctx.app.routing.lookup(ctx.Route.RouteUrl, strings.ToLower(ctx.req.Method))
+	cInfo, routeData, err := ctx.app.routing.lookup(ctx.Route.RouteURL, strings.ToLower(ctx.req.Method))
 	if err == nil && cInfo != nil {
 		if routeData == nil {
 			routeData = make(map[string]string)
@@ -110,7 +110,7 @@ func execFilters(ctx *Context) {
 	if ctx == nil || ctx.Route == nil || ctx.Ctrl == nil {
 		return
 	}
-	urlPath := ctx.Route.RouteUrl
+	urlPath := ctx.Route.RouteURL
 	if !ctx.app.routing.MatchCase {
 		urlPath = strings.ToLower(urlPath)
 	}

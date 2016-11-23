@@ -12,6 +12,7 @@ type nsSettingGroup struct {
 	} `xml:"add"`
 }
 
+// NsSection the namespace section
 type NsSection struct {
 	name     string
 	server   *server
@@ -20,14 +21,17 @@ type NsSection struct {
 	filterContainer
 }
 
+// Name get the namespace name
 func (ns *NsSection) Name() string {
 	return ns.name
 }
 
+// Dir get the namespace directory
 func (ns *NsSection) Dir() string {
 	return ns.server.mapPath(ns.Name())
 }
 
+// Route add the route to namespace
 func (ns *NsSection) Route(routePath string, c interface{}, defaultAction ...string) *NsSection {
 	if !strings.HasPrefix(routePath, "/") {
 		routePath = strAdd("/", routePath)
@@ -42,6 +46,7 @@ func (ns *NsSection) Route(routePath string, c interface{}, defaultAction ...str
 	return ns
 }
 
+// Filter add the context filter to namespace
 func (ns *NsSection) Filter(pathPrefix string, filter CtxFilter) *NsSection {
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = strAdd("/", pathPrefix)
@@ -57,6 +62,7 @@ func (ns *NsSection) Filter(pathPrefix string, filter CtxFilter) *NsSection {
 	return ns
 }
 
+// GetSetting get the setting from the config file by name
 func (ns *NsSection) GetSetting(key string) string {
 	v, ok := ns.settings[key]
 	if ok {
@@ -65,6 +71,7 @@ func (ns *NsSection) GetSetting(key string) string {
 	return ""
 }
 
+// StaticDir serve the directory as static file
 func (ns *NsSection) StaticDir(pathPrefix string) *NsSection {
 	if len(pathPrefix) < 1 {
 		panic(errPathPrefix)
@@ -79,6 +86,7 @@ func (ns *NsSection) StaticDir(pathPrefix string) *NsSection {
 	return ns
 }
 
+// StaticFile serve the path as static file
 func (ns *NsSection) StaticFile(file string) *NsSection {
 	if len(file) < 1 {
 		panic(errPathPrefix)
@@ -93,11 +101,13 @@ func (ns *NsSection) StaticFile(file string) *NsSection {
 	return ns
 }
 
+// AddViewFunc add the view func to view func mapping
 func (ns *NsSection) AddViewFunc(name string, f interface{}) *NsSection {
 	ns.addViewFunc(name, f)
 	return ns
 }
 
+// RenderView render the view and return the result
 func (ns *NsSection) RenderView(viewName string, data interface{}) ([]byte, error) {
 	return ns.renderView(viewName, data)
 }
@@ -109,9 +119,8 @@ func (ns *NsSection) nsSettingFile() string {
 func (ns *NsSection) isConfigFile(f string) bool {
 	if runtime.GOOS == "windows" {
 		return strings.EqualFold(ns.nsSettingFile(), f)
-	} else {
-		return ns.nsSettingFile() == f
 	}
+	return ns.nsSettingFile() == f
 }
 
 func (ns *NsSection) isInViewFolder(f string) bool {
