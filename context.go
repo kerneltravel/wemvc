@@ -8,11 +8,11 @@ import (
 // CtxRoute the context route
 type CtxRoute struct {
 	// RouteUrl the route url that will be used for routing
-	RouteURL  string
+	RouteURL string
 	// RouteData the route data
 	RouteData map[string]string
 	// NsName the name of the namespace
-	NsName    string
+	NsName string
 }
 
 // CtxController the context controller info

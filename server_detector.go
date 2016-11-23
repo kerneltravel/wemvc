@@ -27,7 +27,7 @@ func (d *configDetector) Handle(ev *fsnotify.FileEvent) {
 
 type nsConfigDetector struct {
 	app *server
-	ns *NsSection
+	ns  *NsSection
 }
 
 func (d *nsConfigDetector) CanHandle(path string) bool {
@@ -68,7 +68,7 @@ func (d *viewDetector) Handle(ev *fsnotify.FileEvent) {
 
 type nsViewDetector struct {
 	app *server
-	ns *NsSection
+	ns  *NsSection
 }
 
 func (d *nsViewDetector) CanHandle(path string) bool {

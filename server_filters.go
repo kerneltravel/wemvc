@@ -89,8 +89,8 @@ func handleRoute(ctx *Context) {
 		if ok, actionMethod := cInfo.containsAction(action, method); ok {
 			ctx.Route.NsName = ns
 			ctx.Ctrl = &CtxController{
-				ControllerName: cInfo.CtrlName,
-				ControllerType: cInfo.CtrlType,
+				ControllerName:   cInfo.CtrlName,
+				ControllerType:   cInfo.CtrlType,
 				ActionName:       action,
 				ActionMethodName: actionMethod,
 			}
@@ -135,18 +135,17 @@ func execAction(ctx *Context) {
 		return
 	}
 
-
 	// call OnInit method
 	/*
-	onInitMethod := ctrl.MethodByName("OnInit")
-	if onInitMethod.IsValid() {
-		onInitMethod.Call([]reflect.Value{
-			reflect.ValueOf(ctx),
-		})
-	}
+		onInitMethod := ctrl.MethodByName("OnInit")
+		if onInitMethod.IsValid() {
+			onInitMethod.Call([]reflect.Value{
+				reflect.ValueOf(ctx),
+			})
+		}
 	*/
 	var iData = ctrl.Interface()
-	if data,ok := iData.(Initializable); ok {
+	if data, ok := iData.(Initializable); ok {
 		data.OnInit(ctx)
 	} else {
 		return
