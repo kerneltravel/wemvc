@@ -32,7 +32,7 @@ func (ns *NsSection) Dir() string {
 }
 
 // Route add the route to namespace
-func (ns *NsSection) Route(routePath string, c interface{}, defaultAction ...string) *NsSection {
+func (ns *NsSection) Route(routePath string, c interface{}, defaultAction ...string) {
 	if !strings.HasPrefix(routePath, "/") {
 		routePath = strAdd("/", routePath)
 	}
@@ -43,11 +43,10 @@ func (ns *NsSection) Route(routePath string, c interface{}, defaultAction ...str
 		action = defaultAction[0]
 	}
 	ns.server.addRoute(nsName, routePath, c, action)
-	return ns
 }
 
-// Filter add the context filter to namespace
-func (ns *NsSection) Filter(pathPrefix string, filter CtxFilter) *NsSection {
+// SetPathFilter add the context filter to namespace
+func (ns *NsSection) SetPathFilter(pathPrefix string, filter CtxFilter) {
 	if !strings.HasPrefix(pathPrefix, "/") {
 		pathPrefix = strAdd("/", pathPrefix)
 	}
@@ -59,7 +58,6 @@ func (ns *NsSection) Filter(pathPrefix string, filter CtxFilter) *NsSection {
 		prefix = strings.ToLower(prefix)
 	}
 	ns.setFilter(prefix, filter)
-	return ns
 }
 
 // GetSetting get the setting from the config file by name
@@ -72,7 +70,7 @@ func (ns *NsSection) GetSetting(key string) string {
 }
 
 // StaticDir serve the directory as static file
-func (ns *NsSection) StaticDir(pathPrefix string) *NsSection {
+func (ns *NsSection) StaticDir(pathPrefix string) {
 	if len(pathPrefix) < 1 {
 		panic(errPathPrefix)
 	}
@@ -83,11 +81,10 @@ func (ns *NsSection) StaticDir(pathPrefix string) *NsSection {
 		pathPrefix = strAdd(pathPrefix, "/")
 	}
 	ns.server.staticDir(strAdd(ns.Name(), pathPrefix))
-	return ns
 }
 
 // StaticFile serve the path as static file
-func (ns *NsSection) StaticFile(file string) *NsSection {
+func (ns *NsSection) StaticFile(file string) {
 	if len(file) < 1 {
 		panic(errPathPrefix)
 	}
@@ -98,13 +95,11 @@ func (ns *NsSection) StaticFile(file string) *NsSection {
 		panic(errInvalidPath)
 	}
 	ns.server.staticFile(strAdd(ns.Name(), file))
-	return ns
 }
 
 // AddViewFunc add the view func to view func mapping
-func (ns *NsSection) AddViewFunc(name string, f interface{}) *NsSection {
+func (ns *NsSection) AddViewFunc(name string, f interface{}) {
 	ns.addViewFunc(name, f)
-	return ns
 }
 
 // RenderView render the view and return the result
@@ -132,7 +127,6 @@ func (ns *NsSection) loadConfig() {
 	var path = ns.nsSettingFile()
 	if IsFile(path) {
 		var settings = &nsSettingGroup{}
-		//ns.server.logWriter().Println("load config file '" + path + "' for namespace '" + ns.GetName() + "'")
 		err := file2Xml(path, settings)
 		if err != nil {
 			return

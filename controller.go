@@ -162,7 +162,7 @@ func (ctrl *Controller) File(path string, cntType string) Result {
 func (ctrl *Controller) redirect(url string, statusCode int) *RedirectResult {
 	var resp = &RedirectResult{
 		StatusCode:  statusCode,
-		RedirectUrl: url,
+		RedirectURL: url,
 	}
 	return resp
 }

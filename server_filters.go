@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// CtxFilter request filter func
+// CtxFilter define the context filter func
 type CtxFilter func(ctx *Context)
 
 var (

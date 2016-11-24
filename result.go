@@ -27,16 +27,17 @@ func (fr *FileResult) ExecResult(w http.ResponseWriter, r *http.Request) {
 
 // RedirectResult the redirect result
 type RedirectResult struct {
-	RedirectUrl string
+	RedirectURL string
 	StatusCode  int
 }
 
+// ExecResult execute the redirect result
 func (rr *RedirectResult) ExecResult(w http.ResponseWriter, r *http.Request) {
 	var statusCode = 301
 	if rr.StatusCode != 301 {
 		statusCode = 302
 	}
-	http.Redirect(w, r, rr.RedirectUrl, statusCode)
+	http.Redirect(w, r, rr.RedirectURL, statusCode)
 }
 
 // ContentResult define the action result struct
@@ -48,6 +49,7 @@ type ContentResult struct {
 	Headers     map[string]string
 }
 
+// Header get the content result header
 func (cr *ContentResult) Header() map[string]string {
 	if cr.Headers == nil {
 		cr.Headers = make(map[string]string)
@@ -55,6 +57,7 @@ func (cr *ContentResult) Header() map[string]string {
 	return cr.Headers
 }
 
+// Write write content bytes into content result
 func (cr *ContentResult) Write(data []byte) {
 	if cr.Writer == nil {
 		cr.Writer = &bytes.Buffer{}
@@ -62,7 +65,7 @@ func (cr *ContentResult) Write(data []byte) {
 	cr.Writer.Write(data)
 }
 
-// Output get the output bytes
+// Output get the output bytes from content result
 func (cr *ContentResult) Output() []byte {
 	if cr.Writer == nil {
 		return nil
@@ -70,7 +73,7 @@ func (cr *ContentResult) Output() []byte {
 	return cr.Writer.Bytes()
 }
 
-// ClearHeader clear the http header
+// ClearHeader clear the http header in content result
 func (cr *ContentResult) ClearHeader() {
 	cr.Headers = nil
 }
@@ -86,6 +89,7 @@ func (cr *ContentResult) Clear() {
 	cr.ClearOutput()
 }
 
+// ExecResult execute the content result
 func (cr *ContentResult) ExecResult(w http.ResponseWriter, r *http.Request) {
 	if cr.Headers != nil {
 		for k, v := range cr.Headers {
@@ -112,7 +116,7 @@ func (cr *ContentResult) ExecResult(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// NewResult create a blank action result
+// NewResult create a blank content result
 func NewResult() *ContentResult {
 	return &ContentResult{
 		StatusCode:  200,

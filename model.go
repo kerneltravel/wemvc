@@ -6,7 +6,7 @@ import (
 	"strconv"
 )
 
-// ModelParse parse the url values(request form data) to model
+// ModelParse convert the url values(request form data, url query) to model
 func ModelParse(m interface{}, values url.Values) {
 	mValue := reflect.ValueOf(m)
 	mType := mValue.Elem().Type()
@@ -16,7 +16,10 @@ func ModelParse(m interface{}, values url.Values) {
 		field := mType.Field(i)
 		fieldName, ok := field.Tag.Lookup("field")
 		if !ok || len(fieldName) == 0 {
-			fieldName = field.Name
+			fieldName, ok = field.Tag.Lookup("json")
+			if !ok || len(fieldName) == 0 {
+				fieldName = field.Name
+			}
 		}
 		value := values.Get(fieldName)
 		if len(value) == 0 && len(mName) > 0 {

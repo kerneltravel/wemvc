@@ -20,7 +20,8 @@ import (
 type EventHandler func() error
 
 type server struct {
-	errorHandlers   map[int]CtxHandler
+	errorHandlers   map[int]ErrorHandler
+	domain          string
 	port            int
 	webRoot         string
 	config          *config
@@ -35,12 +36,13 @@ type server struct {
 	fileWatcher     *FileWatcher
 	cacheManager    *CacheManager
 	appInitEvents   []EventHandler
-	httpReqEvents   map[ReqEvent][]CtxFilter
+	httpReqEvents   map[requestEvent][]CtxFilter
 	viewContainer
 	filterContainer
 }
 
 func (app *server) onAppInit(h EventHandler) {
+	app.assertNotLocked()
 	if h == nil {
 		return
 	}
@@ -77,19 +79,19 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w:   w,
 		app: app,
 	}
-	app.execReqEvents(B_SCheck, ctx)
-	app.execReqEvents(A_SCheck, ctx)
+	app.execReqEvents(beforeCheck, ctx)
+	app.execReqEvents(afterCheck, ctx)
 	if app.isStaticRequest(req) {
-		app.execReqEvents(B_Static, ctx)
-		app.execReqEvents(A_Static, ctx)
+		app.execReqEvents(beforeStatic, ctx)
+		app.execReqEvents(afterStatic, ctx)
 	}
-	app.execReqEvents(B_Route, ctx)
-	app.execReqEvents(A_Route, ctx)
+	app.execReqEvents(beforeRoute, ctx)
+	app.execReqEvents(afterRoute, ctx)
 	if !ctx.ended {
 		execFilters(ctx)
 	}
-	app.execReqEvents(B_Action, ctx)
-	app.execReqEvents(A_Action, ctx)
+	app.execReqEvents(beforeAction, ctx)
+	app.execReqEvents(afterAction, ctx)
 	// flush the request
 	app.flushRequest(w, req, ctx.Result)
 }
@@ -379,15 +381,25 @@ func (app *server) viewFolder() string {
 	return app.mapPath("/views")
 }
 
-func (app *server) execReqEvents(ev ReqEvent, ctx *Context) {
+// regRequestFilter register context filter to the featured request step
+func (app *server) regRequestFilter(ev requestEvent, h CtxFilter) {
+	app.assertNotLocked()
+	hs, ok := app.httpReqEvents[ev]
+	if ok && h != nil {
+		hs = append(hs, h)
+		app.httpReqEvents[ev] = hs
+	}
+}
+
+func (app *server) execReqEvents(ev requestEvent, ctx *Context) {
 	if ctx == nil || ctx.ended {
 		return
 	}
-	hs, ok := app.httpReqEvents[ev]
-	if ok && len(hs) > 0 {
-		for _, h := range hs {
-			if h != nil {
-				h(ctx)
+	events, ok := app.httpReqEvents[ev]
+	if ok && len(events) > 0 {
+		for _, h := range events {
+			if h(ctx); ctx.ended {
+				return
 			}
 		}
 	}
@@ -397,21 +409,21 @@ func newServer(webRoot string) *server {
 	var app = &server{
 		webRoot:       webRoot,
 		locked:        false,
-		errorHandlers: make(map[int]CtxHandler),
+		errorHandlers: make(map[int]ErrorHandler),
 	}
 	app.views = make(map[string]*view)
 	app.filters = make(map[string][]CtxFilter)
 	app.viewExt = ".html"
 	app.sessionProvides = make(map[string]SessionProvider)
-	app.httpReqEvents = make(map[ReqEvent][]CtxFilter, 8)
-	app.httpReqEvents[B_SCheck] = nil
-	app.httpReqEvents[A_SCheck] = []CtxFilter{dangerCheck}
-	app.httpReqEvents[B_Static] = nil
-	app.httpReqEvents[A_Static] = []CtxFilter{serveStatic}
-	app.httpReqEvents[B_Route] = nil
-	app.httpReqEvents[A_Route] = []CtxFilter{handleRoute}
-	app.httpReqEvents[B_Action] = nil
-	app.httpReqEvents[A_Action] = []CtxFilter{execAction}
+	app.httpReqEvents = make(map[requestEvent][]CtxFilter, 8)
+	app.httpReqEvents[beforeCheck] = nil
+	app.httpReqEvents[afterCheck] = []CtxFilter{dangerCheck}
+	app.httpReqEvents[beforeStatic] = nil
+	app.httpReqEvents[afterStatic] = []CtxFilter{serveStatic}
+	app.httpReqEvents[beforeRoute] = nil
+	app.httpReqEvents[afterRoute] = []CtxFilter{handleRoute}
+	app.httpReqEvents[beforeAction] = nil
+	app.httpReqEvents[afterAction] = []CtxFilter{execAction}
 	app.onAppInit(app.initWatcher)
 	app.onAppInit(app.initConfig)
 	app.onAppInit(app.initViews)

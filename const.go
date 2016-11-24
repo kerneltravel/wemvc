@@ -1,25 +1,17 @@
 package wemvc
 
 // ReqEvent the request event
-type ReqEvent string
+type requestEvent string
 
 const (
-	// B_SCheck before secure check step
-	B_SCheck ReqEvent = "BeforeSecurityCheck"
-	// A_SCheck after secure check step
-	A_SCheck ReqEvent = "AfterSecurityCheck"
-	// B_Static before serve static request step
-	B_Static ReqEvent = "BeforeServeStatic"
-	// A_Static after serve static request step
-	A_Static ReqEvent = "AfterServeStatic"
-	// B_Route before routing step
-	B_Route ReqEvent = "BeforeRoute"
-	// A_Route after routing step
-	A_Route ReqEvent = "AfterRoute"
-	// B_Action before execute action step
-	B_Action ReqEvent = "BeforeExecAction"
-	// A_Action after execute action step
-	A_Action ReqEvent = "AfterExecAction"
+	beforeCheck requestEvent = "BeforeSecurityCheck"
+	afterCheck requestEvent = "AfterSecurityCheck"
+	beforeStatic requestEvent = "BeforeServeStatic"
+	afterStatic requestEvent = "AfterServeStatic"
+	beforeRoute requestEvent = "BeforeRoute"
+	afterRoute requestEvent = "AfterRoute"
+	beforeAction requestEvent = "BeforeExecAction"
+	afterAction requestEvent = "AfterExecAction"
 	// Version the wemvc version
 	Version = "1.4"
 )

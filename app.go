@@ -8,7 +8,7 @@ import (
 )
 
 // CtxHandler the error handler define
-type CtxHandler func(*http.Request) *ContentResult
+type ErrorHandler func(*http.Request) *ContentResult
 
 // RootDir get the root file path of the web server
 func RootDir() string {
@@ -57,6 +57,16 @@ func AddRouteFunc(name string, f RouteValidateFunc) {
 	}
 }
 
+// SetDomain set the server domain
+func SetDomain(domain string) {
+	app.domain = domain
+}
+
+// GetDomain get the server domain
+func GetDomain() string {
+	return app.domain
+}
+
 // SetRootDir set the webroot of the web application
 func SetRootDir(rootDir string) {
 	app.assertNotLocked()
@@ -85,12 +95,12 @@ func SetViewExt(ext string) {
 }
 
 // SetPathFilter set the route path filter
-func SetPathFilter(pathPrefix string, filter CtxFilter) {
+func SetPathFilter(pathPrefix string, filterFunc CtxFilter) {
 	app.assertNotLocked()
 	if !app.routing.MatchCase {
 		pathPrefix = strings.ToLower(pathPrefix)
 	}
-	app.setFilter(pathPrefix, filter)
+	app.setFilter(pathPrefix, filterFunc)
 }
 
 // StaticDir set the path as a static path that the file under this path is served as static file
@@ -105,7 +115,7 @@ func StaticFile(path string) {
 }
 
 // HandleError handle the error code with the error handler
-func HandleError(errorCode int, handler CtxHandler) {
+func HandleError(errorCode int, handler ErrorHandler) {
 	app.assertNotLocked()
 	app.errorHandlers[errorCode] = handler
 }
@@ -115,13 +125,44 @@ func OnAppInit(h EventHandler) {
 	app.onAppInit(h)
 }
 
-// RegRequestEvent register request filter to the featured request step
-func RegRequestEvent(ev ReqEvent, h CtxFilter) {
-	hs, ok := app.httpReqEvents[ev]
-	if ok && h != nil {
-		hs = append(hs, h)
-		app.httpReqEvents[ev] = hs
-	}
+// BeforeCheck register context filter to before security check step
+func BeforeCheck(filterFunc CtxFilter) {
+	app.regRequestFilter(beforeCheck, filterFunc)
+}
+
+// AfterCheck register context filter to after security check step
+func AfterCheck(filterFunc CtxFilter) {
+	app.regRequestFilter(afterCheck, filterFunc)
+}
+
+// BeforeServeStatic register context filter to before serving static file step
+func BeforeServeStatic(filterFunc CtxFilter) {
+	app.regRequestFilter(beforeStatic, filterFunc)
+}
+
+// AfterServeStatic register context filter to after serving static file step
+func AfterServeStatic(filterFunc CtxFilter) {
+	app.regRequestFilter(afterStatic, filterFunc)
+}
+
+// BeforeRoute register context filter to before routing step
+func BeforeRoute(filterFunc CtxFilter) {
+	app.regRequestFilter(beforeRoute, filterFunc)
+}
+
+// AfterRoute register context filter to after routing step
+func AfterRoute(filterFunc CtxFilter) {
+	app.regRequestFilter(afterRoute, filterFunc)
+}
+
+// BeforeExecAction register context filter to before executing action step
+func BeforeExecAction(filterFunc CtxFilter) {
+	app.regRequestFilter(beforeAction, filterFunc)
+}
+
+// AfterExecAction register context filter to after executing action step
+func AfterExecAction(filterFunc CtxFilter) {
+	app.regRequestFilter(afterAction, filterFunc)
 }
 
 // Route set the route rule
@@ -157,7 +198,7 @@ func Run(port int) {
 	}
 	app.locked = true
 	app.port = port
-	portStr := fmt.Sprintf(":%d", app.port)
+	portStr := fmt.Sprintf("%s:%d", app.domain, app.port)
 	err = http.ListenAndServe(portStr, app)
 	if err != nil {
 		panic(err)
@@ -172,7 +213,7 @@ func RunTLS(port int, certFile, keyFile string) {
 	}
 	app.locked = true
 	app.port = port
-	portStr := fmt.Sprintf(":%d", app.port)
+	portStr := fmt.Sprintf("%s:%d", app.domain, app.port)
 	err = http.ListenAndServeTLS(portStr, certFile, keyFile, app)
 	if err != nil {
 		panic(err)
