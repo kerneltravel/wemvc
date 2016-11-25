@@ -260,6 +260,14 @@ func (app *server) initConfig() error {
 }
 
 func (app *server) initViews() error {
+	app.addViewFunc("include", include_view)
+	app.addViewFunc("req_query", req_query)
+	app.addViewFunc("req_form", req_form)
+	app.addViewFunc("req_header", req_header)
+	app.addViewFunc("req_postForm", req_postForm)
+	app.addViewFunc("req_host", req_host)
+	app.addViewFunc("cache", cache_view)
+	app.addViewFunc("session", session_view)
 	// build the view template and watch the changes
 	viewDir := app.viewFolder()
 	if IsDir(viewDir) {

@@ -15,58 +15,58 @@ type Initializable interface {
 type Controller struct {
 	ViewData map[string]interface{}
 	session  SessionStore
-	Context  *Context
+	ctx      *Context
 }
 
 // Request get the http request
 func (ctrl *Controller) Request() *http.Request {
-	return ctrl.Context.Request()
+	return ctrl.ctx.Request()
 }
 
 // Response get the http response writer
 func (ctrl *Controller) Response() http.ResponseWriter {
-	return ctrl.Context.Response()
+	return ctrl.ctx.Response()
 }
 
 // RouteData get the route data map
 func (ctrl *Controller) RouteData() map[string]string {
-	return ctrl.Context.RouteData()
+	return ctrl.ctx.RouteData()
 }
 
 // Namespace get the current namespace
 func (ctrl *Controller) Namespace() *NsSection {
-	return ctrl.Context.Namespace()
+	return ctrl.ctx.Namespace()
 }
 
 // ControllerName get the current controller name
 func (ctrl *Controller) ControllerName() string {
-	return ctrl.Context.Ctrl.ControllerName
+	return ctrl.ctx.Ctrl.ControllerName
 }
 
 // ActionName get the current action name
 func (ctrl *Controller) ActionName() string {
-	return ctrl.Context.Ctrl.ActionName
+	return ctrl.ctx.Ctrl.ActionName
 }
 
 // Items get the current context items
 func (ctrl *Controller) Items() *CtxItems {
-	return ctrl.Context.CtxItems()
+	return ctrl.ctx.CtxItems()
 }
 
 // Cache get the current cache manager
 func (ctrl *Controller) Cache() *CacheManager {
-	return ctrl.Context.app.cacheManager
+	return ctrl.ctx.app.cacheManager
 }
 
 //MapPath Returns the physical file path that corresponds to the specified virtual path.
 func (ctrl *Controller) MapPath(virtualPath string) string {
-	return ctrl.Context.app.mapPath(virtualPath)
+	return ctrl.ctx.app.mapPath(virtualPath)
 }
 
 // Session start the session and get the session store
 func (ctrl *Controller) Session() SessionStore {
 	if ctrl.session == nil {
-		session, err := ctrl.Context.app.globalSession.SessionStart(ctrl.Response(), ctrl.Request())
+		session, err := ctrl.ctx.app.globalSession.SessionStart(ctrl.Response(), ctrl.Request())
 		if err != nil {
 			panic(err)
 		}
@@ -78,17 +78,26 @@ func (ctrl *Controller) Session() SessionStore {
 // OnInit this method is called at first while executing the controller
 func (ctrl *Controller) OnInit(ctx *Context) {
 	ctrl.ViewData = make(map[string]interface{})
-	ctrl.Context = ctx
+	ctrl.ctx = ctx
+}
+
+func (ctrl *Controller) initViewData() {
+	ctrl.ViewData["Namespace"] = ctrl.Namespace()
+	ctrl.ViewData["RouteData"] = ctrl.RouteData()
+	ctrl.ViewData["Request"] = ctrl.Request()
+	ctrl.ViewData["Session"] = ctrl.Session()
+	ctrl.ViewData["Cache"] = ctrl.Cache()
 }
 
 // ViewFile execute a view file and return the HTML
 func (ctrl *Controller) ViewFile(viewPath string) Result {
 	var res []byte
 	var err error
+	ctrl.initViewData()
 	if ctrl.Namespace() != nil {
 		res, err = ctrl.Namespace().renderView(viewPath, ctrl.ViewData)
 	} else {
-		res, err = ctrl.Context.app.renderView(viewPath, ctrl.ViewData)
+		res, err = ctrl.ctx.app.renderView(viewPath, ctrl.ViewData)
 	}
 	if err != nil {
 		panic(err)
@@ -179,10 +188,10 @@ func (ctrl *Controller) RedirectPermanent(url string) Result {
 
 // NotFound return a 404 page as action result
 func (ctrl *Controller) NotFound() Result {
-	return ctrl.Context.app.handleErrorReq(ctrl.Request(), 404)
+	return ctrl.ctx.app.handleErrorReq(ctrl.Request(), 404)
 }
 
 // EndRequest end the current request immediately
 func (ctrl *Controller) EndRequest() {
-	ctrl.Context.EndContext()
+	ctrl.ctx.EndContext()
 }
