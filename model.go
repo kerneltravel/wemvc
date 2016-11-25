@@ -221,7 +221,7 @@ func setFieldValue(kind reflect.Kind, valueField reflect.Value, value interface{
 			if v,ok = value.(float32); !ok {
 				setFieldFloat64(valueField, value)
 			} else {
-				valueField.SetFloat(uint64(v))
+				valueField.SetFloat(float64(v))
 			}
 		case reflect.Float64:
 			var v float64
@@ -229,7 +229,7 @@ func setFieldValue(kind reflect.Kind, valueField reflect.Value, value interface{
 			if v,ok = value.(float64); !ok {
 				setFieldFloat64(valueField, value)
 			} else {
-				valueField.SetFloat(uint64(v))
+				valueField.SetFloat(float64(v))
 			}
 		default:
 			valueField.Set(reflect.ValueOf(value))
