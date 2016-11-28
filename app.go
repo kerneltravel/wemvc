@@ -187,7 +187,7 @@ func RenderView(viewName string, data interface{}) ([]byte, error) {
 
 // RegSessionProvider register session provider
 func RegSessionProvider(name string, provider SessionProvider) {
-	app.RegSessionProvider(name, provider)
+	app.regSessionProvider(name, provider)
 }
 
 // Run run the web application

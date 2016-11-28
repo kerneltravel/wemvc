@@ -55,15 +55,15 @@ func (app *server) mapPath(virtualPath string) string {
 	return fixPath(res)
 }
 
-func (app *server) RegSessionProvider(name string, provide SessionProvider) {
+func (app *server) regSessionProvider(name string, provider SessionProvider) {
 	app.assertNotLocked()
-	if provide == nil {
+	if provider == nil {
 		panic(errSessionProvNil)
 	}
 	if _, dup := app.sessionProvides[name]; dup {
 		panic(errSessionRegTwice(name))
 	}
-	app.sessionProvides[name] = provide
+	app.sessionProvides[name] = provider
 }
 
 // ServeHTTP serve the
@@ -84,14 +84,15 @@ func (app *server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if app.isStaticRequest(req) {
 		app.execReqEvents(beforeStatic, ctx)
 		app.execReqEvents(afterStatic, ctx)
+	} else {
+		app.execReqEvents(beforeRoute, ctx)
+		app.execReqEvents(afterRoute, ctx)
+		if !ctx.ended {
+			execFilters(ctx)
+		}
+		app.execReqEvents(beforeAction, ctx)
+		app.execReqEvents(afterAction, ctx)
 	}
-	app.execReqEvents(beforeRoute, ctx)
-	app.execReqEvents(afterRoute, ctx)
-	if !ctx.ended {
-		execFilters(ctx)
-	}
-	app.execReqEvents(beforeAction, ctx)
-	app.execReqEvents(afterAction, ctx)
 	// flush the request
 	app.flushRequest(w, req, ctx.Result)
 }
@@ -316,7 +317,7 @@ func (app *server) initNs() error {
 
 func (app *server) initSessionMgr() error {
 	// init sessionManager
-	app.RegSessionProvider("memory", &memSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
+	app.regSessionProvider("memory", &memSessionProvider{list: list.New(), sessions: make(map[string]*list.Element)})
 	mgr, err := app.NewSessionManager(app.config.SessionConfig.ManagerName, app.config.SessionConfig)
 	if err != nil {
 		return err

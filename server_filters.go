@@ -137,12 +137,12 @@ func execAction(ctx *Context) {
 
 	// call OnInit method
 	/*
-		onInitMethod := ctrl.MethodByName("OnInit")
-		if onInitMethod.IsValid() {
-			onInitMethod.Call([]reflect.Value{
-				reflect.ValueOf(ctx),
-			})
-		}
+	onInitMethod := ctrl.MethodByName("OnInit")
+	if onInitMethod.IsValid() {
+		onInitMethod.Call([]reflect.Value{
+			reflect.ValueOf(ctx),
+		})
+	}
 	*/
 	var iData = ctrl.Interface()
 	if data, ok := iData.(Initializable); ok {
