@@ -42,21 +42,21 @@ func newControllerInfo(namespace string, t reflect.Type, defaultAction string) *
 	if numMethod < 1 {
 		panic(errCtrlNoAction(typeName))
 	}
-	obj := reflect.New(t)
-	var methods []string
+	methods := make([]string, 0, numMethod)
 	for i := 0; i < numMethod; i++ {
-		methodName := t.Method(i).Name
-		method := obj.MethodByName(methodName)
-		methodType := method.Type().String()
-		if !strings.HasSuffix(methodType, "wemvc.Result") && !strings.HasSuffix(methodType, "interface {}") {
+		methodInfo := t.Method(i)
+		numIn := methodInfo.Type.NumIn()
+		numOut := methodInfo.Type.NumOut()
+		if numIn != 1 || numOut != 1 {
 			continue
 		}
+		methodName := methodInfo.Name
 		methods = append(methods, methodName)
 	}
 	if len(methods) < 1 {
 		panic(errCtrlNoAction(typeName))
 	}
-	actions := make(map[string]string)
+	actions := make(map[string]string, len(methods))
 	for _, m := range methods {
 		actions[strings.ToLower(m)] = m
 	}
