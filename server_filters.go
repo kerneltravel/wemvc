@@ -90,9 +90,9 @@ func handleRoute(ctx *Context) {
 			ctx.Route.NsName = ns
 			ctx.Ctrl = &CtxController{
 				ControllerName:   cInfo.CtrlName,
-				ControllerType:   cInfo.CtrlType,
+				controllerType:   cInfo.CtrlType,
 				ActionName:       action,
-				ActionMethodName: actionMethod,
+				actionMethodName: actionMethod,
 			}
 			routeData["controller"] = ctx.Ctrl.ControllerName
 			ctx.Route.RouteData = routeData
@@ -128,10 +128,10 @@ func execAction(ctx *Context) {
 	if ctx == nil || ctx.Route == nil || ctx.Ctrl == nil {
 		return
 	}
-	var ctrl = reflect.New(ctx.Ctrl.ControllerType)
+	var ctrl = reflect.New(ctx.Ctrl.controllerType)
 	// validate action method
-	ctx.Ctrl.ActionMethod = ctrl.MethodByName(ctx.Ctrl.ActionMethodName)
-	if !ctx.Ctrl.ActionMethod.IsValid() {
+	ctx.Ctrl.actionMethod = ctrl.MethodByName(ctx.Ctrl.ActionMethodName)
+	if !ctx.Ctrl.actionMethod.IsValid() {
 		return
 	}
 
@@ -166,7 +166,7 @@ func execAction(ctx *Context) {
 		}
 	}
 	// call action method
-	values := ctx.Ctrl.ActionMethod.Call(nil)
+	values := ctx.Ctrl.actionMethod.Call(nil)
 	if len(values) == 1 {
 		ctx.Result = values[0].Interface()
 	}

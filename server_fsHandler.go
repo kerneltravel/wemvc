@@ -6,15 +6,15 @@ import (
 	"strings"
 )
 
-type configDetector struct {
+type fsConfigHandler struct {
 	app *server
 }
 
-func (d *configDetector) CanHandle(path string) bool {
+func (d *fsConfigHandler) CanHandle(path string) bool {
 	return d.app.isConfigFile(path)
 }
 
-func (d *configDetector) Handle(ev *fsnotify.Event) {
+func (d *fsConfigHandler) Handle(ev *fsnotify.Event) {
 	strFile := path.Clean(ev.Name)
 	conf, err := newConfig(strFile)
 	if err == nil {
@@ -25,12 +25,12 @@ func (d *configDetector) Handle(ev *fsnotify.Event) {
 	}
 }
 
-type nsConfigDetector struct {
+type fsNsConfigHandler struct {
 	app *server
 	ns  *NsSection
 }
 
-func (d *nsConfigDetector) CanHandle(path string) bool {
+func (d *fsNsConfigHandler) CanHandle(path string) bool {
 	for _, ns := range app.namespaces {
 		if ns.isConfigFile(path) {
 			d.ns = ns
@@ -40,19 +40,19 @@ func (d *nsConfigDetector) CanHandle(path string) bool {
 	return false
 }
 
-func (d *nsConfigDetector) Handle(ev *fsnotify.Event) {
+func (d *fsNsConfigHandler) Handle(ev *fsnotify.Event) {
 	d.ns.loadConfig()
 }
 
-type viewDetector struct {
+type fsViewHandler struct {
 	app *server
 }
 
-func (d *viewDetector) CanHandle(path string) bool {
+func (d *fsViewHandler) CanHandle(path string) bool {
 	return d.app.isInViewFolder(path)
 }
 
-func (d *viewDetector) Handle(ev *fsnotify.Event) {
+func (d *fsViewHandler) Handle(ev *fsnotify.Event) {
 	strFile := path.Clean(ev.Name)
 	lowerStrFile := strings.ToLower(strFile)
 	if IsDir(strFile) {
@@ -66,12 +66,12 @@ func (d *viewDetector) Handle(ev *fsnotify.Event) {
 	}
 }
 
-type nsViewDetector struct {
+type fsNsViewHandler struct {
 	app *server
 	ns  *NsSection
 }
 
-func (d *nsViewDetector) CanHandle(path string) bool {
+func (d *fsNsViewHandler) CanHandle(path string) bool {
 	for _, ns := range d.app.namespaces {
 		if ns.isInViewFolder(path) {
 			d.ns = ns
@@ -81,7 +81,7 @@ func (d *nsViewDetector) CanHandle(path string) bool {
 	return false
 }
 
-func (d *nsViewDetector) Handle(ev *fsnotify.Event) {
+func (d *fsNsViewHandler) Handle(ev *fsnotify.Event) {
 	strFile := path.Clean(ev.Name)
 	lowerStrFile := strings.ToLower(strFile)
 	if IsDir(strFile) {

@@ -18,13 +18,14 @@ type CtxRoute struct {
 // CtxController the context controller info
 type CtxController struct {
 	// ControllerName the controller name
-	ControllerName string
-	// ControllerType the controller type
-	ControllerType reflect.Type
-
+	ControllerName   string
+	// ActionName the action name
 	ActionName       string
+	// ActionMethodName the name of the function that handle the action
 	ActionMethodName string
-	ActionMethod     reflect.Value
+
+	controllerType   reflect.Type
+	actionMethod     reflect.Value
 }
 
 // Context the request context

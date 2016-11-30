@@ -20,23 +20,24 @@ import (
 type EventHandler func() error
 
 type server struct {
-	errorHandlers   map[int]ErrorHandler
-	domain          string
-	port            int
-	webRoot         string
-	config          *config
-	routing         *routeTree
-	locked          bool
-	staticPaths     []string
-	staticFiles     []string
-	globalSession   *SessionManager
-	namespaces      map[string]*NsSection
-	sessionProvides map[string]SessionProvider
-	internalErr     error
-	fileWatcher     *FileWatcher
-	cacheManager    *CacheManager
-	appInitEvents   []EventHandler
-	httpReqEvents   map[requestEvent][]CtxFilter
+	errorHandlers      map[int]ErrorHandler
+	domain             string
+	port               int
+	webRoot            string
+	config             *config
+	routing            *routeTree
+	locked             bool
+	friendlyActionName bool
+	staticPaths        []string
+	staticFiles        []string
+	globalSession      *SessionManager
+	namespaces         map[string]*NsSection
+	sessionProvides    map[string]SessionProvider
+	internalErr        error
+	fileWatcher        *FileWatcher
+	cacheManager       *CacheManager
+	appInitEvents      []EventHandler
+	httpReqEvents      map[requestEvent][]CtxFilter
 	viewContainer
 	filterContainer
 }
@@ -220,13 +221,13 @@ func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result
 
 func (app *server) initWatcher() error {
 	// add config file handler
-	app.fileWatcher.AddHandler(&configDetector{app: app})
+	app.fileWatcher.AddHandler(&fsConfigHandler{app: app})
 	// add ns config handler
-	app.fileWatcher.AddHandler(&nsConfigDetector{app: app})
+	app.fileWatcher.AddHandler(&fsNsConfigHandler{app: app})
 	// add view file handler
-	app.fileWatcher.AddHandler(&viewDetector{app: app})
+	app.fileWatcher.AddHandler(&fsViewHandler{app: app})
 	// add ns view file handler
-	app.fileWatcher.AddHandler(&nsViewDetector{app: app})
+	app.fileWatcher.AddHandler(&fsNsViewHandler{app: app})
 	// start file watcher
 	app.fileWatcher.Start()
 	return nil
