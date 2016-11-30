@@ -3,6 +3,7 @@ package wemvc
 import (
 	"reflect"
 	"testing"
+	"strings"
 )
 
 func Test_splitUrlPath(t *testing.T) {
@@ -44,14 +45,49 @@ type testCtrl struct {
 	Controller
 }
 
-func (t testCtrl) Index() ContentResult {
+func (t testCtrl) Index() interface{} {
 	return t.PlainText("test")
 }
 
+func newControllerInfo(namespace string, t reflect.Type, defaultAction string) *controllerInfo {
+	typeName := t.String()
+	if strings.HasPrefix(typeName, "*") {
+		panic(errInvalidCtrlType(typeName))
+	}
+	numMethod := t.NumMethod()
+	if numMethod < 1 {
+		panic(errCtrlNoAction(typeName))
+	}
+	methods := make([]string, 0, numMethod)
+	for i := 0; i < numMethod; i++ {
+		methodInfo := t.Method(i)
+		numIn := methodInfo.Type.NumIn()
+		numOut := methodInfo.Type.NumOut()
+		if numIn != 1 || numOut != 1 {
+			continue
+		}
+		methodName := methodInfo.Name
+		methods = append(methods, methodName)
+	}
+	if len(methods) < 1 {
+		panic(errCtrlNoAction(typeName))
+	}
+	actions := make(map[string]string, len(methods))
+	for _, m := range methods {
+		actions[strings.ToLower(m)] = m
+	}
+	return &controllerInfo{
+		NsName:        namespace,
+		CtrlName:      getControllerName(t),
+		CtrlType:      t,
+		Actions:       actions,
+		DefaultAction: defaultAction,
+	}
+}
+
 func newCtrlInfo() *controllerInfo {
-	var app = newServer("C:\\www")
 	var c = testCtrl{}
-	return newControllerInfo(app, "", reflect.TypeOf(c), "Index")
+	return newControllerInfo("", reflect.TypeOf(c), "Index")
 }
 
 func Test_newRouteDepth(t *testing.T) {

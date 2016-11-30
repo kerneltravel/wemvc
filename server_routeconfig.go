@@ -15,7 +15,26 @@ type routeConfig struct {
 
 func genFriendlyActionName(methodName string) string {
 	var wordArr []byte
-	for i := 0; i < len(methodName); i++ {
+	lowerMethodName := strings.ToLower(methodName)
+	if strings.HasPrefix(lowerMethodName, "get") {
+		wordArr = str2Byte("get-")
+	} else if strings.HasPrefix(lowerMethodName, "post") {
+		wordArr = str2Byte("post-")
+	} else if strings.HasPrefix(lowerMethodName, "put") {
+		wordArr = str2Byte("put-")
+	} else if strings.HasPrefix(lowerMethodName, "delete") {
+		wordArr = str2Byte("delete-")
+	} else if strings.HasPrefix(lowerMethodName, "patch") {
+		wordArr = str2Byte("patch-")
+	} else if strings.HasPrefix(lowerMethodName, "options") {
+		wordArr = str2Byte("options-")
+	}
+	startIndex := len(wordArr) - 1
+	if startIndex < 0 {
+		startIndex = 0
+	}
+
+	for i := startIndex; i < len(methodName); i++ {
 		char := methodName[i]
 		if (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9') {
 			wordArr = append(wordArr, char)
@@ -64,7 +83,7 @@ func (r *routeConfig) genCtrlInfo(friendlyAction bool) *controllerInfo {
 		if friendlyAction {
 			actionName = genFriendlyActionName(m)
 		} else {
-			actionName = m
+			actionName = strings.ToLower(m)
 		}
 		actions[actionName] = m
 	}

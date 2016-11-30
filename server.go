@@ -5,7 +5,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"encoding/json"
@@ -36,6 +35,7 @@ type server struct {
 	internalErr        error
 	fileWatcher        *FileWatcher
 	cacheManager       *CacheManager
+	routeRules         []*routeConfig
 	appInitEvents      []EventHandler
 	httpReqEvents      map[requestEvent][]CtxFilter
 	viewContainer
@@ -165,12 +165,13 @@ func (app *server) assertNotLocked() {
 }
 
 func (app *server) addRoute(namespace string, routePath string, c interface{}, action string) {
-	t := reflect.TypeOf(c)
-	cInfo := newControllerInfo(namespace, t, action)
-	if app.routing == nil {
-		app.routing = newRouteTree()
-	}
-	app.routing.addRoute(routePath, cInfo)
+	app.routeRules = append(app.routeRules, &routeConfig{
+		namespace: namespace,
+		name : "",
+		routePath: routePath,
+		c: c,
+		action: action,
+	})
 }
 
 func (app *server) flushRequest(w http.ResponseWriter, req *http.Request, result interface{}) {
@@ -258,6 +259,16 @@ func (app *server) initConfig() error {
 		}
 	}
 	app.config = conf
+	return nil
+}
+
+func (app *server) initRoute() error {
+	if len(app.routeRules) > 0 {
+		for _, rule := range app.routeRules {
+			cInfo := rule.genCtrlInfo(app.friendlyActionName)
+			app.routing.addRoute(rule.routePath, cInfo)
+		}
+	}
 	return nil
 }
 
@@ -420,6 +431,7 @@ func newServer(webRoot string) *server {
 		webRoot:       webRoot,
 		locked:        false,
 		errorHandlers: make(map[int]ErrorHandler),
+		routing:   newRouteTree(),
 	}
 	app.views = make(map[string]*view)
 	app.filters = make(map[string][]CtxFilter)
@@ -436,6 +448,7 @@ func newServer(webRoot string) *server {
 	app.httpReqEvents[afterAction] = []CtxFilter{execAction}
 	app.onAppInit(app.initWatcher)
 	app.onAppInit(app.initConfig)
+	app.onAppInit(app.initRoute)
 	app.onAppInit(app.initViews)
 	app.onAppInit(app.initNs)
 	app.onAppInit(app.initSessionMgr)

@@ -81,18 +81,16 @@ func handleRoute(ctx *Context) {
 		var ns = cInfo.NsName
 		if len(action) == 0 {
 			action = cInfo.DefaultAction
-		} else {
-			action = strings.Replace(action, "-", "_", -1)
 		}
 		var method = strings.ToLower(ctx.req.Method)
 		// find the action method in controller
-		if ok, actionMethod := cInfo.containsAction(action, method); ok {
+		if actionMethod := cInfo.findActionName(action, method , ctx.app.friendlyActionName); len(actionMethod) > 0 {
 			ctx.Route.NsName = ns
 			ctx.Ctrl = &CtxController{
 				ControllerName:   cInfo.CtrlName,
 				controllerType:   cInfo.CtrlType,
 				ActionName:       action,
-				actionMethodName: actionMethod,
+				ActionMethodName: actionMethod,
 			}
 			routeData["controller"] = ctx.Ctrl.ControllerName
 			ctx.Route.RouteData = routeData

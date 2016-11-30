@@ -119,7 +119,7 @@ func (node *routeNode) detectDefault(method string) (bool, *controllerInfo, map[
 		}
 		if child.CtrlInfo != nil {
 			if paramName == "action" {
-				if ok, _ := child.CtrlInfo.containsAction(opt.DefaultValue, method); !ok {
+				if action := child.CtrlInfo.findActionName(opt.DefaultValue, method, app.friendlyActionName); len(action)  == 0 {
 					return false, nil, nil
 				}
 			}
@@ -128,7 +128,7 @@ func (node *routeNode) detectDefault(method string) (bool, *controllerInfo, map[
 		found, ctrl, routeMap := child.detectDefault(method)
 		if found {
 			if paramName == "action" {
-				if ok, _ := ctrl.containsAction(opt.DefaultValue, method); !ok {
+				if action := ctrl.findActionName(opt.DefaultValue, method, app.friendlyActionName); len(action) == 0 {
 					return false, nil, nil
 				}
 			}

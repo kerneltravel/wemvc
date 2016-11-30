@@ -30,6 +30,10 @@ func Watcher() *FileWatcher {
 	return app.fileWatcher
 }
 
+func UseFriendlyAction() {
+	app.friendlyActionName = true
+}
+
 // MapPath Returns the physical file path that corresponds to the specified virtual path.
 // @param virtualPath: the virtual path starts with
 // @return the absolute file path
