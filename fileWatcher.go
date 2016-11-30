@@ -4,30 +4,33 @@ import (
 	"errors"
 	"path"
 
-	"github.com/howeyc/fsnotify"
+	"fsnotify"
 )
 
 // WatcherHandler the watcher handler interface
 type WatcherHandler interface {
 	CanHandle(path string) bool
-	Handle(ev *fsnotify.FileEvent)
+	Handle(ev *fsnotify.Event)
 }
+
+type WatcherErrorHandler func(error)
 
 // FileWatcher the file watcher struct
 type FileWatcher struct {
-	watcher  *fsnotify.Watcher
-	handlers []WatcherHandler
-	started  bool
+	watcher        *fsnotify.Watcher
+	handlers       []WatcherHandler
+	errorProcessor WatcherErrorHandler
+	started        bool
 }
 
 // AddWatch add path to watch
 func (fw *FileWatcher) AddWatch(path string) error {
-	return fw.watcher.Watch(path)
+	return fw.watcher.Add(path)
 }
 
 // RemoveWatch remove path from watcher
 func (fw *FileWatcher) RemoveWatch(strFile string) error {
-	return fw.watcher.RemoveWatch(strFile)
+	return fw.watcher.Remove(strFile)
 }
 
 // AddHandler add file watcher handler
@@ -39,6 +42,10 @@ func (fw *FileWatcher) AddHandler(detector WatcherHandler) error {
 	return nil
 }
 
+func (fw *FileWatcher) SetErrorHandler(h WatcherErrorHandler) {
+	fw.errorProcessor = h
+}
+
 // Start star the file watcher
 func (fw *FileWatcher) Start() {
 	if fw.started {
@@ -48,11 +55,15 @@ func (fw *FileWatcher) Start() {
 	go func() {
 		for {
 			select {
-			case ev := <-fw.watcher.Event:
+			case ev := <-fw.watcher.Events:
 				for _, detector := range fw.handlers {
 					if detector.CanHandle(path.Clean(ev.Name)) {
-						detector.Handle(ev)
+						detector.Handle(&ev)
 					}
+				}
+			case err := <-fw.watcher.Errors:
+				if fw.errorProcessor != nil {
+					fw.errorProcessor(err)
 				}
 			}
 		}

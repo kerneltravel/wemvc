@@ -1,0 +1,3 @@
+[submodule "vendor/fsnotify"]
+	path = vendor/fsnotify
+	url = https://github.com/fsnotify/fsnotify

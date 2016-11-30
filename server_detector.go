@@ -1,7 +1,7 @@
 package wemvc
 
 import (
-	"github.com/howeyc/fsnotify"
+	"fsnotify"
 	"path"
 	"strings"
 )
@@ -14,7 +14,7 @@ func (d *configDetector) CanHandle(path string) bool {
 	return d.app.isConfigFile(path)
 }
 
-func (d *configDetector) Handle(ev *fsnotify.FileEvent) {
+func (d *configDetector) Handle(ev *fsnotify.Event) {
 	strFile := path.Clean(ev.Name)
 	conf, err := newConfig(strFile)
 	if err == nil {
@@ -40,7 +40,7 @@ func (d *nsConfigDetector) CanHandle(path string) bool {
 	return false
 }
 
-func (d *nsConfigDetector) Handle(ev *fsnotify.FileEvent) {
+func (d *nsConfigDetector) Handle(ev *fsnotify.Event) {
 	d.ns.loadConfig()
 }
 
@@ -52,13 +52,13 @@ func (d *viewDetector) CanHandle(path string) bool {
 	return d.app.isInViewFolder(path)
 }
 
-func (d *viewDetector) Handle(ev *fsnotify.FileEvent) {
+func (d *viewDetector) Handle(ev *fsnotify.Event) {
 	strFile := path.Clean(ev.Name)
 	lowerStrFile := strings.ToLower(strFile)
 	if IsDir(strFile) {
-		if ev.IsDelete() {
+		if ev.Op&fsnotify.Remove == fsnotify.Remove {
 			d.app.fileWatcher.RemoveWatch(strFile)
-		} else if ev.IsCreate() {
+		} else if ev.Op&fsnotify.Create == fsnotify.Create {
 			d.app.fileWatcher.AddWatch(strFile)
 		}
 	} else if strings.HasSuffix(lowerStrFile, ".html") {
@@ -81,13 +81,13 @@ func (d *nsViewDetector) CanHandle(path string) bool {
 	return false
 }
 
-func (d *nsViewDetector) Handle(ev *fsnotify.FileEvent) {
+func (d *nsViewDetector) Handle(ev *fsnotify.Event) {
 	strFile := path.Clean(ev.Name)
 	lowerStrFile := strings.ToLower(strFile)
 	if IsDir(strFile) {
-		if ev.IsDelete() {
+		if ev.Op&fsnotify.Remove == fsnotify.Remove {
 			d.app.fileWatcher.RemoveWatch(strFile)
-		} else if ev.IsCreate() {
+		} else if ev.Op&fsnotify.Create == fsnotify.Create {
 			d.app.fileWatcher.AddWatch(strFile)
 		}
 	} else if strings.HasSuffix(lowerStrFile, ".html") {
