@@ -57,7 +57,7 @@ func (ns *NsSection) SetPathFilter(pathPrefix string, filter CtxFilter) {
 	if !ns.server.routing.MatchCase {
 		prefix = strings.ToLower(prefix)
 	}
-	ns.setFilter(prefix, filter)
+	ns.addFilter(prefix, filter)
 }
 
 // GetSetting get the setting from the config file by name

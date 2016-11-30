@@ -100,7 +100,7 @@ func SetPathFilter(pathPrefix string, filterFunc CtxFilter) {
 	if !app.routing.MatchCase {
 		pathPrefix = strings.ToLower(pathPrefix)
 	}
-	app.setFilter(pathPrefix, filterFunc)
+	app.addFilter(pathPrefix, filterFunc)
 }
 
 // StaticDir set the path as a static path that the file under this path is served as static file

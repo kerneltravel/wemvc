@@ -19,22 +19,22 @@ func (fc *filterContainer) execFilters(urlPath string, ctx *Context) {
 	var tmpFilters = fc.filters
 	var keys []string
 	for key := range tmpFilters {
-		keys = append(keys, key)
+		if strings.HasPrefix(urlPath, key) {
+			keys = append(keys, key)
+		}
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		if strings.HasPrefix(strAdd(urlPath, "/"), key) {
-			for _, f := range tmpFilters[key] {
-				f(ctx)
-				if ctx.ended {
-					return
-				}
+		filterFunc := tmpFilters[key]
+		for _, f := range filterFunc {
+			if f(ctx); ctx.ended {
+				return
 			}
 		}
 	}
 }
 
-func (fc *filterContainer) setFilter(pathPrefix string, filter CtxFilter) {
+func (fc *filterContainer) addFilter(pathPrefix string, filter CtxFilter) {
 	if !strings.HasPrefix(pathPrefix, "") {
 		panic(errFilterPrefix)
 	}

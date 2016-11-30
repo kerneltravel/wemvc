@@ -13,6 +13,7 @@ type WatcherHandler interface {
 	Handle(ev *fsnotify.Event)
 }
 
+// WatcherErrorHandler the fsnotify error handler
 type WatcherErrorHandler func(error)
 
 // FileWatcher the file watcher struct
@@ -34,14 +35,15 @@ func (fw *FileWatcher) RemoveWatch(strFile string) error {
 }
 
 // AddHandler add file watcher handler
-func (fw *FileWatcher) AddHandler(detector WatcherHandler) error {
-	if detector == nil {
-		return errors.New("The parameter 'detector' cannot be nil")
+func (fw *FileWatcher) AddHandler(handler WatcherHandler) error {
+	if handler == nil {
+		return errors.New("The parameter 'handler' cannot be nil")
 	}
-	fw.handlers = append(fw.handlers, detector)
+	fw.handlers = append(fw.handlers, handler)
 	return nil
 }
 
+// SetErrorHandler set the fsnotify error handler
 func (fw *FileWatcher) SetErrorHandler(h WatcherErrorHandler) {
 	fw.errorProcessor = h
 }
